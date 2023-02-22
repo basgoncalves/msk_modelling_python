@@ -1,3 +1,4 @@
+# python version of Batch Opensim Processing Software
 import os
 import opensim as osim
 from xml.etree import ElementTree as ET
@@ -6,7 +7,7 @@ import pyc3dserver as c3d
 import pandas as pd
 
 
-def c3d_to_sto(c3dfilepath):
+def c3d_osim_export(c3dfilepath):
     maindir = os.path.dirname(c3dfilepath)
     
     # import c3d file data to a table
