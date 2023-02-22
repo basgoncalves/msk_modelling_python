@@ -33,7 +33,7 @@ def c3d_emg_export(c3dfilepath,emg_labels):
     itf = c3d.c3dserver()
     
     # Open a C3D file
-    ret = c3d.open_c3d(itf, c3dfilepath)
+    c3d.open_c3d(itf, c3dfilepath)
     
     # For the information of all analogs(excluding or including forces/moments)
     dict_analogs = c3d.get_dict_analogs(itf)
