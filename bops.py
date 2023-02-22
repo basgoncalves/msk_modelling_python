@@ -174,3 +174,19 @@ def dict_to_xml(data, parent):
             dict_to_xml(value, ET.SubElement(parent, key))
         else:
             ET.SubElement(parent, key).text = str(value)
+
+def add_each_c3d_to_own_folder(session_path):
+    
+    c3d_files = [file for file in os.listdir(session_path) if file.endswith(".c3d")]
+    for file in c3d_files:
+        fname = file.replace('.c3d', '')
+        src = os.path.join(session_path, file)
+        dst_folder = os.path.join(session_path, fname)
+        
+        # create a new folder 
+        try: os.mkdir(dst_folder)
+        except: 'nothing'
+        
+        # copy file
+        dst = os.path.join(dst_folder, 'c3dfile.c3d')
+        shutil.copy(src, dst)

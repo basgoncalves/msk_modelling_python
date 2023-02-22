@@ -7,11 +7,12 @@ import opensim as osim
 import numpy as np
 import os
 import bops
+import shutil
 
 # define paths
 dir_path = os.path.dirname(os.path.realpath(__file__))
-maindir =  os.path.join(dir_path,'ExampleData\s001\session1')
-c3dfilepath = os.path.join(maindir,'sprint_1.c3d')
+session_folder =  os.path.join(dir_path,'ExampleData\s001\session1')
+c3dfilepath = os.path.join(session_folder,'sprint_1.c3d')
 
 # convert c3d to .trc (markers) and .mot (forces)
 bops.c3d_osim_export(c3dfilepath)
@@ -25,3 +26,5 @@ emg_labels = ['Voltage.EMG01_r_gastro', 'Voltage.EMG02_r_soleus',
 
 # save EMG analog data as csv file
 bops.c3d_emg_export(c3dfilepath,emg_labels)
+
+bops.add_each_c3d_to_own_folder(session_folder)
