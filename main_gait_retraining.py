@@ -13,10 +13,10 @@ import bops
 # Tk().withdraw()                                     
 # csv_filedir = askopenfilename(initialdir=current_path)    
 
-maindir = r'Z:\EMG_realtime_biofeedback\InputData\s001\2023-01-12'
+maindir = r'.\ExampleData\s001\session1'
 
-c3dfilepath = os.path.join(maindir,r'sprint02.c3d')
-bops.c3d_to_sto(c3dfilepath)
+c3dfilepath = os.path.join(maindir,'sprint_1.c3d')
+bops.c3d_osim_export(c3dfilepath)
 
 emg_labels = ['Voltage.EMG01_r_gastro', 'Voltage.EMG02_r_soleus',
  'Voltage.EMG03_r_rect_fem', 'Voltage.EMG04_r_tfl',

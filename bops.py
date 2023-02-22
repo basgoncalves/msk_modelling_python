@@ -49,7 +49,7 @@ def c3d_emg_export(c3dfilepath,emg_labels):
     maindir = os.path.dirname(c3dfilepath)
     
     # Sava data in parent directory
-    emg_filename = os.path.join(maindir,r'emg.mot')
+    emg_filename = os.path.join(maindir,'emg.csv')
     analog_df.to_csv(emg_filename)
 
 def run_IK(model_path, trc_file, resultsDir, marker_weights_path):
