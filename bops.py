@@ -1,5 +1,6 @@
 # python version of Batch Opensim Processing Software
 import os
+import shutil
 import opensim as osim
 from xml.etree import ElementTree as ET
 import numpy as np
