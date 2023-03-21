@@ -6,6 +6,7 @@ from xml.etree import ElementTree as ET
 import numpy as np
 import pyc3dserver as c3d
 import pandas as pd
+from scipy.signal import butter, filtfilt
 
 
 def c3d_osim_export(c3dfilepath):
@@ -191,3 +192,26 @@ def add_each_c3d_to_own_folder(session_path):
         # copy file
         dst = os.path.join(dst_folder, 'c3dfile.c3d')
         shutil.copy(src, dst)
+
+def butter_lowpass(df, lowcut, fs, order):
+    nyq = 0.5 * fs
+    normal_cutoff  = lowcut / nyq
+    b, a = butter(order, normal_cutoff, btype='low',analog=False)
+    
+    for col in df.columns:
+        df[col] = filtfilt(b, a, df[col])
+        
+    return df
+
+def butter_bandpass(df, lowcut,highcut, fs, order):
+    nyq = 0.5 * fs
+    low = lowcut / nyq
+    high = highcut / nyq
+    b, a = butter(order, [low, high], btype='band')
+    
+    for col in df.columns:
+        df[col] = filtfilt(b, a, df[col])
+        
+    return df
+
+
