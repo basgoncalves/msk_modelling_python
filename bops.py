@@ -6,7 +6,7 @@ from xml.etree import ElementTree as ET
 import numpy as np
 import pyc3dserver as c3d
 import pandas as pd
-from scipy.signal import butter, filtfilt
+import scipy.signal as sig
 
 
 def c3d_osim_export(c3dfilepath):
@@ -53,7 +53,7 @@ def c3d_emg_export(c3dfilepath,emg_labels):
     
     # Sava data in parent directory
     emg_filename = os.path.join(maindir,'emg.csv')
-    analog_df.to_csv(emg_filename)
+    analog_df.to_csv(emg_filename, index=False)
 
 def run_IK(model_path, trc_file, resultsDir, marker_weights_path):
     # Load the TRC file
@@ -193,25 +193,48 @@ def add_each_c3d_to_own_folder(session_path):
         dst = os.path.join(dst_folder, 'c3dfile.c3d')
         shutil.copy(src, dst)
 
-def butter_lowpass(df, lowcut, fs, order):
+def emg_filter(df, band_lowcut, band_highcut, lowcut, fs, order):
     nyq = 0.5 * fs
     normal_cutoff  = lowcut / nyq
-    b, a = butter(order, normal_cutoff, btype='low',analog=False)
+    b_low, a_low = sig.butter(order, normal_cutoff, btype='low',analog=False)
+    
+    low = band_lowcut / nyq
+    high = band_highcut / nyq
+    b_band, a_band = sig.butter(order, [low, high], btype='band')
     
     for col in df.columns:
-        df[col] = filtfilt(b, a, df[col])
+        raw_emg_signal = df[col]
+        bandpass_signal = sig.filtfilt(b_band, a_band, raw_emg_signal)        
+        detrend_signal = sig.detrend(bandpass_signal, type='linear')
+        rectified_signal = np.abs(detrend_signal)
+        linear_envelope = sig.filtfilt(b_low, a_low, rectified_signal)
+        df[col] = linear_envelope
         
     return df
 
-def butter_bandpass(df, lowcut,highcut, fs, order):
-    nyq = 0.5 * fs
-    low = lowcut / nyq
-    high = highcut / nyq
-    b, a = butter(order, [low, high], btype='band')
+def torsion_tool():
+    #  Authors: Hulda Jónasdóttir & Kirsten Veerkamp February 2021  
+    # set paths and filenames
+    # mfile_name = os.path.dirname(os.path.realpath(__file__))
+    mfile_name = os.path.abspath(__file__)
+    print(mfile_name)
+    pathstr, name = os.path.split(mfile_name)
+    os.chdir(pathstr)
+
+    try:
+        for filename in os.listdir("DEFORMED_MODEL"):
+            os.remove(os.path.join("DEFORMED_MODEL", filename))
+    except FileNotFoundError:
+        pass
+
+    osimModelPath = os.path.abspath(os.path.join("..", "..", "models", "subject", "subject_model.osim"))
+    GeometryFolder = os.path.abspath(os.path.join("..", "..", "Geometry"))
+    markerset = os.path.abspath("MarkerSet.xml")
+
+    # input parameters
+    deform_bone = "F"  # Femur
+    which_leg = "R"  # Right
+    angle_AV_right = 60.0  # right anteversion angle (in degrees)
+    angle_NS_right = 100.0 
     
-    for col in df.columns:
-        df[col] = filtfilt(b, a, df[col])
-        
-    return df
-
-
+    return osimModelPath, GeometryFolder
