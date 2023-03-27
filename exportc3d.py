@@ -1,3 +1,4 @@
+import msk_modelling_pkg_install
 import os
 from tkinter import Tk
 from tkinter.filedialog import askopenfilename
@@ -6,28 +7,27 @@ import pandas as pd
 import numpy as np
 
 
-session_dir = r'C:\Git\Uni_teaching\BD2II - Biomechanical Motion Analysis in Practice (2023S)\lab3-EMG'
+######### edit this part only ########
+session_dir = r'C:\Git\Uni_teaching\BD2II - Biomechanical Motion Analysis in Practice (2023S)\lab3-EMG' # directory of the folder containing the c3d files
+emg_labels = ['EMG Channels.EMG16_left_tens_fasc_lat']                                                  # labels of the EMG channels in the c3d file
 
-if not os.path.isdir(session_dir):
-    current_path = os.getcwd()
-    Tk().withdraw()                                     
-    session_dir = askopenfilename(initialdir=current_path) 
-
-
-bops.add_each_c3d_to_own_folder(session_dir)
-
-trial_list = [f.name for f in os.scandir(session_dir) if f.is_dir()]
-trial_list = [s for s in trial_list if 'static' not in s]
-
-emg_labels = ['EMG Channels.EMG16_left_tens_fasc_lat']
-
-# set filter parameters
 fs = 1000.0  # sample rate, Hz
 lowcut = 10.0  # lower cut-off frequency, Hz
 lowcut_2 = 6.0  # lower cut-off frequency, Hz
 highcut = 50.0  # upper cut-off frequency, Hz
 order = 4  # filter order
 
+#######################################
+
+if not os.path.isdir(session_dir):
+    current_path = os.getcwd()
+    Tk().withdraw()                                     
+    session_dir = askopenfilename(initialdir=current_path) 
+
+bops.add_each_c3d_to_own_folder(session_dir)
+
+trial_list = [f.name for f in os.scandir(session_dir) if f.is_dir()]
+trial_list = [s for s in trial_list if 'static' not in s]
 mean_emg = []
 
 for trial in trial_list:
