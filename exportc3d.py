@@ -8,8 +8,9 @@ import numpy as np
 
 
 ######### edit this part only ########
-session_dir = r'C:\Git\Uni_teaching\BD2II - Biomechanical Motion Analysis in Practice (2023S)\lab3-EMG' # directory of the folder containing the c3d files
-emg_labels = ['EMG Channels.EMG16_left_tens_fasc_lat']                                                  # labels of the EMG channels in the c3d file
+session_dir = r'C:\Git\msk_modelling_python\ExampleData\s001\session1' # directory of the folder containing the c3d files
+emg_labels = ['EMG Channels.EMG16_left_tens_fasc_lat']                 # labels of the EMG channels in the c3d file
+emg_labels = ['Voltage.EMG01_r_gastro']
 
 fs = 1000.0  # sample rate, Hz
 lowcut = 10.0  # lower cut-off frequency, Hz

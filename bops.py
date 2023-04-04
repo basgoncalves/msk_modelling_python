@@ -9,6 +9,32 @@ import pandas as pd
 import scipy.signal as sig
 
 
+def get_c3d_data (c3dfilepath):   
+    
+    c3d_dict = dict()
+    # Get the COM object of C3Dserver (https://pypi.org/project/pyc3dserver/)
+    itf = c3d.c3dserver(msg=False)
+    c3d.open_c3d(itf, c3dfilepath)
+    dict_analogs = c3d.get_dict_analogs(itf)
+    analog_labels = dict_analogs['LABELS']
+
+    c3d_dict['analog_rate'] = c3d.get_analog_fps(itf)
+    c3d_dict['video_rate'] = c3d.get_video_fps(itf)
+    
+    
+    return c3d_dict
+
+def get_analog_data(c3dfilepath):
+    itf = c3d.c3dserver(msg=False)
+    c3d.open_c3d(itf, c3dfilepath)
+    analog_dict = c3d.get_dict_analogs(itf)
+    analog_df = pd.DataFrame()
+    for iLab in analog_dict['LABELS']:
+        iData = analog_dict['DATA'][iLab] 
+        analog_df[iLab] = iData.tolist()
+            
+    return analog_df
+
 def c3d_osim_export(c3dfilepath):
     maindir = os.path.dirname(c3dfilepath)
     
@@ -32,20 +58,24 @@ def c3d_osim_export(c3dfilepath):
     
 def c3d_emg_export(c3dfilepath,emg_labels):   
     # Get the COM object of C3Dserver (https://pypi.org/project/pyc3dserver/)
-    itf = c3d.c3dserver()
+    itf = c3d.c3dserver(msg=False)
     
     # Open a C3D file
     c3d.open_c3d(itf, c3dfilepath)
     
     # For the information of all analogs(excluding or including forces/moments)
     dict_analogs = c3d.get_dict_analogs(itf)
-    labels = dict_analogs['LABELS']
-
+    analog_labels = dict_analogs['LABELS']
+    
+    # if no emg_labels are given export all analog labels
+    if emg_labels == 'all':
+        emg_labels = analog_labels
+    
     # Initialize the final dataframe
     analog_df = pd.DataFrame()
     
     # Store each of the vectors in dict_analogs as a columns in the final dataframe
-    for iLab in labels:
+    for iLab in analog_labels:
         if iLab in emg_labels:
             iData = dict_analogs['DATA'][iLab] 
             analog_df[iLab] = iData.tolist()
@@ -212,29 +242,15 @@ def emg_filter(df, band_lowcut, band_highcut, lowcut, fs, order):
         
     return df
 
-def torsion_tool():
-    #  Authors: Hulda Jónasdóttir & Kirsten Veerkamp February 2021  
-    # set paths and filenames
-    # mfile_name = os.path.dirname(os.path.realpath(__file__))
-    mfile_name = os.path.abspath(__file__)
-    print(mfile_name)
-    pathstr, name = os.path.split(mfile_name)
-    os.chdir(pathstr)
-
-    try:
-        for filename in os.listdir("DEFORMED_MODEL"):
-            os.remove(os.path.join("DEFORMED_MODEL", filename))
-    except FileNotFoundError:
-        pass
-
-    osimModelPath = os.path.abspath(os.path.join("..", "..", "models", "subject", "subject_model.osim"))
-    GeometryFolder = os.path.abspath(os.path.join("..", "..", "Geometry"))
-    markerset = os.path.abspath("MarkerSet.xml")
-
-    # input parameters
-    deform_bone = "F"  # Femur
-    which_leg = "R"  # Right
-    angle_AV_right = 60.0  # right anteversion angle (in degrees)
-    angle_NS_right = 100.0 
+def torsion_tool(): # to complete...
+   a=2 
     
-    return osimModelPath, GeometryFolder
+def selec_analog_labels (c3dfilepath):   
+    # Get the COM object of C3Dserver (https://pypi.org/project/pyc3dserver/)
+    itf = c3d.c3dserver(msg=False)
+    c3d.open_c3d(itf, c3dfilepath)
+    dict_analogs = c3d.get_dict_analogs(itf)
+    analog_labels = dict_analogs['LABELS']
+
+    print(analog_labels)
+    print(type(analog_labels))
