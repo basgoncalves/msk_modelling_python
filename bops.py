@@ -7,6 +7,7 @@ import numpy as np
 import pyc3dserver as c3d
 import pandas as pd
 import scipy.signal as sig
+import warnings
 
 
 def get_c3d_data (c3dfilepath):   
@@ -56,12 +57,40 @@ def c3d_osim_export(c3dfilepath):
     stoAdapter = osim.STOFileAdapter()
     stoAdapter.write(forcesFlat, forcesFilename)
     
-def c3d_emg_export(c3dfilepath,emg_labels):   
-    # Get the COM object of C3Dserver (https://pypi.org/project/pyc3dserver/)
-    itf = c3d.c3dserver(msg=False)
+    # save emg .mot
+    analog_df = get_analog_data(c3dfilepath)
+    emgFilename = os.path.join(maindir,'emg.mot')
+    stoAdapter = osim.STOFileAdapter()
+    stoAdapter.write(analog_df, emgFilename)  
+
+def export_c3d_multiple(session_path):
     
-    # Open a C3D file
-    c3d.open_c3d(itf, c3dfilepath)
+    trial_list = [f.name for f in os.scandir(session_path) if f.is_dir()]
+    trial_list = [s for s in trial_list if 'static' not in s]
+    
+
+    for trial in trial_list:
+        # file directories
+        trial_folder = os.path.join(session_path, trial)
+        
+        c3dpath = os.path.join(trial_folder, 'c3dfile.c3d')
+        emgpath = os.path.join(trial_folder, 'emg.csv')
+        if not os.path.isfile(c3dpath):
+            try:
+                c3d_osim_export(c3dpath)
+            except:
+                print('could not convert ' + c3dpath + ' to markers and grf') 
+        
+        # if not os.path.isfile(emgpath):
+        #     try: 
+        #         c3d_emg_export(c3dpath,emg_labels)
+        #     except:
+        #         print('could not convert ' + c3dpath + ' to emg.csv') 
+     
+def c3d_emg_export(c3dfilepath,emg_labels):   
+    
+    itf = c3d.c3dserver(msg=False)   # Get the COM object of C3Dserver (https://pypi.org/project/pyc3dserver/)
+    c3d.open_c3d(itf, c3dfilepath)   # Open a C3D file
     
     # For the information of all analogs(excluding or including forces/moments)
     dict_analogs = c3d.get_dict_analogs(itf)
@@ -223,7 +252,22 @@ def add_each_c3d_to_own_folder(session_path):
         dst = os.path.join(dst_folder, 'c3dfile.c3d')
         shutil.copy(src, dst)
 
-def emg_filter(df, band_lowcut, band_highcut, lowcut, fs, order):
+def emg_filter(c3dfilepath, band_lowcut=30, band_highcut=400, lowcut=6, order=2):
+    # save max emg values
+    c3d_dict = get_c3d_data (c3dfilepath)
+    fs = c3d_dict['analog_rate']
+    if fs < band_highcut * 2:
+        band_highcut = fs / 2        
+        warnings.warn("High pass frequency was too high. Using 1/2 *  sampling frequnecy instead")
+        
+    analog_df = get_analog_data(c3dfilepath)
+    emg_data_filtered = emg_filter(analog_df, fs, band_lowcut, band_highcut, lowcut, order)
+  
+    max_emg_list = []
+    for col in emg_data_filtered.columns:
+            max_rolling_average = np.max(pd.Series(emg_data_filtered[col]).rolling(200, min_periods=1).mean())
+            max_emg_list.append(max_rolling_average)
+            
     nyq = 0.5 * fs
     normal_cutoff  = lowcut / nyq
     b_low, a_low = sig.butter(order, normal_cutoff, btype='low',analog=False)

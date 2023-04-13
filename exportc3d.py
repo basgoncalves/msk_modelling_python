@@ -1,39 +1,40 @@
 import msk_modelling_pkg_install
 import os
-from tkinter import Tk
-from tkinter.filedialog import askopenfilename
+import tkfilebrowser
+from tkinter import *
 import bops
 import pandas as pd
 import numpy as np
 
+current_path = os.getcwd()
+Tk().withdraw()                                     
+subject_folders = tkfilebrowser.askopendirnames(initialdir=current_path,title='Please select subject folders to export .c3d files') 
 
+for subject_dir in subject_folders:
+    session_list = [f.name for f in os.scandir(subject_dir) if f.is_dir()]
+    for session in session_list:
+        session_path = os.path.join(subject_dir, session)
+        bops.add_each_c3d_to_own_folder(session_path)
+        bops.add_each_c3d_to_own_folder(session_path)
+        
 ######### edit this part only ########
-session_dir = r'C:\Git\msk_modelling_python\ExampleData\s001\session1' # directory of the folder containing the c3d files
 emg_labels = ['EMG Channels.EMG16_left_tens_fasc_lat']                 # labels of the EMG channels in the c3d file
 emg_labels = ['Voltage.EMG01_r_gastro']
-
-fs = 1000.0  # sample rate, Hz
-lowcut = 10.0  # lower cut-off frequency, Hz
-lowcut_2 = 6.0  # lower cut-off frequency, Hz
-highcut = 50.0  # upper cut-off frequency, Hz
-order = 4  # filter order
-
 #######################################
 
-if not os.path.isdir(session_dir):
+if not os.path.isdir(session_path):
     current_path = os.getcwd()
     Tk().withdraw()                                     
-    session_dir = askopenfilename(initialdir=current_path) 
+    session_path = askopenfilename(initialdir=current_path) 
 
-bops.add_each_c3d_to_own_folder(session_dir)
 
-trial_list = [f.name for f in os.scandir(session_dir) if f.is_dir()]
+trial_list = [f.name for f in os.scandir(session_path) if f.is_dir()]
 trial_list = [s for s in trial_list if 'static' not in s]
-mean_emg = []
+max_emg_list = []
 
 for trial in trial_list:
     # file directories
-    trial_folder = os.path.join(session_dir, trial)
+    trial_folder = os.path.join(session_path, trial)
     
     c3dpath = os.path.join(trial_folder, 'c3dfile.c3d')
     emgpath = os.path.join(trial_folder, 'emg.csv')
@@ -50,16 +51,16 @@ for trial in trial_list:
             print('could not convert ' + c3dpath + ' to emg.csv') 
     
     emg_data = pd.read_csv(emgpath, index_col=0)
-    emg_data_filtered = bops.emg_filter(emg_data, lowcut, highcut, lowcut_2, fs, order)
+    emg_data_filtered = bops.emg_filter(emg_data, band_pass_low, band_pass_high, low_pass, fs, order)
     emg_filename = os.path.join(trial_folder,'emg_filtered.csv')
     emg_data_filtered.to_csv(emg_filename)
     
     
     for col in emg_data_filtered.columns:
         max_rolling_average = np.max(pd.Series(emg_data_filtered[col]).rolling(200, min_periods=1).mean())
-        mean_emg.append(max_rolling_average)
+        max_emg_list.append(max_rolling_average)
     
 
-print(mean_emg)
+print(max_emg_list)
     
     
