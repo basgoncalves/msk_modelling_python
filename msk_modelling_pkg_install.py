@@ -10,7 +10,7 @@ import sys
 import pkg_resources
 
 Packages = ['numpy','c3d','pyc3dserver','requests','bs4','pandas','selenium','webdriver-manager','matplotlib','docx',
-        'autopep8','tk','jupyter','scipy', 'xmltodict','json','tkfilebrowser']
+        'autopep8','tk','jupyter','scipy', 'xmltodict','json','tkfilebrowser','customtkinter']
 
 installed_packages = pkg_resources.working_set
 installed_packages_list = sorted(['%s==%s' % (i.key, i.version) for i in installed_packages])

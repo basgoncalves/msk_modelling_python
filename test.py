@@ -1,24 +1,23 @@
-# python version of Batch Opensim Processing Software
-import time
-start = time.time()
-import os
-import shutil
-import opensim as osim
-from xml.etree import ElementTree as ET
-import numpy as np
-import pyc3dserver as c3d
-import pandas as pd
-import scipy.signal as sig
-import warnings
 import json
-from tkinter import filedialog
-from tkinter import *
-import tkfilebrowser
-from pathlib import Path
+import bops as bp
 
+switches = [1,0,0,0,0,0,0,0]
+settings = bp.get_bops_settings()
+settings['subjects'] = dict()
+settings['subjects']['ID'] = []
+settings['subjects']['Used'] = []
+for i, switch in enumerate(switches):
+    settings['subjects']['ID'].append(i)
+    settings['subjects']['Used'] .append(switch)
 
+bp.save_bops_settings(settings)
 
-check_project_folder()
+# import numpy as np
 
-end = time.time()
-print(end - start)
+# # create a vertical vector
+# v = np.array([1, 2, 3]).reshape(1, -1)
+
+# # make the vector horizontal
+# h = v.T
+
+# print(h) 
