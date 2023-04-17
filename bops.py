@@ -799,6 +799,25 @@ def add_markers_to_settings():
         break
     
     save_bops_settings(settings)                   
+
+
+def get_testing_c3d_file_path():
+    bops_dir = get_dir_bops()
+    dir_simulations =  os.path.join(bops_dir, 'ExampleData\simulations')
+      
+    for subject_folder in get_subject_folders(dir_simulations):
+        for session in get_subject_sessions(subject_folder):
+            session_path = os.path.join(subject_folder,session)           
+            for idx, trial_name in enumerate(get_trial_list(session_path,full_dir = False)):
+
+                resultsDir = get_trial_list(session_path,full_dir = True)[idx]
+                c3d_file_path = os.path.join(resultsDir,'c3dfile.c3d')
+                break
+            break
+        break
+    
+    return c3d_file_path 
+
                     
 ########################################################################################################################################
 

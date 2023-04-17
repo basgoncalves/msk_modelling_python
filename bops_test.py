@@ -25,6 +25,9 @@ def test_loop_through_folders():
                 resultsDir = bp.get_trial_list(session_path,full_dir = True)[idx]
                 print(resultsDir)
 
+def add_marker_to_trc():
+    print('still not finished...')
+
 def test_IK():
     for subject_folder in bp.get_subject_folders(testing_data_dir()):
         for session in bp.get_subject_sessions(subject_folder):
@@ -53,4 +56,6 @@ def test_ID():
                 # bp.run_ID(model_path, ik_results_file, mot_file, grf_xml, resultsDir)
                 print(resultsDir)
 
-test_loop_through_folders()
+# test_loop_through_folders()
+
+print(bp.get_testing_c3d_file_path())
