@@ -1,5 +1,6 @@
 import msk_modelling_pkg_install
 import bops as bp
+from bops import *
 import os
 
 
@@ -57,5 +58,19 @@ def test_ID():
                 print(resultsDir)
 
 # test_loop_through_folders()
+# print(bp.get_testing_file_path())
 
-print(bp.get_testing_c3d_file_path())
+# sessionPath = r'C:\Git\msk_modelling_python\ExampleData\simulations\s001\session1'
+# bp.c3d_osim_export_multiple(sessionPath,replace=0)
+
+
+def test_writeTRC():
+    trcFilePath = bp.get_testing_file_path('trc')
+    c3dFilePath = bp.get_testing_file_path('c3d')
+    writeTRC(c3dFilePath, trcFilePath)
+    
+c3dFilePath = bp.get_testing_file_path('c3d')
+c3d_dict = bp.get_c3d_data(c3dFilePath)
+
+data_rotated = bp.rotateAroundAxes(data=c3d_dict, rotations=[], modelMarkers=c3d_dict['Labels'])
+

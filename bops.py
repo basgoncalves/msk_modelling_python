@@ -10,7 +10,10 @@ from xml.etree import ElementTree as ET
 import numpy as np
 import pyc3dserver as c3d
 import pandas as pd
+import math
+import scipy
 import scipy.signal as sig
+from scipy.spatial.transform import Rotation
 from pathlib import Path
 import warnings
 import json
@@ -20,6 +23,7 @@ import tkinter
 import tkfilebrowser
 import customtkinter as ctk
 import screeninfo as si
+from tqdm import tqdm
 
 def select_folder(prompt='Please select your folder', staring_path=''):
     if not staring_path: # if empty        
@@ -64,15 +68,15 @@ def get_subjects_selected():
 def get_subject_sessions(subject_folder):
     return [f.path for f in os.scandir(subject_folder) if f.is_dir()] # (for all subdirectories) [x[0] for x in os.walk(dir_simulations())]
 
-def get_trial_list(session_path='',full_dir=False):
+def get_trial_list(sessionPath='',full_dir=False):
     
-    if not session_path:
-        session_path = select_folder('Select session folder',get_dir_simulations())
+    if not sessionPath:
+        sessionPath = select_folder('Select session folder',get_dir_simulations())
         
-    trial_list = [f.name for f in os.scandir(session_path) if f.is_dir()]
+    trial_list = [f.name for f in os.scandir(sessionPath) if f.is_dir()]
     
     if full_dir:
-        trial_list = [session_path + '\\' + str(element) for element in trial_list]
+        trial_list = [sessionPath + '\\' + str(element) for element in trial_list]
 
     return trial_list
 
@@ -113,20 +117,20 @@ def get_project_settings():
     
     return settings
  
-def get_trial_dirs(session_path, trial_name):
+def get_trial_dirs(sessionPath, trial_name):
     
     dirs = dict()
-    dirs['c3d'] = os.path.join(session_path,trial_name,'c3dfile.c3d')
-    dirs['grf'] = os.path.join(session_path,trial_name,'grf.mot')
-    dirs['emg'] = os.path.join(session_path,trial_name,'emg.csv')
-    dirs['inverse_kinematics'] = os.path.join(session_path,trial_name,'ik.mot')
-    dirs['inverse_dynamics'] = os.path.join(session_path,trial_name,'inverse_dynamics.sto')
-    dirs['static_op_force'] = os.path.join(session_path,trial_name,'_StaticOptimization_force.sto')
-    dirs['static_op_activation'] = os.path.join(session_path,trial_name,'_StaticOptimization_activation.sto')
-    dirs['jra'] = os.path.join(session_path,trial_name,'_joint reaction analysis_ReactionLoads.sto')
+    dirs['c3d'] = os.path.join(sessionPath,trial_name,'c3dfile.c3d')
+    dirs['grf'] = os.path.join(sessionPath,trial_name,'grf.mot')
+    dirs['emg'] = os.path.join(sessionPath,trial_name,'emg.csv')
+    dirs['inverse_kinematics'] = os.path.join(sessionPath,trial_name,'ik.mot')
+    dirs['inverse_dynamics'] = os.path.join(sessionPath,trial_name,'inverse_dynamics.sto')
+    dirs['static_op_force'] = os.path.join(sessionPath,trial_name,'_StaticOptimization_force.sto')
+    dirs['static_op_activation'] = os.path.join(sessionPath,trial_name,'_StaticOptimization_activation.sto')
+    dirs['jra'] = os.path.join(sessionPath,trial_name,'_joint reaction analysis_ReactionLoads.sto')
     
     # if full_dir:
-    #     dirs.values() = [session_path + str(element) for element in dirs.values()]
+    #     dirs.values() = [sessionPath + str(element) for element in dirs.values()]
     return dirs
  
 def select_new_project_folder(): 
@@ -163,24 +167,41 @@ def create_project_settings(project_folder=''):
     jsonpath.write_text(json.dumps(project_settings))
 
 #########################################################  C3D processing  ############################################################     
-def get_c3d_data (c3dfilepath):   
+def get_c3d_data (c3dFilePath):   
     
     c3d_dict = dict()
     # Get the COM object of C3Dserver (https://pypi.org/project/pyc3dserver/)
     itf = c3d.c3dserver(msg=False)
-    c3d.open_c3d(itf, c3dfilepath)
-    dict_analogs = c3d.get_dict_analogs(itf)
-    analog_labels = dict_analogs['LABELS']
+    c3d.open_c3d(itf, c3dFilePath)
 
-    c3d_dict['analog_rate'] = c3d.get_analog_fps(itf)
-    c3d_dict['video_rate'] = c3d.get_video_fps(itf)
-    c3d_dict['marker_names'] = c3d.get_marker_names(itf)
+    c3d_dict['DataRate'] = c3d.get_video_fps(itf)
+    c3d_dict['CameraRate'] = c3d.get_video_fps(itf)
+    c3d_dict["OrigDataRate"] = c3d.get_video_fps(itf)
+    c3d_dict["OrigAnalogRate"] = c3d.get_analog_fps(itf)
+    c3d_dict["OrigDataStartFrame"] = 0
+    c3d_dict["OrigDataLAstFrame"] = c3d.get_last_frame(itf)
     
+    c3d_dict["NumFrames"] = c3d.get_num_frames(itf)
+    c3d_dict["OrigNumFrames"] = c3d.get_num_frames(itf)
+    
+    c3d_dict['MarkerNames'] = c3d.get_marker_names(itf)
+    c3d_dict['NumMarkers'] = len(c3d_dict['MarkerNames'] )
+    
+    c3d_dict['Labels'] = c3d.get_marker_names(itf)
+    
+    c3d_dict['Timestamps'] = c3d.get_video_times(itf)
+    
+    c3d_data = c3d.get_dict_markers(itf)
+    my_dict = c3d_data['DATA']['POS']
+    c3d_dict["Data"] = np.empty(shape=(c3d_dict["NumMarkers"], c3d_dict["NumFrames"], 3), dtype=np.float32)
+    for i, label in enumerate(my_dict):
+        c3d_dict["Data"][i] = my_dict[label]
+        
     return c3d_dict
 
-def get_analog_data(c3dfilepath):
+def get_analog_data(c3dFilePath):
     itf = c3d.c3dserver(msg=False)
-    c3d.open_c3d(itf, c3dfilepath)
+    c3d.open_c3d(itf, c3dFilePath)
     analog_dict = c3d.get_dict_analogs(itf)
     analog_df = pd.DataFrame()
     for iLab in analog_dict['LABELS']:
@@ -189,12 +210,12 @@ def get_analog_data(c3dfilepath):
             
     return analog_df
 
-def c3d_osim_export(c3dfilepath):
-    maindir = os.path.dirname(c3dfilepath)
+def c3d_osim_export(c3dFilePath):
+    maindir = os.path.dirname(c3dFilePath)
 
     # import c3d file data to a table
     adapter = osim.C3DFileAdapter()
-    tables = adapter.read(c3dfilepath)
+    tables = adapter.read(c3dFilePath)
     
     # save marker .mot
     try:
@@ -204,7 +225,7 @@ def c3d_osim_export(c3dfilepath):
         stoAdapter = osim.STOFileAdapter()
         stoAdapter.write(markersFlat, markersFilename)
     except:
-        print(c3dfilepath + 'could not export markers.trc')
+        print(c3dFilePath + 'could not export markers.trc')
     
     # save grf .sto
     try:
@@ -214,26 +235,26 @@ def c3d_osim_export(c3dfilepath):
         stoAdapter = osim.STOFileAdapter()
         stoAdapter.write(forcesFlat, forcesFilename)
     except:
-        print(c3dfilepath + 'could not export grf.mot')
+        print(c3dFilePath + 'could not export grf.mot')
     
     # save emg.csv
     try:
-       c3d_emg_export(c3dfilepath) 
+       c3d_emg_export(c3dFilePath) 
     except:
-        print(c3dfilepath + 'could not export emg.mot')
+        print(c3dFilePath + 'could not export emg.mot')
     
-def export_c3d_multiple(session_path='',replace=0):
+def c3d_osim_export_multiple(sessionPath='',replace=0):
     
-    if not session_path:
-        session_path = select_folder('Select session folder',get_dir_simulations())
+    if not sessionPath:
+        sessionPath = select_folder('Select session folder',get_dir_simulations())
         
-    if not get_trial_list(session_path):        
-        add_each_c3d_to_own_folder(session_path)
+    if not get_trial_list(sessionPath):        
+        add_each_c3d_to_own_folder(sessionPath)
     
-    trial_list = get_trial_list(session_path)
-    print('c3d convert ' + session_path)
+    trial_list = get_trial_list(sessionPath)
+    print('c3d convert ' + sessionPath)
     for trial in trial_list:
-        trial_folder = os.path.join(session_path, trial)
+        trial_folder = os.path.join(sessionPath, trial)
         c3dpath = os.path.join(trial_folder, 'c3dfile.c3d')
         trcpath = os.path.join(trial_folder, 'markers.trc')
         motpath = os.path.join(trial_folder, 'grf.sto')
@@ -251,10 +272,10 @@ def export_c3d_multiple(session_path='',replace=0):
         #     except:
         #         print('could not convert ' + c3dpath + ' to emg.csv') 
      
-def c3d_emg_export(c3dfilepath,emg_labels='all'):   
+def c3d_emg_export(c3dFilePath,emg_labels='all'):   
     
     itf = c3d.c3dserver(msg=False)   # Get the COM object of C3Dserver (https://pypi.org/project/pyc3dserver/)
-    c3d.open_c3d(itf, c3dfilepath)   # Open a C3D file
+    c3d.open_c3d(itf, c3dFilePath)   # Open a C3D file
     
     # For the information of all analogs(excluding or including forces/moments)
     dict_analogs = c3d.get_dict_analogs(itf)
@@ -272,13 +293,43 @@ def c3d_emg_export(c3dfilepath,emg_labels='all'):
         if iLab in emg_labels:
             iData = dict_analogs['DATA'][iLab] 
             analog_df[iLab] = iData.tolist()
-    maindir = os.path.dirname(c3dfilepath)
+    maindir = os.path.dirname(c3dFilePath)
     
     # Sava data in parent directory
     emg_filename = os.path.join(maindir,'emg.csv')
     analog_df.to_csv(emg_filename, index=False)
-########################################################################################################################################
 
+def rotateAroundAxes(data, rotations, modelMarkers):
+
+    if len(rotations) != len(rotations[0]*2) + 1:
+        raise ValueError("Correct format is order of axes followed by two marker specifying each axis")
+
+    for a, axis in enumerate(rotations[0]):
+
+        markerName1 = rotations[1+a*2]
+        markerName2 = rotations[1 + a*2 + 1]
+        marker1 = data["Labels"].index(markerName1)
+        marker2 = data["Labels"].index(markerName2)
+        axisIdx = ord(axis) - ord('x')
+        if (0<=axisIdx<=2) == False:
+            raise ValueError("Axes can only be x y or z")
+
+        origAxis = [0,0,0]
+        origAxis[axisIdx] = 1
+        if modelMarkers is not None:
+            origAxis = modelMarkers[markerName1] - modelMarkers[markerName2]
+            origAxis /= scipy.linalg.norm(origAxis)
+        rotateAxis = data["Data"][marker1] - data["Data"][marker2]
+        rotateAxis /= scipy.linalg.norm(rotateAxis, axis=1, keepdims=True)
+
+        for i, rotAxis in enumerate(rotateAxis):
+            angle = np.arccos(np.clip(np.dot(origAxis, rotAxis), -1.0, 1.0))
+            r = Rotation.from_euler('y', -angle)
+            data["Data"][:,i] = r.apply(data["Data"][:,i])
+
+
+    return data
+########################################################################################################################################
 
 def selectOsimVersion():
     osim_folders = [folder for folder in os.listdir('C:/') if 'OpenSim' in folder]
@@ -325,13 +376,13 @@ def dict_to_xml(data, parent):
         else:
             ET.SubElement(parent, key).text = str(value)
 
-def add_each_c3d_to_own_folder(session_path):
+def add_each_c3d_to_own_folder(sessionPath):
     
-    c3d_files = [file for file in os.listdir(session_path) if file.endswith(".c3d")]
+    c3d_files = [file for file in os.listdir(sessionPath) if file.endswith(".c3d")]
     for file in c3d_files:
         fname = file.replace('.c3d', '')
-        src = os.path.join(session_path, file)
-        dst_folder = os.path.join(session_path, fname)
+        src = os.path.join(sessionPath, file)
+        dst_folder = os.path.join(sessionPath, fname)
         
         # create a new folder 
         try: os.mkdir(dst_folder)
@@ -341,15 +392,15 @@ def add_each_c3d_to_own_folder(session_path):
         dst = os.path.join(dst_folder, 'c3dfile.c3d')
         shutil.copy(src, dst)
 
-def emg_filter(c3dfilepath, band_lowcut=30, band_highcut=400, lowcut=6, order=4):
+def emg_filter(c3dFilePath, band_lowcut=30, band_highcut=400, lowcut=6, order=4):
     # save max emg values
-    c3d_dict = get_c3d_data (c3dfilepath)
+    c3d_dict = get_c3d_data (c3dFilePath)
     fs = c3d_dict['analog_rate']
     if fs < band_highcut * 2:
         band_highcut = fs / 2        
         warnings.warn("High pass frequency was too high. Using 1/2 *  sampling frequnecy instead")
         
-    analog_df = get_analog_data(c3dfilepath)
+    analog_df = get_analog_data(c3dFilePath)
     emg_data_filtered = emg_filter(analog_df, fs, band_lowcut, band_highcut, lowcut, order)
   
     max_emg_list = []
@@ -378,23 +429,60 @@ def emg_filter(c3dfilepath, band_lowcut=30, band_highcut=400, lowcut=6, order=4)
 def torsion_tool(): # to complete...
    a=2 
     
-def selec_analog_labels (c3dfilepath):   
+def selec_analog_labels (c3dFilePath):   
     # Get the COM object of C3Dserver (https://pypi.org/project/pyc3dserver/)
     itf = c3d.c3dserver(msg=False)
-    c3d.open_c3d(itf, c3dfilepath)
+    c3d.open_c3d(itf, c3dFilePath)
     dict_analogs = c3d.get_dict_analogs(itf)
     analog_labels = dict_analogs['LABELS']
 
     print(analog_labels)
     print(type(analog_labels))
-   
+
+def read_trc_file(trcFilePath):
+    df = pd.DataFrame(trcFilePath)
+
+def writeTRC(c3dFilePath, trcFilePath):
+    
+    print('writing trc file ...')
+    c3d_dict = get_c3d_data (c3dFilePath)
+    
+    with open(trcFilePath, 'w') as file:        
+        # from https://github.com/IISCI/c3d_2_trc/blob/master/extractMarkers.py
+        # Write header
+        file.write("PathFileType\t4\t(X/Y/Z)\toutput.trc\n")
+        file.write("DataRate\tCameraRate\tNumFrames\tNumMarkers\tUnits\tOrigDataRate\tOrigDataStartFrame\tOrigNumFrames\n")
+        file.write("%d\t%d\t%d\t%d\tmm\t%d\t%d\t%d\n" % (c3d_dict["DataRate"], c3d_dict["CameraRate"], c3d_dict["NumFrames"],
+                                                        c3d_dict["NumMarkers"], c3d_dict["OrigDataRate"],
+                                                        c3d_dict["OrigDataStartFrame"], c3d_dict["OrigNumFrames"]))
+
+        # Write labels
+        file.write("Frame#\tTime\t")
+        for i, label in enumerate(c3d_dict["Labels"]):
+            if i != 0:
+                file.write("\t")
+            file.write("\t\t%s" % (label))
+        file.write("\n")
+        file.write("\t")
+        for i in range(len(c3d_dict["Labels"]*3)):
+            file.write("\t%c%d" % (chr(ord('X')+(i%3)), math.ceil((i+3)/3)))
+        file.write("\n")
+
+        # Write data
+        for i in range(len(c3d_dict["Data"][0])):
+            file.write("%d\t%f" % (i, c3d_dict["Timestamps"][i]))
+            for l in range(len(c3d_dict["Data"])):
+                file.write("\t%f\t%f\t%f" % tuple(c3d_dict["Data"][l][i]))
+            file.write("\n")
+
+        print('trc file saved')
 ###############################################  OpenSim (to be complete)  ############################################################     
-def run_IK(model_path, trc_file, resultsDir, marker_weights_path):
+def run_IK(osim_modelPath, trc_file, resultsDir, marker_weights_path):
     # Load the TRC file
     trc = osim.TimeSeriesTableMotion().loadTRC(trc_file)
 
     # Load the model
-    osimModel = osim.Model(model_path)
+    osimModel = osim.Model(osim_modelPath)
     state = osimModel.initSystem()
 
     # Define the time range for the analysis
@@ -418,12 +506,12 @@ def run_IK(model_path, trc_file, resultsDir, marker_weights_path):
     print("running ik...")
     ikTool.run()
 
-def run_ID(model_path, ik_results_file, mot_file, grf_xml, resultsDir):
+def run_ID(osim_modelPath, ik_results_file, mot_file, grf_xml, resultsDir):
     # Load the TRC file
     mot = osim.TimeSeriesTableMotion().loadTRC(mot_file)
 
     # Load the model
-    osimModel = osim.Model(model_path)
+    osimModel = osim.Model(osim_modelPath)
     state = osimModel.initSystem()
 
     # Define the time range for the analysis
@@ -448,12 +536,12 @@ def run_ID(model_path, ik_results_file, mot_file, grf_xml, resultsDir):
     print("running ik...")
     idTool.run()
 
-def run_MA(model_path, ik_mot, grf_xml, resultsDir):
+def run_MA(osim_modelPath, ik_mot, grf_xml, resultsDir):
     if not os.path.exists(resultsDir):
         os.makedirs(resultsDir)
     
     # Load the model
-    model = osim.Model(model_path)
+    model = osim.Model(osim_modelPath)
     model.initSystem()
 
     # Load the motion data
@@ -468,7 +556,7 @@ def run_MA(model_path, ik_mot, grf_xml, resultsDir):
     # Create the muscle analysis tool
     maTool = osim.AnalyzeTool()
     maTool.setModel(model)
-    maTool.setModelFilename(model_path)
+    maTool.setModelFilename(osim_modelPath)
     maTool.setLowpassCutoffFrequency(6)
     maTool.setCoordinatesFileName(ik_mot)
     maTool.setName('Muscle analysis')
@@ -786,11 +874,11 @@ def add_markers_to_settings():
     settings = get_bops_settings()
     for subject_folder in get_subject_folders():
         for session in get_subject_sessions(subject_folder):
-            session_path = os.path.join(subject_folder,session)
-            for trial_name in get_trial_list(session_path,full_dir = False):
+            sessionPath = os.path.join(subject_folder,session)
+            for trial_name in get_trial_list(sessionPath,full_dir = False):
                 
-                c3dfilepath = get_trial_dirs(session_path, trial_name)['c3d']
-                c3d_data = get_c3d_data(c3dfilepath)
+                c3dFilePath = get_trial_dirs(sessionPath, trial_name)['c3d']
+                c3d_data = get_c3d_data(c3dFilePath)
                 
             
                 settings['marker_names'] = c3d_data['marker_names']
@@ -800,25 +888,30 @@ def add_markers_to_settings():
     
     save_bops_settings(settings)                   
 
-
-def get_testing_c3d_file_path():
+def get_testing_file_path(file_type = 'c3d'):
     bops_dir = get_dir_bops()
     dir_simulations =  os.path.join(bops_dir, 'ExampleData\simulations')
       
     for subject_folder in get_subject_folders(dir_simulations):
         for session in get_subject_sessions(subject_folder):
-            session_path = os.path.join(subject_folder,session)           
-            for idx, trial_name in enumerate(get_trial_list(session_path,full_dir = False)):
+            sessionPath = os.path.join(subject_folder,session)           
+            for idx, trial_name in enumerate(get_trial_list(sessionPath,full_dir = False)):
 
-                resultsDir = get_trial_list(session_path,full_dir = True)[idx]
-                c3d_file_path = os.path.join(resultsDir,'c3dfile.c3d')
+                resultsDir = get_trial_list(sessionPath,full_dir = True)[idx]
+                if file_type.__contains__('c3d'):
+                    file_path = os.path.join(resultsDir,'c3dfile.c3d')
+                elif file_type.__contains__('trc'):
+                    file_path = os.path.join(resultsDir,'markers.trc')
                 break
             break
         break
     
-    return c3d_file_path 
+    return file_path 
 
-                    
+def progress_bar():
+    total_steps = 5
+    with tqdm(total=total_steps, desc="Processing") as pbar:
+        pbar.update(1)
 ########################################################################################################################################
 
 
