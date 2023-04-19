@@ -1,5 +1,6 @@
 import msk_modelling_pkg_install
 import bops as bp
+from bops import *
 import matplotlib.pyplot as plt
 
 # bp.get_project_folder()
