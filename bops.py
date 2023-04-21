@@ -225,7 +225,7 @@ def c3d_osim_export(c3dFilePath):
         stoAdapter = osim.STOFileAdapter()
         stoAdapter.write(markersFlat, markersFilename)
     except:
-        print(c3dFilePath + 'could not export markers.trc')
+        print(c3dFilePath + ' could not export markers.trc')
     
     # save grf .sto
     try:
@@ -441,6 +441,7 @@ def selec_analog_labels (c3dFilePath):
 
 def read_trc_file(trcFilePath):
     df = pd.DataFrame(trcFilePath)
+    return df
 
 def writeTRC(c3dFilePath, trcFilePath):
     
@@ -864,6 +865,11 @@ def subjet_select_gui():
 
 ########################################################################################################################################
 
+########################################################  Plotting  ####################################################################
+
+
+########################################################################################################################################
+
 
 ######################################################  Title section  #################################################################     
 ########################################################################################################################################
@@ -891,7 +897,7 @@ def add_markers_to_settings():
 def get_testing_file_path(file_type = 'c3d'):
     bops_dir = get_dir_bops()
     dir_simulations =  os.path.join(bops_dir, 'ExampleData\simulations')
-      
+    file_path = []
     for subject_folder in get_subject_folders(dir_simulations):
         for session in get_subject_sessions(subject_folder):
             sessionPath = os.path.join(subject_folder,session)           
@@ -899,14 +905,20 @@ def get_testing_file_path(file_type = 'c3d'):
 
                 resultsDir = get_trial_list(sessionPath,full_dir = True)[idx]
                 if file_type.__contains__('c3d'):
-                    file_path = os.path.join(resultsDir,'c3dfile.c3d')
+                    file_path.append(os.path.join(resultsDir,'c3dfile.c3d'))
+                    
                 elif file_type.__contains__('trc'):
-                    file_path = os.path.join(resultsDir,'markers.trc')
+                    file_path.append(os.path.join(resultsDir,'markers.trc'))
+                    
+                elif file_type.__contains__('so'):
+                    file_path.append(os.path.join(resultsDir,'_StaticOptimization_activation.sto'))
+                    file_path.append(os.path.join(resultsDir,'_StaticOptimization_force.sto'))
+                                        
                 break
             break
         break
     
-    return file_path 
+    return file_path
 
 def progress_bar():
     total_steps = 5
