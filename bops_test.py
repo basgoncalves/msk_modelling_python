@@ -63,7 +63,6 @@ def run_all_tests():
     test_c3d_export()
     add_marker_to_trc()
 
-
 def plot_so_trial(SoFilePath=''):
     # plot static optimization results one trial
     if not SoFilePath:
@@ -84,6 +83,4 @@ def plot_so_trial(SoFilePath=''):
 # bp.add_markers_to_settings()
 # run_all_tests()
 
-plot_so_trial()
-
-bp.add_each_c3d_to_own_folder
+bp.import_c3d_data(bp.get_testing_file_path())

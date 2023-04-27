@@ -167,7 +167,7 @@ def create_project_settings(project_folder=''):
     jsonpath.write_text(json.dumps(project_settings))
 
 #########################################################  C3D processing  ############################################################     
-def get_c3d_data (c3dFilePath):   
+def import_c3d_data (c3dFilePath):   
     
     c3d_dict = dict()
     # Get the COM object of C3Dserver (https://pypi.org/project/pyc3dserver/)
