@@ -10,19 +10,20 @@ import bops
 import shutil
 
 
-dir_path = os.path.dirname(os.path.realpath(__file__))
-session_folder =  os.path.join(dir_path,'ExampleData\s001\session1')
-c3dfilepath = os.path.join(session_folder,'sprint_1.c3d')
+import matplotlib.pyplot as plt
+import numpy as np
+# Data
+x = [1, 2, 3, 4, 5]
+y = [1, 10, 100, 500, 1000]
 
-bops.add_each_c3d_to_own_folder(session_folder)
+# Plot configuration
+plt.bar(x, y, color='grey')
+plt.xticks([])
+plt.box(False)
+plt.tick_params(axis='both', which='major', labelsize=18, width=0)
+plt.rcParams['font.family'] = 'Arial'
+plt.gcf().set_facecolor('none')
 
-bops.c3d_osim_export(c3dfilepath)
-
-emg_labels = ['Voltage.EMG01_r_gastro', 'Voltage.EMG02_r_soleus',
- 'Voltage.EMG03_r_rect_fem', 'Voltage.EMG04_r_tfl',
- 'Voltage.EMG05_r_semimemb', 'Voltage.EMG06_l_gastro',
- 'Voltage.EMG07_l_soleus', 'Voltage.EMG08_l_rect_fem', 'Voltage.EMG09_l_tfl',
- 'Voltage.EMG10_l_semimemb']
-
-bops.c3d_emg_export(c3dfilepath,emg_labels)
-
+# Save the figure
+plt.savefig('C:\\Git\\MSKmodelling\\Projects\\MatlabStaticOptimization\\TestData\\figures\\barplot.png', dpi=300, transparent=True, bbox_inches='tight')
+# plt.show()
