@@ -75,6 +75,7 @@ def plot_so_trial(SoFilePath=''):
 
 ################################################################################################################################
 
+bp.c3d_osim_export(r'C:\Users\Biomech\Downloads\P05_stand01\c3dfile.c3d')
 # bp.export_c3d_multiple(r'C:\Git\research_data\TorsionToolAllModels\simulations\TD01\pre')
 # bp.subjet_select_gui()
 # bp.simple_gui()
@@ -82,5 +83,4 @@ def plot_so_trial(SoFilePath=''):
 # print(list(bp.get_bops_settings()['subjects'].values()))
 # bp.add_markers_to_settings()
 # run_all_tests()
-
-bp.import_c3d_data(bp.get_testing_file_path())
+# bp.import_c3d_data(bp.get_testing_file_path())
