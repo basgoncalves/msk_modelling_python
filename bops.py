@@ -24,6 +24,7 @@ import tkfilebrowser
 import customtkinter as ctk
 import screeninfo as si
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 def select_folder(prompt='Please select your folder', staring_path=''):
     if not staring_path: # if empty        
@@ -394,18 +395,16 @@ def add_each_c3d_to_own_folder(sessionPath):
 
 def emg_filter(c3dFilePath, band_lowcut=30, band_highcut=400, lowcut=6, order=4):
     # save max emg values
-    c3d_dict = get_c3d_data (c3dFilePath)
-    fs = c3d_dict['analog_rate']
+    c3d_dict = import_c3d_data (c3dFilePath)
+    fs = c3d_dict['OrigAnalogRate']
     if fs < band_highcut * 2:
         band_highcut = fs / 2        
         warnings.warn("High pass frequency was too high. Using 1/2 *  sampling frequnecy instead")
         
     analog_df = get_analog_data(c3dFilePath)
-    emg_data_filtered = emg_filter(analog_df, fs, band_lowcut, band_highcut, lowcut, order)
-  
     max_emg_list = []
-    for col in emg_data_filtered.columns:
-            max_rolling_average = np.max(pd.Series(emg_data_filtered[col]).rolling(200, min_periods=1).mean())
+    for col in analog_df.columns:
+            max_rolling_average = np.max(pd.Series(analog_df[col]).rolling(200, min_periods=1).mean())
             max_emg_list.append(max_rolling_average)
             
     nyq = 0.5 * fs
@@ -446,7 +445,7 @@ def read_trc_file(trcFilePath):
 def writeTRC(c3dFilePath, trcFilePath):
     
     print('writing trc file ...')
-    c3d_dict = get_c3d_data (c3dFilePath)
+    c3d_dict = import_c3d_data (c3dFilePath)
     
     with open(trcFilePath, 'w') as file:        
         # from https://github.com/IISCI/c3d_2_trc/blob/master/extractMarkers.py
@@ -865,9 +864,9 @@ def subjet_select_gui():
 
 ########################################################################################################################################
 
+
+
 ########################################################  Plotting  ####################################################################
-
-
 ########################################################################################################################################
 
 
@@ -884,7 +883,7 @@ def add_markers_to_settings():
             for trial_name in get_trial_list(sessionPath,full_dir = False):
                 
                 c3dFilePath = get_trial_dirs(sessionPath, trial_name)['c3d']
-                c3d_data = get_c3d_data(c3dFilePath)
+                c3d_data = import_c3d_data(c3dFilePath)
                 
             
                 settings['marker_names'] = c3d_data['marker_names']
@@ -917,6 +916,7 @@ def get_testing_file_path(file_type = 'c3d'):
                 break
             break
         break
+    file_path = file_path[0] # make it a string instead of a list 
     
     return file_path
 

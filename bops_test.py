@@ -1,60 +1,81 @@
 import msk_modelling_pkg_install
-import bops as bp
 from bops import *
 import os
 
 ####################################################### TESTS ################################################################
-def test_loop_through_folders():
-    for subject_folder in bp.get_subject_folders(bp.get_testing_file_path()):
-        for session in bp.get_subject_sessions(subject_folder):
-            session_path = bp.os.path.join(subject_folder,session)
-            for idx, trial_name in enumerate(bp.get_trial_list(session_path,full_dir = False)):
+def test_import_c3d_data():
+    c3dFilePath = get_testing_file_path('c3d')
+    print(c3dFilePath)
+    print(type(c3dFilePath))
+    print(os.path.isfile(c3dFilePath))
+    c3d_dict =  import_c3d_data(c3dFilePath = get_testing_file_path('c3d'))
+    print(c3d_dict)
+    
+    return c3d_dict
 
-                resultsDir = bp.get_trial_list(session_path,full_dir = True)[idx]
+def test_plot_EMG_data():
+    c3dFilePath = get_testing_file_path('c3d')
+    file_name = os.path.basename(c3dFilePath).split(".")[0]
+    emg_linear_env_df = emg_filter(c3dFilePath)
+    # Create a emg plot
+    fig, ax = plt.subplots()  # Create a figure containing a single axes.
+    ax.plot(emg_linear_env_df)  # Plot some data on the axes.
+    plt.title(file_name)
+    plt.xlabel("Time")
+    plt.ylabel("Volt")
+    plt.show()
+
+def test_loop_through_folders():
+    for subject_folder in get_subject_folders(get_testing_file_path()):
+        for session in get_subject_sessions(subject_folder):
+            session_path = os.path.join(subject_folder,session)
+            for idx, trial_name in enumerate(get_trial_list(session_path,full_dir = False)):
+
+                resultsDir = get_trial_list(session_path,full_dir = True)[idx]
                 print(resultsDir)
 
 def add_marker_to_trc():
     print('still not finished...')
 
 def test_IK():
-    for subject_folder in bp.get_subject_folders(testing_data_dir()):
-        for session in bp.get_subject_sessions(subject_folder):
-            session_path = bp.os.path.join(subject_folder,session)
-            for idx, trial_name in enumerate(bp.get_trial_list(session_path,full_dir = False)):
+    for subject_folder in get_subject_folders(testing_data_dir()):
+        for session in get_subject_sessions(subject_folder):
+            session_path = os.path.join(subject_folder,session)
+            for idx, trial_name in enumerate(get_trial_list(session_path,full_dir = False)):
 
                 model_path = r'.\test.osim'
                 ik_results_file = r'.\test.osim'
                 mot_file = r'.\test.osim'
                 grf_xml = r'.\test.osim'
-                resultsDir = bp.get_trial_list(session_path,full_dir = True)[idx]
-                bp.run_IK(model_path, trc_file, resultsDir, marker_weights_path)
+                resultsDir = get_trial_list(session_path,full_dir = True)[idx]
+                run_IK(model_path, trc_file, resultsDir, marker_weights_path)
 
 def test_ID():
 
-    for subject_folder in bp.get_subject_folders(testing_data_dir()):
-        for session in bp.get_subject_sessions(subject_folder):
-            session_path = bp.os.path.join(subject_folder,session)
-            for idx, trial_name in enumerate(bp.get_trial_list(session_path,full_dir = False)):
+    for subject_folder in get_subject_folders(testing_data_dir()):
+        for session in get_subject_sessions(subject_folder):
+            session_path = os.path.join(subject_folder,session)
+            for idx, trial_name in enumerate(get_trial_list(session_path,full_dir = False)):
 
                 model_path = r'.\test.osim'
                 ik_results_file = r'.\test.osim'
                 mot_file = r'.\test.osim'
                 grf_xml = r'.\test.osim'
-                resultsDir = bp.get_trial_list(session_path,full_dir = True)[idx]
-                # bp.run_ID(model_path, ik_results_file, mot_file, grf_xml, resultsDir)
+                resultsDir = get_trial_list(session_path,full_dir = True)[idx]
+                # run_ID(model_path, ik_results_file, mot_file, grf_xml, resultsDir)
                 print(resultsDir)
 
 def test_writeTRC():
-    trcFilePath = bp.get_testing_file_path('trc')
-    c3dFilePath = bp.get_testing_file_path('c3d')
+    trcFilePath = get_testing_file_path('trc')
+    c3dFilePath = get_testing_file_path('c3d')
     writeTRC(c3dFilePath, trcFilePath)
 
 def test_c3d_export():
-    print(bp.get_testing_file_path())
-    c3dFilePath = bp.get_testing_file_path('c3d')
-    c3d_dict = bp.get_c3d_data(c3dFilePath)
-    bp.c3d_osim_export(c3dFilePath)
-    # data_rotated = bp.rotateAroundAxes(data=c3d_dict, rotations=[], modelMarkers=c3d_dict['Labels'])
+    print(get_testing_file_path())
+    c3dFilePath = get_testing_file_path('c3d')
+    c3d_dict = get_c3d_data(c3dFilePath)
+    c3d_osim_export(c3dFilePath)
+    # data_rotated = rotateAroundAxes(data=c3d_dict, rotations=[], modelMarkers=c3d_dict['Labels'])
 
 def run_all_tests():
 
@@ -66,21 +87,20 @@ def run_all_tests():
 def plot_so_trial(SoFilePath=''):
     # plot static optimization results one trial
     if not SoFilePath:
-        SoFilePath = bp.get_testing_file_path('so')
+        SoFilePath = get_testing_file_path('so')
         print(SoFilePath)
     
-    so_force = bp.read_trc_file(SoFilePath[1])
+    so_force = read_trc_file(SoFilePath[1])
     
     return so_force
 
 ################################################################################################################################
-
-bp.c3d_osim_export(r'C:\Users\Biomech\Downloads\P05_stand01\c3dfile.c3d')
-# bp.export_c3d_multiple(r'C:\Git\research_data\TorsionToolAllModels\simulations\TD01\pre')
-# bp.subjet_select_gui()
-# bp.simple_gui()
-# bp.complex_gui()
-# print(list(bp.get_bops_settings()['subjects'].values()))
-# bp.add_markers_to_settings()
+test_plot_EMG_data()
+# export_c3d_multiple(r'C:\Git\research_data\TorsionToolAllModels\simulations\TD01\pre')
+# subjet_select_gui()
+# simple_gui()
+# complex_gui()
+# print(list(get_bops_settings()['subjects'].values()))
+# add_markers_to_settings()
 # run_all_tests()
-# bp.import_c3d_data(bp.get_testing_file_path())
+# import_c3d_data(get_testing_file_path())
