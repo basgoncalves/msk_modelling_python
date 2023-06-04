@@ -15,6 +15,8 @@ def test_import_c3d_data():
 
 def test_plot_EMG_data():
     c3dFilePath = get_testing_file_path('c3d')
+    c3dFilePath = r'C:\Git\msk_modelling_python\ExampleData\SJ_example\SJ1.c3d'
+    print(c3dFilePath)
     file_name = os.path.basename(c3dFilePath).split(".")[0]
     emg_linear_env_df = emg_filter(c3dFilePath)
     # Create a emg plot
