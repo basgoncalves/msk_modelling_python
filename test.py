@@ -1,17 +1,21 @@
-from bops import *
+import matplotlib.pyplot as plt
 
-c3dFilePath = get_testing_file_path('c3d')
-title_name = os.path.basename(c3dFilePath).split(".")[0]
-c3d_dict = import_c3d_data (c3dFilePath)
+def capture_mouse_clicks():
+    # Create a figure and plot some data
+    fig, ax = plt.subplots()
+    ax.plot([1, 2, 3, 4, 5], [2, 4, 6, 8, 10], 'ro')
+    ax.set_title('Click on the plot')
 
-print( c3d_dict['analog_rate'])
+    # Capture mouse clicks on the plot
+    points = plt.ginput(n=2, show_clicks=True)
 
-# emg_filtered = emg_filter(c3dFilePath)
+    # Print the captured points
+    print("Captured points:")
+    for point in points:
+        print(f"x: {point[0]}, y: {point[1]}")
 
-# # Create a emg plot
-# fig, ax = plt.subplots()  # Create a figure containing a single axes.
-# ax.plot(emg_filtered)  # Plot some data on the axes.
-# plt.title(title_name)
-# plt.xlabel("Time")
-# plt.ylabel("Volt")
-# plt.show()
+    # Close the figure
+    plt.close(fig)
+
+# Call the function to capture mouse clicks
+capture_mouse_clicks()
