@@ -9,10 +9,16 @@ import sys
 import pkg_resources
 import os
 
-def install_opensim():
-    os.chdir(r'C:\OpenSim 4.3\sdk\Python') # Change directory
+def install_opensim(VERSION=4.3):
+
+    osimIntallDirectory= r'C:\OpenSim VERSION\sdk\Python'.replace("VERSION", str(VERSION))
+    os.chdir(osimIntallDirectory)
     subprocess.run(['python', '.\setup_win_python38.py'], check=True) # Run setup script
-    subprocess.run(['python', '-m', 'pip', 'install', '.'], check=True) # Install the package
+    output = subprocess.run(['python', '-m', 'pip', 'install', '.'], check=True) # Install the package
+
+    print(output.stderr())
+
+    sys.executable
     # run in terminal 
     # cd 'C:\OpenSim 4.3\sdk\Python\
     # python .\setup_win_python38.py
@@ -33,7 +39,7 @@ for pkg in Packages:
         try:
             subprocess.check_call([sys.executable, '-m', 'pip', 'install', pkg])
         except:
-            install_opensim()
+            install_opensim(version=4.3)
             
         
 #install opensim 

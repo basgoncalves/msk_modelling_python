@@ -519,7 +519,7 @@ def run_ID(osim_modelPath, ik_results_file, mot_file, grf_xml, resultsDir):
     idTool.setEndTime(finalTime)
     idTool.setCoordinatesFileName(ik_results_file)
     idTool.setExternalLoadsFileName(mot_file)
-    id_tool.setExternalLoads(grf_xml)
+    idTool.setExternalLoads(grf_xml)
     idTool.setPrintResultFiles(resultsDir)
     idTool.setOutputMotionFileName(os.path.join(resultsDir, "inverse_dynamics.sto"))
 
@@ -570,10 +570,10 @@ def run_MA(osim_modelPath, ik_mot, grf_xml, resultsDir):
     maTool.setMinDT(1e-008)
     maTool.setErrorTolerance(1e-005)
     maTool.removeControllerSetFromModel()
-    maTool.print(join(resultsDir, '..', 'ma_setup.xml'))
+    maTool.print(os.path.join(resultsDir, '..', 'ma_setup.xml'))
 
     # Reload analysis from xml
-    maTool = osim.AnalyzeTool(join(resultsDir, '..', 'ma_setup.xml'))
+    maTool = osim.AnalyzeTool(os.path.join(resultsDir, '..', 'ma_setup.xml'))
 
     # Run the muscle analysis calculation
     maTool.run()
@@ -920,10 +920,11 @@ def progress_bar():
         pbar.update(1)
 ########################################################################################################################################
 
-test()
+
 
 if __name__ ** '__main__':
     def test():
         print('test')
 
+test()
 # end 
