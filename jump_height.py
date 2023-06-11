@@ -12,6 +12,8 @@ sample_rate = int(1 / grf_data.get_time_step())
 
 # Extract vertical GRF and remove baseline
 vertical_grf = grf_data.get_column('vertical_force').to_numpy()
+print(type(vertical_grf))
+
 baseline = np.mean(vertical_grf[:100])
 vgrf_without_baseline = vertical_grf - baseline
 

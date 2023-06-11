@@ -478,19 +478,15 @@ def writeTRC(c3dFilePath, trcFilePath):
         print('trc file saved')
 ###############################################  OpenSim (to be complete)  ############################################################     
 def run_IK(osim_modelPath, trc_file, resultsDir, marker_weights_path):
-    # Load the TRC file
-    trc = osim.TimeSeriesTableMotion().loadTRC(trc_file)
-
-    # Load the model
-    osimModel = osim.Model(osim_modelPath)
+    
+    trc = osim.TimeSeriesTableMotion().loadTRC(trc_file)                # Load the TRC file
+    osimModel = osim.Model(osim_modelPath)                              # Load the model
     state = osimModel.initSystem()
 
-    # Define the time range for the analysis
-    initialTime = trc.getStartTime()
+    initialTime = trc.getStartTime()                                    # Define the time range for the analysis
     finalTime = trc.getLastTime()
 
-    # Create the inverse kinematics tool
-    ikTool = osim.InverseKinematicsTool()
+    ikTool = osim.InverseKinematicsTool()                               # Create the inverse kinematics tool
     ikTool.setModel(osimModel)
     ikTool.setStartTime(initialTime)
     ikTool.setEndTime(finalTime)
@@ -499,11 +495,9 @@ def run_IK(osim_modelPath, trc_file, resultsDir, marker_weights_path):
     ikTool.set_accuracy(1e-6)
     ikTool.setOutputMotionFileName(os.path.join(resultsDir, "ik.mot"))
 
-    # print setup
-    ikTool.printToXML(os.path.join(resultsDir, "ik_setup.xml"))
+    ikTool.printToXML(os.path.join(resultsDir, "ik_setup.xml"))         # print setup
 
-    # Run inverse kinematics
-    print("running ik...")
+    print("running ik...")                                              # Run inverse kinematics
     ikTool.run()
 
 def run_ID(osim_modelPath, ik_results_file, mot_file, grf_xml, resultsDir):
