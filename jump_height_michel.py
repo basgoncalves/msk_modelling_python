@@ -4,9 +4,67 @@ import numpy as np
 from scipy.integrate import trapz
 import matplotlib.pyplot as plt
 
+def calculate_jump_height_impulse(vert_grf,sample_rate):
+    
+        
+    # Check if the variable is a NumPy array
+    if isinstance(vert_grf, np.ndarray):
+        print("Variable is a NumPy array")
+    else:
+        print("Variable is not a NumPy array")
+    
+    time = np.arange(0, len(vert_grf)/sample_rate, 1/sample_rate)
 
-plot_data = 0
+    # Select time interval of interest
+    plt.plot(vert_grf)
+    x = plt.ginput(n=1, show_clicks=True)
+    plt.close()
 
+    baseline = np.mean(vert_grf[:250])
+    mass = baseline/gravity
+        
+    #find zeros on vGRF
+    idx_zeros = vert_grf[vert_grf == 0]
+    flight_time_sec = len(idx_zeros/sample_rate)/1000
+        
+    # find the end of jump index = first zero in vert_grf
+    take_off_frame = np.where(vert_grf == 0)[0][0] 
+        
+    # find the start of jump index --> the start value is already in the file
+    start_of_jump_frame = int(np.round(x[0][0]))
+    
+        # Calculate impulse of vertical GRF    
+    vgrf_of_interest = vert_grf[start_of_jump_frame:take_off_frame]
+
+    # Create the time vector
+    time = np.arange(0, len(vgrf_of_interest)/sample_rate, 1/sample_rate)
+
+    vertical_impulse_bw = mass * gravity * time[-1]
+    vertical_impulse_grf = np.trapz(vgrf_of_interest, time)
+
+    # subtract impulse BW
+    vertical_impulse_net = vertical_impulse_grf - vertical_impulse_bw
+
+
+    take_off_velocity = vertical_impulse_net / mass
+
+    # Calculate jump height using impulse-momentum relationship (DOI: 10.1123/jab.27.3.207)
+    jump_height = (take_off_velocity / 2 * gravity)
+    jump_height = (take_off_velocity**2 / 2 * 9.81) /100   # devie by 100 to convert to m
+
+    # calculate jump height from flight time
+    jump_height_flight = 0.5 * 9.81 * (flight_time_sec / 2)**2   
+
+    print('take off velocity = ' , take_off_velocity, 'm/s')
+    print('cmj time = ' , time[-1], ' s')
+    print('impulse = ', vertical_impulse_net, 'N.s')
+    print('impulse jump height = ', jump_height, ' m')
+    print('flight time jump height = ', jump_height_flight, ' m')
+    
+    return jump_height, vertical_impulse_net
+
+
+re_process = 0
 #------------------
 dir_path = os.path.dirname(os.path.realpath(__file__)) # for .py
 folder_path = os.path.join(dir_path,'ExampleData\BMA-force-plate\CSV-Test\p1')
@@ -34,59 +92,8 @@ results_p1['flight_time'] = []
 results_p1['jump_height'] = []
 results_p1['power'] = []
 results_p1['velocity'] = []
-
-#------------------
+results_p1['start_frame'] = []
     
-
-# =============================================================================
-# def calculate_jump_height(x):
-#     
-#     # Get the sample rate of the data
-#     sample_rate = 1000
-#     gravity = 9.81  # m/s^2
-#     
-#     # Extract vertical GRF and remove baseline
-#     vertical_grf = x['Fz'].to_numpy()
-#     baseline = np.mean(vertical_grf[:1000])
-#     mass = baseline/gravity
-#     
-#     vgrf_without_baseline = vertical_grf - baseline
-#     
-#     #find zeros on vGRF
-#     idx_zeros = vertical_grf==0
-#     flight_time = len(vertical_grf[idx_zeros])/sample_rate
-#     
-#     # Select time interval of interest
-#     plt.plot(vgrf_without_baseline)
-#     plt.show()
-#     x = plt.ginput(2)
-#     plt.close()
-#     
-#     # Calculate impulse of vertical GRF
-#     start_time = min(x[0][0], x[1][0])
-#     end_time = max(x[0][0], x[1][0])
-#     start_index = int(start_time * sample_rate)
-#     end_index = int(end_time * sample_rate)
-#     vgrf_of_interest = abs(vgrf_without_baseline[start_index:end_index])
-#     impulse = trapz(vgrf_of_interest) / sample_rate
-#     
-#     launch_velocity = impulse / mass
-#     
-#     # calculate power
-#     average_force = np.mean(vgrf_of_interest) # + baseline 
-#     power = average_force * launch_velocity 
-#     
-#     
-#     # Calculate jump height using impulse-momentum relationship
-#     jump_height = impulse / (gravity * 2)  # assuming symmetric takeoff and landing
-#     
-#     return jump_height, flight_time, mass, launch_velocity, power
-# 
-# =============================================================================
-
-
-
-#=============================================================================
 
     
 # Get the sample rate of the data
@@ -95,48 +102,4 @@ gravity = 9.81  # m/s^2
     
 vert_grf = np.array(cmj7['Fz-abs'])
 
-# Select time interval of interest
-plt.plot(vert_grf)
-x = plt.ginput(n=1, show_clicks=True)
-plt.close()
-
-baseline = np.mean(vert_grf[:250])
-mass = baseline/gravity
-vert_grf_without_baseline = vert_grf-baseline
-
-if plot_data:
-    plt.plot(vert_grf)
-    plt.plot(vert_grf_without_baseline)
-    plt.show()
-
-    
-#find zeros on vGRF
-idx_zeros = vert_grf[vert_grf == 0]
-flight_time = len(idx_zeros/sample_rate)
-    
-# find the end of jump index = first zero in vert_grf
-take_off_frame = np.where(vert_grf == 0)[0][0] 
-    
-# find the start of jump index --> the start value is already in the file
-start_of_jump = int(np.round(x[0][0]))
-
-# Calculate impulse of vertical GRF    
-vgrf_of_interest = vert_grf_without_baseline[start_of_jump:take_off_frame]
-
-if plot_data:
-    plt.plot(vgrf_of_interest)
-    plt.show()
-
-#vgrf_of_interest = vgrf_of_interest * sample_rate 
-impulse = trapz(vgrf_of_interest) /sample_rate
-take_off_velocity = impulse / mass
-  
-# Calculate jump height using impulse-momentum relationship  
-jump_height = 1/2 * (take_off_velocity / gravity)
-
-    
-print(jump_height,',' ,flight_time)
-
-if plot_data:
-    plt.plot(vgrf_of_interest)
-    plt.show()
+calculate_jump_height_impulse(vert_grf,sample_rate)
