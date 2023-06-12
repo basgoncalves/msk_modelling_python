@@ -39,7 +39,7 @@ for pkg in Packages:
         try:
             subprocess.check_call([sys.executable, '-m', 'pip', 'install', pkg])
         except:
-            install_opensim(version=4.3)
+            install_opensim(4.3)
             
         
 #install opensim 

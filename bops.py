@@ -1,11 +1,23 @@
 # python version of Batch OpenSim Processing Scripts (BOPS)
-# originally by Bruno L. S. Bedo, Alice Mantoan, Danilo S. Catelli, Willian Cruaud, Monica Reggiani & Mario Lamontagne (2021): 
+# originally by Bruno L. S. Bedo, Alice Mantoan, Danilo S. Catelli, Willian Cruaud, Monica Reggiani & Mario Lamontagne (2021):
 # BOPS: a Matlab toolbox to batch musculoskeletal data processing for OpenSim, Computer Methods in Biomechanics and Biomedical Engineering
 # DOI: 10.1080/10255842.2020.1867978
 
+import msk_modelling_pkg_install
 import os
 import shutil
-import opensim as osim
+import sys
+import subprocess
+try:
+    import opensim as osim
+except:
+    print('Check if __init__.py has "." before packages (e.g. "from .simbody" instead of "from simbody")')
+    pythonPath = os.path.dirname(sys.executable)
+    initPath = os.path.join(pythonPath,'\lib\site-packages\opensim\__init__.py')
+    print('python path is: ', pythonPath)
+
+    subprocess.run(["explorer", directory_path])
+
 from xml.etree import ElementTree as ET
 import numpy as np
 import pyc3dserver as c3d
@@ -27,26 +39,26 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 def select_folder(prompt='Please select your folder', staring_path=''):
-    if not staring_path: # if empty        
-        staring_path = os.getcwd() 
-        
-    tkinter().withdraw()                                     
+    if not staring_path: # if empty
+        staring_path = os.getcwd()
+
+    tkinter().withdraw()
     selected_folder = filedialog.askdirectory(initialdir=staring_path,title=prompt)
     return selected_folder
 
 def select_folder_multiple (prompt='Please select multiple folders', staring_path=''):
-    if not staring_path: # if empty        
+    if not staring_path: # if empty
         staring_path = os.getcwd()
-        
-    tkinter().withdraw()                                     
+
+    tkinter().withdraw()
     folder_list = tkfilebrowser.askopendirnames(initialdir=staring_path,title=prompt)
     return folder_list
 
 def select_subjects():
    subject_names = get_subject_names()
-   
+
 def get_dir_bops():
-    return os.path.dirname(os.path.realpath(__file__)) 
+    return os.path.dirname(os.path.realpath(__file__))
 
 def get_dir_simulations():
     return os.path.join(get_project_folder(),'simulations')
@@ -59,7 +71,7 @@ def get_subject_folders(dir_simulations = ''):
 
 def get_subject_names():
     subject_names = []
-    for i_folder in get_subject_folders():    
+    for i_folder in get_subject_folders():
         subject_names.append(os.path.basename(os.path.normpath(i_folder)))
     return subject_names
 
@@ -70,56 +82,56 @@ def get_subject_sessions(subject_folder):
     return [f.path for f in os.scandir(subject_folder) if f.is_dir()] # (for all subdirectories) [x[0] for x in os.walk(dir_simulations())]
 
 def get_trial_list(sessionPath='',full_dir=False):
-    
+
     if not sessionPath:
         sessionPath = select_folder('Select session folder',get_dir_simulations())
-        
+
     trial_list = [f.name for f in os.scandir(sessionPath) if f.is_dir()]
-    
+
     if full_dir:
         trial_list = [sessionPath + '\\' + str(element) for element in trial_list]
 
     return trial_list
 
 def get_bops_settings():
-    bops_dir = os.path.dirname(os.path.realpath(__file__)) 
+    bops_dir = os.path.dirname(os.path.realpath(__file__))
     jsonfile = os.path.join(get_dir_bops(),'bops_settings.json')
     with open(jsonfile, 'r') as f:
         bops_settings = json.load(f)
-    
+
     return bops_settings
 
 def save_bops_settings(settings):
     jsonpath = Path(get_dir_bops()) / ("bops_settings.json")
     jsonpath.write_text(json.dumps(settings,indent=2))
-    
-def get_project_folder(): 
-    
+
+def get_project_folder():
+
     bops_settings = get_bops_settings()
     project_folder = bops_settings['current_project_folder']
     project_json = os.path.join(project_folder,'settings.json')
-    
+
     if not os.path.isdir(project_folder) or not os.path.isfile(project_json):   # if project folder or project json do not exist, select new project
         project_folder = select_folder('Please select project directory')
         bops_settings['current_project_folder'] = project_folder
-        
+
         jsonpath = Path(get_dir_bops()) / ("bops_settings.json")
         jsonpath.write_text(json.dumps(bops_settings))
-    
+
     if not os.path.isfile(project_json):                                         # if json does not exist, create one
         create_project_settings(project_folder)
-        
+
     return project_folder
 
 def get_project_settings():
     jsonfile = os.path.join(get_project_folder(),'settings.json')
     with open(jsonfile, 'r') as f:
         settings = json.load(f)
-    
+
     return settings
- 
+
 def get_trial_dirs(sessionPath, trial_name):
-    
+
     dirs = dict()
     dirs['c3d'] = os.path.join(sessionPath,trial_name,'c3dfile.c3d')
     dirs['grf'] = os.path.join(sessionPath,trial_name,'grf.mot')
@@ -129,47 +141,47 @@ def get_trial_dirs(sessionPath, trial_name):
     dirs['static_op_force'] = os.path.join(sessionPath,trial_name,'_StaticOptimization_force.sto')
     dirs['static_op_activation'] = os.path.join(sessionPath,trial_name,'_StaticOptimization_activation.sto')
     dirs['jra'] = os.path.join(sessionPath,trial_name,'_joint reaction analysis_ReactionLoads.sto')
-    
+
     # if full_dir:
     #     dirs.values() = [sessionPath + str(element) for element in dirs.values()]
     return dirs
- 
-def select_new_project_folder(): 
-    
+
+def select_new_project_folder():
+
     bops_settings = get_bops_settings()
     project_folder = select_folder('Please select project directory')
     project_json = os.path.join(project_folder,'settings.json')
     bops_settings['current_project_folder'] = project_folder
-        
+
     jsonpath = Path(get_dir_bops()) / ("bops_settings.json")
     jsonpath.write_text(json.dumps(bops_settings))
-    
+
     if not os.path.isfile(project_json):                                         # if json does not exist, create one
         create_project_settings(project_folder)
-        
+
     return project_folder
 
 def create_project_settings(project_folder=''):
-    
+
     if not project_folder:
         project_folder = get_project_folder()
-              
+
     project_settings = dict()
-    
+
     project_settings['emg_filter'] = dict()
     project_settings['emg_filter']['band_pass'] = [40,450]
     project_settings['emg_filter']['low_pass'] = [6]
     project_settings['emg_filter']['order'] = [4]
-    
+
     project_settings['emg_labels'] = ['all']
     project_settings['simulations'] = os.path.join(project_folder,'simulations')
-    
+
     jsonpath = Path(project_folder) / ("settings.json")
     jsonpath.write_text(json.dumps(project_settings))
 
-#########################################################  C3D processing  ############################################################     
-def import_c3d_data (c3dFilePath):   
-    
+#########################################################  C3D processing  ############################################################
+def import_c3d_data (c3dFilePath):
+
     c3d_dict = dict()
     # Get the COM object of C3Dserver (https://pypi.org/project/pyc3dserver/)
     itf = c3d.c3dserver(msg=False)
@@ -181,23 +193,23 @@ def import_c3d_data (c3dFilePath):
     c3d_dict["OrigAnalogRate"] = c3d.get_analog_fps(itf)
     c3d_dict["OrigDataStartFrame"] = 0
     c3d_dict["OrigDataLAstFrame"] = c3d.get_last_frame(itf)
-    
+
     c3d_dict["NumFrames"] = c3d.get_num_frames(itf)
     c3d_dict["OrigNumFrames"] = c3d.get_num_frames(itf)
-    
+
     c3d_dict['MarkerNames'] = c3d.get_marker_names(itf)
     c3d_dict['NumMarkers'] = len(c3d_dict['MarkerNames'] )
-    
+
     c3d_dict['Labels'] = c3d.get_marker_names(itf)
-    
+
     c3d_dict['Timestamps'] = c3d.get_video_times(itf)
-    
+
     c3d_data = c3d.get_dict_markers(itf)
     my_dict = c3d_data['DATA']['POS']
     c3d_dict["Data"] = np.empty(shape=(c3d_dict["NumMarkers"], c3d_dict["NumFrames"], 3), dtype=np.float32)
     for i, label in enumerate(my_dict):
         c3d_dict["Data"][i] = my_dict[label]
-        
+
     return c3d_dict
 
 def get_analog_data(c3dFilePath):
@@ -206,9 +218,9 @@ def get_analog_data(c3dFilePath):
     analog_dict = c3d.get_dict_analogs(itf)
     analog_df = pd.DataFrame()
     for iLab in analog_dict['LABELS']:
-        iData = analog_dict['DATA'][iLab] 
+        iData = analog_dict['DATA'][iLab]
         analog_df[iLab] = iData.tolist()
-            
+
     return analog_df
 
 def c3d_osim_export(c3dFilePath):
@@ -217,7 +229,7 @@ def c3d_osim_export(c3dFilePath):
     # import c3d file data to a table
     adapter = osim.C3DFileAdapter()
     tables = adapter.read(c3dFilePath)
-    
+
     # save marker .mot
     try:
         markers = adapter.getMarkersTable(tables)
@@ -227,7 +239,7 @@ def c3d_osim_export(c3dFilePath):
         stoAdapter.write(markersFlat, markersFilename)
     except:
         print(c3dFilePath + ' could not export markers.trc')
-    
+
     # save grf .sto
     try:
         forces = adapter.getForcesTable(tables)
@@ -237,21 +249,21 @@ def c3d_osim_export(c3dFilePath):
         stoAdapter.write(forcesFlat, forcesFilename)
     except:
         print(c3dFilePath + 'could not export grf.mot')
-    
+
     # save emg.csv
     try:
-       c3d_emg_export(c3dFilePath) 
+       c3d_emg_export(c3dFilePath)
     except:
         print(c3dFilePath + 'could not export emg.mot')
-    
+
 def c3d_osim_export_multiple(sessionPath='',replace=0):
-    
+
     if not sessionPath:
         sessionPath = select_folder('Select session folder',get_dir_simulations())
-        
-    if not get_trial_list(sessionPath):        
+
+    if not get_trial_list(sessionPath):
         add_each_c3d_to_own_folder(sessionPath)
-    
+
     trial_list = get_trial_list(sessionPath)
     print('c3d convert ' + sessionPath)
     for trial in trial_list:
@@ -259,43 +271,43 @@ def c3d_osim_export_multiple(sessionPath='',replace=0):
         c3dpath = os.path.join(trial_folder, 'c3dfile.c3d')
         trcpath = os.path.join(trial_folder, 'markers.trc')
         motpath = os.path.join(trial_folder, 'grf.sto')
-        
+
         if not os.path.isfile(c3dpath) or not os.path.isfile(trcpath) or not os.path.isfile(motpath):
             try:
                 c3d_osim_export(c3dpath)
                 print(trial + 'c3d exported')
             except:
-                print('could not convert ' + trial + ' to markers, grf, or emg') 
-        
+                print('could not convert ' + trial + ' to markers, grf, or emg')
+
         # if not os.path.isfile(emgpath):
-        #     try: 
+        #     try:
         #         c3d_emg_export(c3dpath,emg_labels)
         #     except:
-        #         print('could not convert ' + c3dpath + ' to emg.csv') 
-     
-def c3d_emg_export(c3dFilePath,emg_labels='all'):   
-    
+        #         print('could not convert ' + c3dpath + ' to emg.csv')
+
+def c3d_emg_export(c3dFilePath,emg_labels='all'):
+
     itf = c3d.c3dserver(msg=False)   # Get the COM object of C3Dserver (https://pypi.org/project/pyc3dserver/)
     c3d.open_c3d(itf, c3dFilePath)   # Open a C3D file
-    
+
     # For the information of all analogs(excluding or including forces/moments)
     dict_analogs = c3d.get_dict_analogs(itf)
     analog_labels = dict_analogs['LABELS']
-    
+
     # if no emg_labels are given export all analog labels
     if emg_labels == 'all':
         emg_labels = analog_labels
-    
+
     # Initialize the final dataframe
     analog_df = pd.DataFrame()
-    
+
     # Store each of the vectors in dict_analogs as a columns in the final dataframe
     for iLab in analog_labels:
         if iLab in emg_labels:
-            iData = dict_analogs['DATA'][iLab] 
+            iData = dict_analogs['DATA'][iLab]
             analog_df[iLab] = iData.tolist()
     maindir = os.path.dirname(c3dFilePath)
-    
+
     # Sava data in parent directory
     emg_filename = os.path.join(maindir,'emg.csv')
     analog_df.to_csv(emg_filename, index=False)
@@ -338,7 +350,7 @@ def selectOsimVersion():
     msg = 'These OpenSim versions are currently installed in "C:/", please select one'
     indx = inputList(msg, installed_versions)
     osim_version_bops = float(installed_versions[indx])
-    
+
     bops = {
         'osimVersion': osim_version_bops,
         'directories': {
@@ -348,9 +360,9 @@ def selectOsimVersion():
             'indent': '  '
         }
     }
-    
+
     xml_write(bops['directories']['setupbopsXML'], bops, 'bops', bops['xmlPref'])
-    
+
 def inputList(prompt, options):
     print(prompt)
     for i, option in enumerate(options):
@@ -363,13 +375,13 @@ def inputList(prompt, options):
             return choice-1
         except ValueError:
             print("Invalid choice. Please enter a number between 1 and ", len(options))
-            
+
 def xml_write(file, data, root_name, pref):
     root = ET.Element(root_name)
     dict_to_xml(data, root)
     tree = ET.ElementTree(root)
     tree.write(file, xml_declaration=True, encoding='UTF-8', method="xml", short_empty_elements=False, indent=pref['indent'])
-    
+
 def dict_to_xml(data, parent):
     for key, value in data.items():
         if isinstance(value, dict):
@@ -378,17 +390,17 @@ def dict_to_xml(data, parent):
             ET.SubElement(parent, key).text = str(value)
 
 def add_each_c3d_to_own_folder(sessionPath):
-    
+
     c3d_files = [file for file in os.listdir(sessionPath) if file.endswith(".c3d")]
     for file in c3d_files:
         fname = file.replace('.c3d', '')
         src = os.path.join(sessionPath, file)
         dst_folder = os.path.join(sessionPath, fname)
-        
-        # create a new folder 
+
+        # create a new folder
         try: os.mkdir(dst_folder)
         except: 'nothing'
-        
+
         # copy file
         dst = os.path.join(dst_folder, 'c3dfile.c3d')
         shutil.copy(src, dst)
@@ -398,37 +410,37 @@ def emg_filter(c3dFilePath, band_lowcut=30, band_highcut=400, lowcut=6, order=4)
     c3d_dict = import_c3d_data (c3dFilePath)
     fs = c3d_dict['OrigAnalogRate']
     if fs < band_highcut * 2:
-        band_highcut = fs / 2        
+        band_highcut = fs / 2
         warnings.warn("High pass frequency was too high. Using 1/2 *  sampling frequnecy instead")
-        
+
     analog_df = get_analog_data(c3dFilePath)
     max_emg_list = []
     for col in analog_df.columns:
             max_rolling_average = np.max(pd.Series(analog_df[col]).rolling(200, min_periods=1).mean())
             max_emg_list.append(max_rolling_average)
-            
+
     nyq = 0.5 * fs
     normal_cutoff  = lowcut / nyq
     b_low, a_low = sig.butter(order, normal_cutoff, btype='low',analog=False)
-    
+
     low = band_lowcut / nyq
     high = band_highcut / nyq
     b_band, a_band = sig.butter(order, [low, high], btype='band')
-    
+
     for col in analog_df.columns:
         raw_emg_signal = analog_df[col]
-        bandpass_signal = sig.filtfilt(b_band, a_band, raw_emg_signal)        
+        bandpass_signal = sig.filtfilt(b_band, a_band, raw_emg_signal)
         detrend_signal = sig.detrend(bandpass_signal, type='linear')
         rectified_signal = np.abs(detrend_signal)
         linear_envelope = sig.filtfilt(b_low, a_low, rectified_signal)
         analog_df[col] = linear_envelope
-        
+
     return analog_df
 
 def torsion_tool(): # to complete...
-   a=2 
-    
-def selec_analog_labels (c3dFilePath):   
+   a=2
+
+def selec_analog_labels (c3dFilePath):
     # Get the COM object of C3Dserver (https://pypi.org/project/pyc3dserver/)
     itf = c3d.c3dserver(msg=False)
     c3d.open_c3d(itf, c3dFilePath)
@@ -443,11 +455,11 @@ def read_trc_file(trcFilePath):
     return df
 
 def writeTRC(c3dFilePath, trcFilePath):
-    
+
     print('writing trc file ...')
     c3d_dict = import_c3d_data (c3dFilePath)
-    
-    with open(trcFilePath, 'w') as file:        
+
+    with open(trcFilePath, 'w') as file:
         # from https://github.com/IISCI/c3d_2_trc/blob/master/extractMarkers.py
         # Write header
         file.write("PathFileType\t4\t(X/Y/Z)\toutput.trc\n")
@@ -476,9 +488,9 @@ def writeTRC(c3dFilePath, trcFilePath):
             file.write("\n")
 
         print('trc file saved')
-###############################################  OpenSim (to be complete)  ############################################################     
+###############################################  OpenSim (to be complete)  ############################################################
 def run_IK(osim_modelPath, trc_file, resultsDir, marker_weights_path):
-    
+
     trc = osim.TimeSeriesTableMotion().loadTRC(trc_file)                # Load the TRC file
     osimModel = osim.Model(osim_modelPath)                              # Load the model
     state = osimModel.initSystem()
@@ -533,7 +545,7 @@ def run_ID(osim_modelPath, ik_results_file, mot_file, grf_xml, resultsDir):
 def run_MA(osim_modelPath, ik_mot, grf_xml, resultsDir):
     if not os.path.exists(resultsDir):
         os.makedirs(resultsDir)
-    
+
     # Load the model
     model = osim.Model(osim_modelPath)
     model.initSystem()
@@ -610,16 +622,16 @@ def  simple_gui():
 
     entry = ctk.CTkEntry(master=root, width=120, height=25,corner_radius=10)
     entry.place(relx=0.5, rely=0.5, anchor=tkinter.CENTER)
-    
+
     text = entry.get()
     print(text)
-    
+
     root.mainloop()
 
 def complex_gui():
     ctk.set_appearance_mode("System")  # Modes: "System" (standard), "Dark", "Light"
     ctk.set_default_color_theme("blue")  # Themes: "blue" (standard), "green", "dark-blue"
-    
+
     class App(ctk.CTk):
         def __init__(self):
             super().__init__()
@@ -771,7 +783,7 @@ def complex_gui():
 
         def sidebar_button_event(self):
             print("sidebar_button click")
-    
+
     app = App()
     app.mainloop()
 
@@ -782,16 +794,16 @@ def subjet_select_gui():
         settings['subjects'] = dict()
         for i, switch in enumerate(switches):
             settings['subjects'][subject_names[i]] = switch.get()
-            
+
         save_bops_settings(settings)
         exit()
-        
-            
+
+
     ctk.set_appearance_mode("System")  # Modes: "System" (standard), "Dark", "Light"
     ctk.set_default_color_theme("dark-blue")  # Themes: "blue" (standard), "green", "dark-blue"
-    
+
     screen_size = si.get_monitors()
-    
+
     root = ctk.CTk()
     root.geometry('500x600')
 
@@ -806,22 +818,22 @@ def subjet_select_gui():
     scrollable_frame_switches = []
     switches_gui  = []
     values = []
-    
+
     for idx, subject in enumerate(subject_names):
         switch = ctk.CTkSwitch(master=scrollable_frame, text=subject)
         switch.pack(padx=0, pady=0)
-        switches_gui.append(switch) 
-        
+        switches_gui.append(switch)
+
         scrollable_frame_switches.append(switch)
 
-    button1 = ctk.CTkButton(master = root, text='Select subjects', 
+    button1 = ctk.CTkButton(master = root, text='Select subjects',
                             command = lambda: get_switches_status(switches_gui))
     button1.pack(pady=12,padx=10)
 
     root.mainloop()
-    
-    
-    
+
+
+
     # class App(ctk.CTk):
     #     def __init__(self):
     #         super().__init__()
@@ -842,7 +854,7 @@ def subjet_select_gui():
     #             self.checkbox_1 = ctk.CTkCheckBox(master=self.checkbox_slider_frame, text=i)
     #             self.checkbox_1.grid(row=count, column=1, pady=(20, 0), padx=20, sticky="n")
     #             count += 1
-            
+
     #         # create scrollable frame
     #         self.scrollable_frame = ctk.CTkScrollableFrame(self, label_text="CTkScrollableFrame")
     #         self.scrollable_frame.grid(row=1, column=2, padx=(20, 0), pady=(20, 0), sticky="nsew")
@@ -852,7 +864,7 @@ def subjet_select_gui():
     #             switch = ctk.CTkSwitch(master=self.scrollable_frame, text=f"CTkSwitch {i}")
     #             switch.grid(row=i, column=0, padx=10, pady=(0, 20))
     #             self.scrollable_frame_switches.append(switch)
-    
+
     # app = App()
     # app.mainloop()
 
@@ -864,28 +876,28 @@ def subjet_select_gui():
 ########################################################################################################################################
 
 
-######################################################  Title section  #################################################################     
+######################################################  Title section  #################################################################
 ########################################################################################################################################
 
 
-##################################################  CREATE BOPS SETTINGS ###############################################################     
+##################################################  CREATE BOPS SETTINGS ###############################################################
 def add_markers_to_settings():
     settings = get_bops_settings()
     for subject_folder in get_subject_folders():
         for session in get_subject_sessions(subject_folder):
             sessionPath = os.path.join(subject_folder,session)
             for trial_name in get_trial_list(sessionPath,full_dir = False):
-                
+
                 c3dFilePath = get_trial_dirs(sessionPath, trial_name)['c3d']
                 c3d_data = import_c3d_data(c3dFilePath)
-                
-            
+
+
                 settings['marker_names'] = c3d_data['marker_names']
                 break
             break
         break
-    
-    save_bops_settings(settings)                   
+
+    save_bops_settings(settings)
 
 def get_testing_file_path(file_type = 'c3d'):
     bops_dir = get_dir_bops()
@@ -893,25 +905,25 @@ def get_testing_file_path(file_type = 'c3d'):
     file_path = []
     for subject_folder in get_subject_folders(dir_simulations):
         for session in get_subject_sessions(subject_folder):
-            sessionPath = os.path.join(subject_folder,session)           
+            sessionPath = os.path.join(subject_folder,session)
             for idx, trial_name in enumerate(get_trial_list(sessionPath,full_dir = False)):
 
                 resultsDir = get_trial_list(sessionPath,full_dir = True)[idx]
                 if file_type.__contains__('c3d'):
                     file_path.append(os.path.join(resultsDir,'c3dfile.c3d'))
-                    
+
                 elif file_type.__contains__('trc'):
                     file_path.append(os.path.join(resultsDir,'markers.trc'))
-                    
+
                 elif file_type.__contains__('so'):
                     file_path.append(os.path.join(resultsDir,'_StaticOptimization_activation.sto'))
                     file_path.append(os.path.join(resultsDir,'_StaticOptimization_force.sto'))
-                                        
+
                 break
             break
         break
-    file_path = file_path[0] # make it a string instead of a list 
-    
+    file_path = file_path[0] # make it a string instead of a list
+
     return file_path
 
 def progress_bar():
@@ -921,10 +933,36 @@ def progress_bar():
 ########################################################################################################################################
 
 
+if __name__ == '__main__':
+    import tkinter as tk
+    from PIL import ImageTk, Image
 
-if __name__ ** '__main__':
-    def test():
-        print('test')
+    def print_all_good():
+        print('all packages are installed and bops is ready to use!!')
 
-test()
-# end 
+        dir_bops = get_dir_bops()
+        jpeg_path = os.path.join(dir_bops,'src\platypus.jpg')
+        # image = Image.open(jpeg_path)
+        # image.show()
+        show_image(jpeg_path)
+    
+    def show_image(image_path):
+        # Create a Tkinter window
+        window = tk.Tk()
+        # Load the image using PIL
+        image = Image.open(image_path)
+        # Create a Tkinter PhotoImage from the PIL image
+        photo = ImageTk.PhotoImage(image)
+        
+        # Create a Tkinter label to display the image
+        label = tk.Label(window, image=photo)
+        label.pack()
+        # Run the Tkinter event loop
+        window.mainloop()
+
+
+
+
+    print_all_good()
+
+# end
