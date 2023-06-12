@@ -24,6 +24,31 @@ def install_opensim(VERSION=4.3):
     # python .\setup_win_python38.py
     # python -m pip install .
 
+def is_python_installed():
+    if sys.version_info.major < 3:
+        print("Python 3 or above is required.")
+    else:
+        print("Python is installed.")
+
+is_python_installed()
+
+def check_python_version(OpensimVersion):
+    if OpensimVersion in ['4.1', '4.2']:
+        if sys.version_info.major != 2 or sys.version_info.minor != 7:
+            print("Error: Python version should be 2.7 for OpensimVersion 4.1 or 4.2.")
+    elif OpensimVersion == '4.3' or OpensimVersion >= '4.3':
+        if sys.version_info.major != 3 or sys.version_info.minor != 8:
+            print("Error: Python version should be 3.8 for OpensimVersion 4.3 or above.")
+    elif OpensimVersion == '4.2':
+        if sys.version_info.major != 3 or sys.version_info.minor != 7:
+            print("Error: Python version should be 3.7 for OpensimVersion 4.2.")
+    else:
+        print("Invalid OpensimVersion.")
+
+# Example usage
+check_python_version('4.3')
+
+
 Packages = ['numpy','c3d','opensim','pyc3dserver','requests','bs4','pandas','selenium','webdriver-manager','matplotlib','docx',
         'autopep8','tk','jupyter','scipy', 'xmltodict','tkfilebrowser','customtkinter','screeninfo']
 
