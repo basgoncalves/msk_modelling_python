@@ -10,8 +10,11 @@ def test_import_c3d_data():
     print(os.path.isfile(c3dFilePath))
     c3d_dict =  import_c3d_data(c3dFilePath = get_testing_file_path('c3d'))
     print(c3d_dict)
-    
+
+    pass
+
     return c3d_dict
+    
 
 def test_plot_EMG_data():
     c3dFilePath = get_testing_file_path('c3d')

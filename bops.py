@@ -3,6 +3,7 @@
 # BOPS: a Matlab toolbox to batch musculoskeletal data processing for OpenSim, Computer Methods in Biomechanics and Biomedical Engineering
 # DOI: 10.1080/10255842.2020.1867978
 
+import unittest
 import msk_modelling_pkg_install
 import os
 import shutil
@@ -37,6 +38,8 @@ import customtkinter as ctk
 import screeninfo as si
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import tkinter as tk
+from PIL import ImageTk, Image
 
 def select_folder(prompt='Please select your folder', staring_path=''):
     if not staring_path: # if empty
@@ -933,36 +936,71 @@ def progress_bar():
 ########################################################################################################################################
 
 
-if __name__ == '__main__':
-    import tkinter as tk
-    from PIL import ImageTk, Image
-
-    def print_all_good():
-        print('all packages are installed and bops is ready to use!!')
-
-        dir_bops = get_dir_bops()
-        jpeg_path = os.path.join(dir_bops,'src\platypus.jpg')
-        # image = Image.open(jpeg_path)
-        # image.show()
-        show_image(jpeg_path)
+class test_bops(unittest.TestCase):
+       
+    def test_function(self):
+        # Test 1
+        self.assertEqual(my_fun(), 'a')
+        assert len([1, 2, 3]) == 3
     
-    def show_image(image_path):
-        # Create a Tkinter window
-        window = tk.Tk()
-        # Load the image using PIL
-        image = Image.open(image_path)
-        # Create a Tkinter PhotoImage from the PIL image
-        photo = ImageTk.PhotoImage(image)
+    def test_import_c3d_data(self):
         
-        # Create a Tkinter label to display the image
-        label = tk.Label(window, image=photo)
-        label.pack()
-        # Run the Tkinter event loop
-        window.mainloop()
+        print('test_import_c3d_data successfull')
+        
+        with self.assertRaises(ValueError):
+            c3dFilePath = get_testing_file_path('c3d')
+        
+        self.assertEqual(type(c3dFilePath),'str')
+        self.assertTrue(os.path.isfile(c3dFilePath))
+        with self.assertRaises(ValueError):
+            import_c3d_data(c3dFilePath = get_testing_file_path('c3d'))
+        
+        
+        
+    
+    def test_print():       
+        def print_all_good():
+                print('all packages are installed and bops is ready to use!!')
+
+                dir_bops = get_dir_bops()
+                image_path = os.path.join(dir_bops,'src\platypus.jpg')
+                show_image(image_path)
+            
+        def print_sad_platypus():
+
+                dir_bops = get_dir_bops()
+                image_path = os.path.join(dir_bops,'src\platypus_sad.jpg')
+                show_image(image_path)
+
+        def show_image(image_path):
+            # Create a Tkinter window
+            window = tk.Tk()
+            # Load the image using PIL
+            image = Image.open(image_path)
+            # Create a Tkinter PhotoImage from the PIL image
+            photo = ImageTk.PhotoImage(image)
+            
+            # Create a Tkinter label to display the image
+            label = tk.Label(window, image=photo)
+            label.pack()
+            # Run the Tkinter event loop
+            window.mainloop()
 
 
 
-
-    print_all_good()
+# functions to run only when bops is called itself (mainly tests)
+if __name__ == '__main__':
+    unittest.main()
+    
+    
+    def run_tests():
+        test_import_c3d_data()
+    
+    try:
+        run_tests()
+        print_all_good()
+    except:
+        print_sad_platypus()
+        
 
 # end
