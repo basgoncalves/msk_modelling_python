@@ -1,7 +1,3 @@
-import sys
-import os
-import subprocess
+import pandas as pd
 
-pythonDir = os.path.dirname(sys.executable)
-
-print(pythonDir)
+print(type(pd.DataFrame()))

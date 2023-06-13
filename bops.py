@@ -3,40 +3,8 @@
 # BOPS: a Matlab toolbox to batch musculoskeletal data processing for OpenSim, Computer Methods in Biomechanics and Biomedical Engineering
 # DOI: 10.1080/10255842.2020.1867978
 
-import msk_modelling_pkg_install
-import os
-import shutil
-import sys
-import subprocess
-try:
-    import opensim as osim
-except:
-    print('Check if __init__.py has "." before packages (e.g. "from .simbody" instead of "from simbody")')
-    pythonPath = os.path.dirname(sys.executable)
-    initPath = os.path.join(pythonPath,'\lib\site-packages\opensim\__init__.py')
-    print('python path is: ', pythonPath)
 
-    subprocess.run(["explorer", directory_path])
-
-from xml.etree import ElementTree as ET
-import numpy as np
-import pyc3dserver as c3d
-import pandas as pd
-import math
-import scipy
-import scipy.signal as sig
-from scipy.spatial.transform import Rotation
-from pathlib import Path
-import warnings
-import json
-from tkinter import messagebox
-from tkinter import filedialog
-import tkinter
-import tkfilebrowser
-import customtkinter as ctk
-import screeninfo as si
-from tqdm import tqdm
-import matplotlib.pyplot as plt
+from msk_modelling_pkg_install import *
 
 def select_folder(prompt='Please select your folder', staring_path=''):
     if not staring_path: # if empty
@@ -488,6 +456,8 @@ def writeTRC(c3dFilePath, trcFilePath):
             file.write("\n")
 
         print('trc file saved')
+
+
 ###############################################  OpenSim (to be complete)  ############################################################
 def run_IK(osim_modelPath, trc_file, resultsDir, marker_weights_path):
 
@@ -873,10 +843,30 @@ def subjet_select_gui():
 
 
 ########################################################  Plotting  ####################################################################
+def plotBops():
+    pass
+
+def show_image(image_path):
+    # Create a Tkinter window
+    window = tk.Tk()
+    # Load the image using PIL
+    image = Image.open(image_path)
+    # Create a Tkinter PhotoImage from the PIL image
+    photo = ImageTk.PhotoImage(image)
+    
+    # Create a Tkinter label to display the image
+    label = tk.Label(window, image=photo)
+    label.pack()
+    # Run the Tkinter event loop
+    window.mainloop()
+
 ########################################################################################################################################
 
 
-######################################################  Title section  #################################################################
+######################################################  Error prints  ##################################################################
+def exampleFunction():
+    pass
+
 ########################################################################################################################################
 
 
@@ -932,37 +922,72 @@ def progress_bar():
         pbar.update(1)
 ########################################################################################################################################
 
+################################################ UTILS
 
-if __name__ == '__main__':
-    import tkinter as tk
-    from PIL import ImageTk, Image
+def clear_terminal():
+    # Clear terminal command based on the operating system
+    if os.name == 'nt':  # For Windows
+        os.system('cls')
+    else:  # For macOS and Linux (posix)
+        os.system('clear')
 
-    def print_all_good():
-        print('all packages are installed and bops is ready to use!!')
+def uni_vie_print():
+    print("=============================================")
+    print("      DEVELOPED BY BASILIO GONCALVES         ")
+    print("            University of Vienna             ")
+    print("    Contact: basilio.goncalves@univie.ac.at  ")
+    print("=============================================")
 
-        dir_bops = get_dir_bops()
-        jpeg_path = os.path.join(dir_bops,'src\platypus.jpg')
-        # image = Image.open(jpeg_path)
-        # image.show()
-        show_image(jpeg_path)
+
+######################################################### BOPS TESTING #################################################################
+def print_all_good():             
+    dir_bops = get_dir_bops()
+    image_path = os.path.join(dir_bops,'src\platypus.jpg')
+    print('all packages are installed and bops is ready to use!!')   
+    show_image(image_path)
+      
+def print_sad_platypus():
+    dir_bops = get_dir_bops()
+    image_path = os.path.join(dir_bops,'src\platypus_sad.jpg')
+    show_image(image_path)
+
+class test_bops(unittest.TestCase):
     
-    def show_image(image_path):
-        # Create a Tkinter window
-        window = tk.Tk()
-        # Load the image using PIL
-        image = Image.open(image_path)
-        # Create a Tkinter PhotoImage from the PIL image
-        photo = ImageTk.PhotoImage(image)
+    def test_import_opensim(self):
+        print('testing import opensim ... ')
+        import opensim as osim
+                    
+    def test_import_c3d_data(self):
+        print('testing import_c3d_data ... ')
         
-        # Create a Tkinter label to display the image
-        label = tk.Label(window, image=photo)
-        label.pack()
-        # Run the Tkinter event loop
-        window.mainloop()
-
-
-
-
-    print_all_good()
+        c3dFilePath = get_testing_file_path('c3d')       
+        
+        self.assertEqual(type(c3dFilePath),str)
+        self.assertTrue(os.path.isfile(c3dFilePath))        
+        
+        import_c3d_data(c3dFilePath)
+        
+        # make sure that import c3d does not work with a string
+        with self.assertRaises(Exception):
+            import_c3d_data(2)  
+        
+        
+        filtered_emg = emg_filter(c3dFilePath)
+        self.assertIs(type(filtered_emg),pd.DataFrame)
+        
+         
+if __name__ == '__main__':
+    
+    clear_terminal()
+    uni_vie_print()
+    
+    print('runnung all tests ...')
+    output = unittest.main(exit=False)
+    if output.result.errors or output.result.failures:
+        print_sad_platypus()
+    else:
+        print('no errors')
+        print_all_good()
+            
 
 # end
