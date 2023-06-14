@@ -25,20 +25,30 @@ def install_opensim(VERSION=4.3):
     # python -m pip install .
 
 def check_python_version(OpensimVersion):
+    
     if OpensimVersion in ['4.1', '4.2']:
         if sys.version_info.major != 2 or sys.version_info.minor != 7:
             print("Error: Python version should be 2.7 for OpensimVersion 4.1 or 4.2.")
+    
     elif OpensimVersion == '4.3' or OpensimVersion >= '4.3':
         if sys.version_info.major != 3 or sys.version_info.minor != 8:
             print("Error: Python version should be 3.8 for OpensimVersion 4.3 or above.")
+    
     elif OpensimVersion == '4.2':
         if sys.version_info.major != 3 or sys.version_info.minor != 7:
             print("Error: Python version should be 3.7 for OpensimVersion 4.2.")
+            
+    elif  OpensimVersion in ['3.2', '3.3']:
+        if sys.version_info.major != 2 or sys.version_info.minor != 7:
+            print("Error: Python version should be 2.7 for OpensimVersion 3.2 or 3.3.")            
+    
     else:
         print("Invalid OpensimVersion.")
+        print('Check opensim-python version compatability in: ')
+        print('https://simtk-confluence.stanford.edu:8443/display/OpenSim/Scripting+in+Python')
 
 # Example usage
-check_python_version('4.3')
+check_python_version('3.3')
 
 
 Packages = ['numpy','c3d','opensim','pyc3dserver','requests','bs4','pandas','selenium','webdriver-manager','matplotlib','docx',
