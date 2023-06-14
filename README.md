@@ -13,7 +13,7 @@ Biomechanical tools included:
 1. Download a code interpreter (I recommend visual studio code, but do whatever)
 https://code.visualstudio.com/download
 	
-2. Install Rapid Env Editor 
+2. Install Rapid Env Editor (optinonal)
 https://www.rapidee.com/en/about
 	
 3. Download and install python (I suggest 3.8) - make sure it is the correct bit version
