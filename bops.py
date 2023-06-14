@@ -1038,12 +1038,27 @@ def uni_vie_print():
     print("    Contact: basilio.goncalves@univie.ac.at  ")
     print("=============================================")
 
+def print_bops_ready():
+    print(  '                                                                                                       ')
+    print(  '                                                                                                       ')
+    print(  '                                                                                                       ')
+    print(  '                                                                                                       ')
+    print(  ' ________  ________  ________  ________          ________  _______   ________  ________      ___    ___')
+    print(  '|\   __  \|\   __  \|\   __  \|\   ____\        |\   __  \|\  ___ \ |\   __  \|\   ___ \    |\  \  /  /|')
+    print(  '\ \  \|\ /\ \  \|\  \ \  \|\  \ \  \___|_       \ \  \|\  \ \   __/|\ \  \|\  \ \  \_|\ \   \ \  \/  //')
+    print(  ' \ \   __  \ \  \\\  \ \   ____\ \_____   \       \ \   _  _\ \  \_|/_\ \   __  \ \  \ \\ \   \ \    //')
+    print(  '  \ \  \|\  \ \  \\\  \ \  \___|\|____|\   \       \ \  \\  \\ \  \_|\ \ \  \ \  \ \  \_\\ \   \/   // ')  
+    print(  '   \ \_______\ \_______\ \__\     ____\_\   \       \ \__\\ _\\ \_______\ \__\ \__\ \_______\__/   //   ') 
+    print(  '    \|_______|\|_______|\|__|    |\_________\       \|__|\|__|\|_______|\|__|\|__|\|_______|\___ //    ')  
+    print(  '                                  \|_________|                                             \|___|/     ')
+                                                                                                            
 
 ######################################################### BOPS TESTING #################################################################
 def print_all_good():             
     dir_bops = get_dir_bops()
     image_path = os.path.join(dir_bops,'src\platypus.jpg')
-    print('all packages are installed and bops is ready to use!!')   
+    print('all packages are installed and bops is ready to use!!') 
+    print_bops_ready()
     show_image(image_path)
       
 def print_sad_platypus():
@@ -1074,8 +1089,49 @@ class test_bops(unittest.TestCase):
         
         filtered_emg = emg_filter(c3dFilePath)
         self.assertIs(type(filtered_emg),pd.DataFrame)
+    
+    def test_loop_through_folders(self):
+        print('testing loop through folders ... ')
+        for subject_folder in get_subject_folders(get_testing_file_path()):
+            for session in get_subject_sessions(subject_folder):
+                session_path = os.path.join(subject_folder,session)
+                for idx, trial_name in enumerate(get_trial_list(session_path,full_dir = False)):
+
+                    resultsDir = get_trial_list(session_path,full_dir = True)[idx]
+                    self.assertEqual(resultsDir,str)
+                    return
+    
+    def to_be_finished_test_add_marker_to_trc():
+        print('testing add_marker_trc ... ')
+    
+    def to_be_finished_test_IK():
+        print('testing IK ... ')
+        for subject_folder in get_subject_folders(testing_data_dir()):
+            for session in get_subject_sessions(subject_folder):
+                session_path = os.path.join(subject_folder,session)
+                for idx, trial_name in enumerate(get_trial_list(session_path,full_dir = False)):
+
+                    model_path = r'.\test.osim'
+                    ik_results_file = r'.\test.osim'
+                    mot_file = r'.\test.osim'
+                    grf_xml = r'.\test.osim'
+                    resultsDir = get_trial_list(session_path,full_dir = True)[idx]
+                    run_IK(model_path, trc_file, resultsDir, marker_weights_path)
+    
+    def test_writeTRC():
+        print('testing writeTRC ... ')
+        trcFilePath = get_testing_file_path('trc')
+        c3dFilePath = get_testing_file_path('c3d')
+        writeTRC(c3dFilePath, trcFilePath)
         
-         
+    def test_c3d_export(self):
+        print('testing c3d_export ... ')
+        c3dFilePath = get_testing_file_path('c3d')
+        c3d_dict = import_c3d_data(c3dFilePath)
+        self.assertEqual(type(c3d_dict),dict)
+        c3d_osim_export(c3dFilePath)
+        
+
 if __name__ == '__main__':
     
     clear_terminal()
