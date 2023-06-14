@@ -3,8 +3,48 @@
 # BOPS: a Matlab toolbox to batch musculoskeletal data processing for OpenSim, Computer Methods in Biomechanics and Biomedical Engineering
 # DOI: 10.1080/10255842.2020.1867978
 
+import sys
+import os
+import subprocess
+src_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),'src')
+sys.path.append(src_path)
+import msk_modelling_pkg_install
+# import all pakages needed
+import unittest
+import numpy as np
+import pandas as pd
+import math
+import shutil
+from xml.etree import ElementTree as ET
+import pyc3dserver as c3d
+import scipy
+import scipy.signal as sig
+from scipy.spatial.transform import Rotation
+from pathlib import Path
+import warnings
+import json
+from tkinter import messagebox
+import tkinter.messagebox as mbox
+from tkinter import filedialog
+import tkinter
+import tkfilebrowser
+import customtkinter as ctk
+import screeninfo as si
+from tqdm import tqdm
+import matplotlib.pyplot as plt
+import tkinter as tk
+from PIL import ImageTk, Image
+try:
+    import opensim as osim
+except:
+    print('=============================================================================================')
+    print('could not import opensim')
+    print('Check if __init__.py has "." before packages (e.g. "from .simbody" instead of "from simbody")')
+    pythonPath = os.path.dirname(sys.executable)
+    initPath = os.path.join(pythonPath,'lib\site-packages\opensim\__init__.py')
+    print('init path is: ', initPath)    
+    print('=============================================================================================')
 
-from msk_modelling_pkg_install import *
 
 def select_folder(prompt='Please select your folder', staring_path=''):
     if not staring_path: # if empty
@@ -1037,34 +1077,22 @@ def uni_vie_print():
     print("            University of Vienna             ")
     print("    Contact: basilio.goncalves@univie.ac.at  ")
     print("=============================================")
-
-def print_bops_ready():
-    print(  '                                                                                                       ')
-    print(  '                                                                                                       ')
-    print(  '                                                                                                       ')
-    print(  '                                                                                                       ')
-    print(  ' ________  ________  ________  ________          ________  _______   ________  ________      ___    ___')
-    print(  '|\   __  \|\   __  \|\   __  \|\   ____\        |\   __  \|\  ___ \ |\   __  \|\   ___ \    |\  \  /  /|')
-    print(  '\ \  \|\ /\ \  \|\  \ \  \|\  \ \  \___|_       \ \  \|\  \ \   __/|\ \  \|\  \ \  \_|\ \   \ \  \/  //')
-    print(  ' \ \   __  \ \  \\\  \ \   ____\ \_____   \       \ \   _  _\ \  \_|/_\ \   __  \ \  \ \\ \   \ \    //')
-    print(  '  \ \  \|\  \ \  \\\  \ \  \___|\|____|\   \       \ \  \\  \\ \  \_|\ \ \  \ \  \ \  \_\\ \   \/   // ')  
-    print(  '   \ \_______\ \_______\ \__\     ____\_\   \       \ \__\\ _\\ \_______\ \__\ \__\ \_______\__/   //   ') 
-    print(  '    \|_______|\|_______|\|__|    |\_________\       \|__|\|__|\|_______|\|__|\|__|\|_______|\___ //    ')  
-    print(  '                                  \|_________|                                             \|___|/     ')
                                                                                                             
 
 ######################################################### BOPS TESTING #################################################################
-def print_all_good():             
+def platypus_pic_path(imageType = 'happy'):
     dir_bops = get_dir_bops()
-    image_path = os.path.join(dir_bops,'src\platypus.jpg')
+    if imageType == 'happy':
+        image_path = os.path.join(dir_bops,'src\platypus.jpg')
+    else:
+        image_path = os.path.join(dir_bops,'src\platypus_sad.jpg')
+
+def print_happy_platypus():             
     print('all packages are installed and bops is ready to use!!') 
-    print_bops_ready()
-    show_image(image_path)
+    show_image(platypus_pic_path('happy'))
       
 def print_sad_platypus():
-    dir_bops = get_dir_bops()
-    image_path = os.path.join(dir_bops,'src\platypus_sad.jpg')
-    show_image(image_path)
+    show_image(platypus_pic_path('sad'))
 
 class test_bops(unittest.TestCase):
     
@@ -1118,7 +1146,7 @@ class test_bops(unittest.TestCase):
                     resultsDir = get_trial_list(session_path,full_dir = True)[idx]
                     run_IK(model_path, trc_file, resultsDir, marker_weights_path)
     
-    def test_writeTRC():
+    def test_writeTRC(self):
         print('testing writeTRC ... ')
         trcFilePath = get_testing_file_path('trc')
         c3dFilePath = get_testing_file_path('c3d')
@@ -1143,7 +1171,7 @@ if __name__ == '__main__':
         print_sad_platypus()
     else:
         print('no errors')
-        print_all_good()
+        print_happy_platypus()
             
 
 # end

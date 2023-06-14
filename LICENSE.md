@@ -1,4 +1,4 @@
-MIT License
+MIT License - https://choosealicense.com/licenses/mit/#
 
 Copyright (c) 2023 Basilio Gonçalves
 

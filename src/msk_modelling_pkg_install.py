@@ -59,45 +59,4 @@ for pkg in Packages:
             install_opensim(4.3)
             
         
-# import all pakages needed
-import os
-import sys
-import subprocess
-import unittest
-import numpy as np
-import pandas as pd
-import math
-import shutil
-from xml.etree import ElementTree as ET
-import pyc3dserver as c3d
-import scipy
-import scipy.signal as sig
-from scipy.spatial.transform import Rotation
-from pathlib import Path
-import warnings
-import json
-from tkinter import messagebox
-import tkinter.messagebox as mbox
-from tkinter import filedialog
-import tkinter
-import tkfilebrowser
-import customtkinter as ctk
-import screeninfo as si
-from tqdm import tqdm
-import matplotlib.pyplot as plt
-import tkinter as tk
-from PIL import ImageTk, Image
-try:
-    import opensim as osim
-except:
-    print('=============================================================================================')
-    print('could not import opensim')
-    print('Check if __init__.py has "." before packages (e.g. "from .simbody" instead of "from simbody")')
-    pythonPath = os.path.dirname(sys.executable)
-    initPath = os.path.join(pythonPath,'lib\site-packages\opensim\__init__.py')
-    print('init path is: ', initPath)    
-    print('=============================================================================================')
-
-
-
 # END
