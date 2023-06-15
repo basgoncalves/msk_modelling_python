@@ -9,6 +9,13 @@ import sys
 import pkg_resources
 import os
 
+installed_packages = pkg_resources.working_set
+installed_packages_list = sorted(['%s==%s' % (i.key, i.version) for i in installed_packages])
+
+def install_pipreqs():
+    if not any('pipreqs' in s for s in installed_packages_list):
+        subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'pipreqs'])    
+
 def install_opensim(VERSION=4.3):
 
     osimIntallDirectory= r'C:\OpenSim VERSION\sdk\Python'.replace("VERSION", str(VERSION))
@@ -47,16 +54,12 @@ def check_python_version(OpensimVersion):
         print('Check opensim-python version compatability in: ')
         print('https://simtk-confluence.stanford.edu:8443/display/OpenSim/Scripting+in+Python')
 
-# Example usage
-check_python_version('3.3')
+install_pipreqs()
 
+check_python_version('3.3')
 
 Packages = ['numpy','c3d','opensim','pyc3dserver','requests','bs4','pandas','selenium','webdriver-manager','matplotlib','docx',
         'autopep8','tk','jupyter','scipy', 'xmltodict','tkfilebrowser','customtkinter','screeninfo']
-
-installed_packages = pkg_resources.working_set
-installed_packages_list = sorted(['%s==%s' % (i.key, i.version) for i in installed_packages])
-
 
 for pkg in Packages:
     if any(pkg in s for s in installed_packages_list):
