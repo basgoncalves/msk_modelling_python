@@ -188,11 +188,11 @@ def create_project_settings(project_folder=''):
     jsonpath.write_text(json.dumps(project_settings))
 
 #########################################################  C3D processing  ############################################################
-def import_c3d_data (c3dFilePath):
+def import_c3d_data(c3dFilePath):
 
     c3d_dict = dict()
     # Get the COM object of C3Dserver (https://pypi.org/project/pyc3dserver/)
-    itf = c3d.c3dserver(msg=False)
+    itf = c3d.c3dserver
     c3d.open_c3d(itf, c3dFilePath)
 
     c3d_dict['DataRate'] = c3d.get_video_fps(itf)
@@ -219,6 +219,10 @@ def import_c3d_data (c3dFilePath):
         c3d_dict["Data"][i] = my_dict[label]
 
     return c3d_dict
+
+def import_sto_data(stoFilePath):
+    df = pd.read_csv(stoFilePath,delimiter='\t', skiprows=6)
+    return df
 
 def get_analog_data(c3dFilePath):
     itf = c3d.c3dserver(msg=False)
@@ -886,6 +890,68 @@ def subjet_select_gui():
 def plotBops():
     pass
 
+def create_sto_plot(stoFilePath=False):
+    # Specify the path to the .sto file
+    if not stoFilePath:
+        stoFilePath = get_testing_file_path('id')
+
+    # Read the .sto file into a pandas DataFrame
+    data = import_sto_data(stoFilePath)
+
+    # Get the column names excluding 'time'
+    column_names = [col for col in data.columns if col != 'time']
+
+    # Calculate the grid size
+    num_plots = len(column_names)
+    grid_size = int(num_plots ** 0.5) + 1
+    # Get the screen width and height
+    root = tk.Tk()
+    screen_width = root.winfo_screenwidth()
+    screen_height = root.winfo_screenheight()
+    # Calculate the desired figure size
+    fig_width = int(screen_width * 0.9)
+    fig_height = int(screen_height * 0.9)
+    
+    # Create the subplots
+    fig, axs = plt.subplots(grid_size, grid_size, figsize=(200, 200))
+
+    # Flatten the axs array for easier indexing
+    axs = axs.flatten()
+
+    # Create a custom color using RGB values (r,g,b)
+    custom_color = (0.8, 0.4, 0.5)
+
+    num_cols = data.shape[1]
+    num_rows = int(np.ceil(num_cols / 3))  # Adjust the number of rows based on the number of columns
+
+    # Iterate over the column names and plot the data
+    for i, column in enumerate(column_names):
+        ax = axs[i]
+        ax.plot(data['time'], data[column], color=custom_color, linewidth=1.5)
+        ax.set_title(column, fontsize=12)
+        ax.set_ylabel('Moment', fontsize=10)
+
+        if i >= num_cols - 3:
+            ax.set_xlabel('time (s)', fontsize=8)
+            ax.set_xticks(np.arange(0, 11, 2))
+        
+        ax.grid(True, linestyle='--', linewidth=0.5)
+        ax.tick_params(labelsize=8)
+
+    # Remove any unused subplots
+    if num_plots < len(axs):
+        for i in range(num_plots, len(axs)):
+            fig.delaxes(axs[i])
+
+    # Adjust the spacing between subplots
+    plt.tight_layout()
+
+   
+
+    
+
+
+
 def show_image(image_path):
     # Create a Tkinter window
     window = tk.Tk()
@@ -948,6 +1014,9 @@ def get_testing_file_path(file_type = 'c3d'):
                 elif file_type.__contains__('so'):
                     file_path.append(os.path.join(resultsDir,'_StaticOptimization_activation.sto'))
                     file_path.append(os.path.join(resultsDir,'_StaticOptimization_force.sto'))
+                
+                elif file_type.__contains__('id'):
+                    file_path.append(os.path.join(resultsDir,'inverse_dynamics.sto'))
 
                 break
             break
@@ -1159,7 +1228,10 @@ class test_bops(unittest.TestCase):
         c3d_dict = import_c3d_data(c3dFilePath)
         self.assertEqual(type(c3d_dict),dict)
         c3d_osim_export(c3dFilePath)
-        
+
+    def get_testing_data(self):
+        self.assertTrue(get_testing_file_path('id'))
+
 
 if __name__ == '__main__':
     

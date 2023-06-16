@@ -3,12 +3,13 @@
 # cd .\Python_environments\virtual_env\Scripts\  
 # .\activate
 # data_science_installpkg.py
-
 import subprocess
 import sys
 import pkg_resources
 import os
 
+
+osimVersion = '4.3'
 installed_packages = pkg_resources.working_set
 installed_packages_list = sorted(['%s==%s' % (i.key, i.version) for i in installed_packages])
 
@@ -56,7 +57,7 @@ def check_python_version(OpensimVersion):
 
 install_pipreqs()
 
-check_python_version('3.3')
+check_python_version(osimVersion)
 
 Packages = ['numpy','c3d','opensim','pyc3dserver','requests','bs4','pandas','selenium','webdriver-manager','matplotlib','docx',
         'autopep8','tk','jupyter','scipy', 'xmltodict','tkfilebrowser','customtkinter','screeninfo']
@@ -71,5 +72,8 @@ for pkg in Packages:
         except:
             install_opensim(4.3)
             
-        
+if __name__ == '__main__':
+    opensimVersion = input('What is your current opensim version: ')
+    print(opensimVersion)
+    
 # END
