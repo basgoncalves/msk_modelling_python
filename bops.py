@@ -970,7 +970,7 @@ def progress_bar():
 ############################################################## OPERATIONS ##############################################################
 def calculate_jump_height_impulse(vert_grf,sample_rate):
     
-        
+    gravity = 9.81
     # Check if the variable is a NumPy array
     if isinstance(vert_grf, np.ndarray):
         print("Variable is a NumPy array")
@@ -1086,6 +1086,7 @@ def platypus_pic_path(imageType = 'happy'):
         image_path = os.path.join(dir_bops,'src\platypus.jpg')
     else:
         image_path = os.path.join(dir_bops,'src\platypus_sad.jpg')
+    return image_path
 
 def print_happy_platypus():             
     print('all packages are installed and bops is ready to use!!') 
@@ -1108,7 +1109,7 @@ class test_bops(unittest.TestCase):
         self.assertEqual(type(c3dFilePath),str)
         self.assertTrue(os.path.isfile(c3dFilePath))        
         
-        import_c3d_data(c3dFilePath)
+        self.assertEqual(type(import_c3d_data(c3dFilePath)),dict)
         
         # make sure that import c3d does not work with a string
         with self.assertRaises(Exception):
