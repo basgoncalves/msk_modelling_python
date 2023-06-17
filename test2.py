@@ -1,16 +1,47 @@
 from bops import *
 
-def add_title(axes):
-    for i, ax in enumerate(axes):
-        ax.set_title("ax%d" % (i+1), fontsize=18)
-        
-fig = plt.figure(figsize=(8, 8))
-ax1 = plt.subplot2grid((3, 3), (0, 0), colspan=2)
-ax2 = plt.subplot2grid((3, 3), (0, 2), rowspan=3)
-ax3 = plt.subplot2grid((3, 3), (1, 0), rowspan=2)
-ax4 = plt.subplot2grid((3, 3), (1, 1))
-ax5 = plt.subplot2grid((3, 3), (2, 1))
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 
-add_title(fig.axes)
+# Fixing random state for reproducibility
+np.random.seed(19680801)
+
+
+def random_walk(num_steps, max_step=0.05):
+    """Return a 3D random walk as (num_steps, 3) array."""
+    start_pos = np.random.random(3)
+    steps = np.random.uniform(-max_step, max_step, size=(num_steps, 3))
+    walk = start_pos + np.cumsum(steps, axis=0)
+    return walk
+
+
+def update_lines(num, walks, lines):
+    for line, walk in zip(lines, walks):
+        # NOTE: there is no .set_data() for 3 dim data...
+        line.set_data(walk[:num, :2].T)
+        line.set_3d_properties(walk[:num, 2])
+    return lines
+
+
+# Data: 40 random walks as (num_steps, 3) arrays
+num_steps = 30
+walks = [random_walk(num_steps) for index in range(40)]
+
+# Attaching 3D axis to the figure
+fig = plt.figure()
+ax = fig.add_subplot(projection="3d")
+
+# Create lines initially without data
+lines = [ax.plot([], [], [])[0] for _ in walks]
+
+# Setting the axes properties
+ax.set(xlim3d=(0, 1), xlabel='X')
+ax.set(ylim3d=(0, 1), ylabel='Y')
+ax.set(zlim3d=(0, 1), zlabel='Z')
+
+# Creating the Animation object
+ani = animation.FuncAnimation(
+    fig, update_lines, num_steps, fargs=(walks, lines), interval=100)
 
 plt.show()

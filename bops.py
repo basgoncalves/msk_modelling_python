@@ -3,6 +3,7 @@
 # BOPS: a Matlab toolbox to batch musculoskeletal data processing for OpenSim, Computer Methods in Biomechanics and Biomedical Engineering
 # DOI: 10.1080/10255842.2020.1867978
 
+import ctypes
 import sys
 import os
 import subprocess
@@ -44,7 +45,6 @@ except:
     initPath = os.path.join(pythonPath,'lib\site-packages\opensim\__init__.py')
     print('init path is: ', initPath)    
     print('=============================================================================================')
-
 
 def select_folder(prompt='Please select your folder', staring_path=''):
     if not staring_path: # if empty
@@ -904,16 +904,16 @@ def create_sto_plot(stoFilePath=False):
     # Calculate the grid size
     num_plots = len(column_names)
     grid_size = int(num_plots ** 0.5) + 1
+
     # Get the screen width and height
-    root = tk.Tk()
-    screen_width = root.winfo_screenwidth()
-    screen_height = root.winfo_screenheight()
-    # Calculate the desired figure size
-    fig_width = int(screen_width * 0.9)
-    fig_height = int(screen_height * 0.9)
-    
+    user32 = ctypes.windll.user32
+    screensize = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+
+    fig_width = screensize[0] * 0.9
+    fig_height = screensize[1] * 0.9
+
     # Create the subplots
-    fig, axs = plt.subplots(grid_size, grid_size, figsize=(200, 200))
+    fig, axs = plt.subplots(grid_size, grid_size, figsize=(10, 10))
 
     # Flatten the axs array for easier indexing
     axs = axs.flatten()
@@ -928,8 +928,11 @@ def create_sto_plot(stoFilePath=False):
     for i, column in enumerate(column_names):
         ax = axs[i]
         ax.plot(data['time'], data[column], color=custom_color, linewidth=1.5)
-        ax.set_title(column, fontsize=12)
-        ax.set_ylabel('Moment', fontsize=10)
+        ax.set_title(column, fontsize=8)
+        
+        if i % 3 == 0:
+            ax.set_ylabel('Moment (Nm)',fontsize=9)
+            ax.set_yticks(np.arange(-3, 4))
 
         if i >= num_cols - 3:
             ax.set_xlabel('time (s)', fontsize=8)
@@ -946,11 +949,9 @@ def create_sto_plot(stoFilePath=False):
     # Adjust the spacing between subplots
     plt.tight_layout()
 
-   
+    return fig
 
     
-
-
 
 def show_image(image_path):
     # Create a Tkinter window
@@ -967,6 +968,74 @@ def show_image(image_path):
     window.mainloop()
 
 ########################################################################################################################################
+
+
+######################################################  Error prints  ##################################################################
+
+def play_animation():
+    import turtle
+    import random
+    turtle.bgcolor('black')
+    turtle.colormode(255)
+    turtle.speed(0)
+    for x in range(500): 
+        r,b,g=random.randint(0,255),random.randint(0,255),random.randint(0,255)
+        turtle.pencolor(r,g,b)
+        turtle.fd(x+50)
+        turtle.rt(91)
+    turtle.exitonclick()
+
+def play_pong():
+    import pong
+
+def play_random_walk():
+    #https://matplotlib.org/stable/gallery/animation/random_walk.html
+    import matplotlib.animation as animation
+
+    # Fixing random state for reproducibility
+    np.random.seed(19680801)
+
+    def random_walk(num_steps, max_step=0.05):
+        """Return a 3D random walk as (num_steps, 3) array."""
+        start_pos = np.random.random(3)
+        steps = np.random.uniform(-max_step, max_step, size=(num_steps, 3))
+        walk = start_pos + np.cumsum(steps, axis=0)
+        return walk
+
+
+    def update_lines(num, walks, lines):
+        for line, walk in zip(lines, walks):
+            # NOTE: there is no .set_data() for 3 dim data...
+            line.set_data(walk[:num, :2].T)
+            line.set_3d_properties(walk[:num, 2])
+        return lines
+
+
+    # Data: 40 random walks as (num_steps, 3) arrays
+    num_steps = 30
+    walks = [random_walk(num_steps) for index in range(40)]
+
+    # Attaching 3D axis to the figure
+    fig = plt.figure()
+    ax = fig.add_subplot(projection="3d")
+
+    # Create lines initially without data
+    lines = [ax.plot([], [], [])[0] for _ in walks]
+
+    # Setting the axes properties
+    ax.set(xlim3d=(0, 1), xlabel='X')
+    ax.set(ylim3d=(0, 1), ylabel='Y')
+    ax.set(zlim3d=(0, 1), zlabel='Z')
+
+    # Creating the Animation object
+    ani = animation.FuncAnimation(
+        fig, update_lines, num_steps, fargs=(walks, lines), interval=100)
+
+    plt.show()
+
+########################################################################################################################################
+
+
 
 
 ######################################################  Error prints  ##################################################################
