@@ -102,11 +102,28 @@ def get_trial_list(sessionPath='',full_dir=False):
     return trial_list
 
 def get_bops_settings():
-    bops_dir = os.path.dirname(os.path.realpath(__file__))
     jsonfile = os.path.join(get_dir_bops(),'bops_settings.json')
-    with open(jsonfile, 'r') as f:
-        bops_settings = json.load(f)
-
+    try:
+        with open(jsonfile, 'r') as f:
+            bops_settings = json.load(f)
+    except:
+        
+        print('creating new bops "settings.json"...')
+        print('')
+        print('')
+        print('')
+        
+        bops_settings = dict()
+        bops_settings['current_project_folder'] = r'path\to\project\folder'
+        
+        jsonpath = Path(get_dir_bops()) / ("settings.json")
+        jsonpath.write_text(json.dumps(bops_settings))
+        
+        with open(jsonfile, 'r') as f:
+            bops_settings = json.load(f)
+            
+        
+        
     return bops_settings
 
 def save_bops_settings(settings):
@@ -116,6 +133,7 @@ def save_bops_settings(settings):
 def get_project_folder():
 
     bops_settings = get_bops_settings()
+        
     project_folder = bops_settings['current_project_folder']
     project_json = os.path.join(project_folder,'settings.json')
 
@@ -187,14 +205,16 @@ def create_project_settings(project_folder=''):
     jsonpath = Path(project_folder) / ("settings.json")
     jsonpath.write_text(json.dumps(project_settings))
 
+
 #########################################################  C3D processing  ############################################################
-def import_c3d_data(c3dFilePath):
+def import_c3d_to_dict(c3dFilePath):
 
     c3d_dict = dict()
     # Get the COM object of C3Dserver (https://pypi.org/project/pyc3dserver/)
-    itf = c3d.c3dserver
+    itf = c3d.c3dserver(msg=False)
     c3d.open_c3d(itf, c3dFilePath)
 
+    c3d_dict['FilePath'] = c3dFilePath
     c3d_dict['DataRate'] = c3d.get_video_fps(itf)
     c3d_dict['CameraRate'] = c3d.get_video_fps(itf)
     c3d_dict["OrigDataRate"] = c3d.get_video_fps(itf)
@@ -210,7 +230,7 @@ def import_c3d_data(c3dFilePath):
 
     c3d_dict['Labels'] = c3d.get_marker_names(itf)
 
-    c3d_dict['Timestamps'] = c3d.get_video_times(itf)
+    c3d_dict['TimeStamps'] = c3d.get_video_times(itf)
 
     c3d_data = c3d.get_dict_markers(itf)
     my_dict = c3d_data['DATA']['POS']
@@ -224,15 +244,17 @@ def import_sto_data(stoFilePath):
     df = pd.read_csv(stoFilePath,delimiter='\t', skiprows=6)
     return df
 
-def get_analog_data(c3dFilePath):
+def import_c3d_analog_data(c3dFilePath):
     itf = c3d.c3dserver(msg=False)
     c3d.open_c3d(itf, c3dFilePath)
     analog_dict = c3d.get_dict_analogs(itf)
     analog_df = pd.DataFrame()
+    # analog_df['time'] = c3d.get_video_times(itf)
+    
     for iLab in analog_dict['LABELS']:
         iData = analog_dict['DATA'][iLab]
         analog_df[iLab] = iData.tolist()
-
+    
     return analog_df
 
 def c3d_osim_export(c3dFilePath):
@@ -356,6 +378,7 @@ def rotateAroundAxes(data, rotations, modelMarkers):
     return data
 ########################################################################################################################################
 
+########################################################  Operations  ###################################################################
 def selectOsimVersion():
     osim_folders = [folder for folder in os.listdir('C:/') if 'OpenSim' in folder]
     installed_versions = [folder.replace('OpenSim ', '') for folder in osim_folders]
@@ -417,15 +440,29 @@ def add_each_c3d_to_own_folder(sessionPath):
         dst = os.path.join(dst_folder, 'c3dfile.c3d')
         shutil.copy(src, dst)
 
-def emg_filter(c3dFilePath, band_lowcut=30, band_highcut=400, lowcut=6, order=4):
-    # save max emg values
-    c3d_dict = import_c3d_data (c3dFilePath)
+def emg_filter(c3d_dict=0, band_lowcut=30, band_highcut=400, lowcut=6, order=4):
+    
+    if isinstance(c3d_dict, dict):
+        pass
+    elif not c3d_dict:   # if no input value is given use example data
+        c3dFilePath = get_testing_file_path('c3d')
+        c3d_dict = import_c3d_to_dict (c3dFilePath)
+    elif os.path.isfile(c3d_dict):
+        try:
+            c3dFilePath = c3d_dict
+            c3d_dict = import_c3d_to_dict (c3d_dict)
+        except:
+            if not isinstance(c3d_dict, dict):
+                raise TypeError('first argument "c3d_dict" should be type dict. Use "get_testing_file_path(''c3d'')" for example file')
+            else:
+                raise TypeError('"c3d_dict"  has the correct file type but something is wrong with the file and doesnt open')
+    
     fs = c3d_dict['OrigAnalogRate']
     if fs < band_highcut * 2:
         band_highcut = fs / 2
         warnings.warn("High pass frequency was too high. Using 1/2 *  sampling frequnecy instead")
-
-    analog_df = get_analog_data(c3dFilePath)
+    
+    analog_df = import_c3d_analog_data(c3d_dict['FilePath'])
     max_emg_list = []
     for col in analog_df.columns:
             max_rolling_average = np.max(pd.Series(analog_df[col]).rolling(200, min_periods=1).mean())
@@ -450,7 +487,7 @@ def emg_filter(c3dFilePath, band_lowcut=30, band_highcut=400, lowcut=6, order=4)
     return analog_df
 
 def torsion_tool(): # to complete...
-   a=2
+   pass
 
 def selec_analog_labels (c3dFilePath):
     # Get the COM object of C3Dserver (https://pypi.org/project/pyc3dserver/)
@@ -469,7 +506,7 @@ def read_trc_file(trcFilePath):
 def writeTRC(c3dFilePath, trcFilePath):
 
     print('writing trc file ...')
-    c3d_dict = import_c3d_data (c3dFilePath)
+    c3d_dict = import_c3d_to_dict (c3dFilePath)
 
     with open(trcFilePath, 'w') as file:
         # from https://github.com/IISCI/c3d_2_trc/blob/master/extractMarkers.py
@@ -494,13 +531,20 @@ def writeTRC(c3dFilePath, trcFilePath):
 
         # Write data
         for i in range(len(c3d_dict["Data"][0])):
-            file.write("%d\t%f" % (i, c3d_dict["Timestamps"][i]))
+            file.write("%d\t%f" % (i, c3d_dict["TimeStamps"][i]))
             for l in range(len(c3d_dict["Data"])):
                 file.write("\t%f\t%f\t%f" % tuple(c3d_dict["Data"][l][i]))
             file.write("\n")
 
         print('trc file saved')
 
+########################################################################################################################################
+
+
+###############################################  Torsion Tool (to be complete)  ########################################################
+
+
+########################################################################################################################################
 
 ###############################################  OpenSim (to be complete)  ############################################################
 def run_IK(osim_modelPath, trc_file, resultsDir, marker_weights_path):
@@ -846,42 +890,6 @@ def subjet_select_gui():
 
     root.mainloop()
 
-
-
-    # class App(ctk.CTk):
-    #     def __init__(self):
-    #         super().__init__()
-
-    #         # configure window
-    #         self.title("Select subjects")
-    #         self.geometry(f"{1100}x{580}")
-    #         # # configure grid layout (4x4)
-    #         # self.grid_columnconfigure(1, weight=1)
-    #         # self.grid_columnconfigure((2, 3), weight=0)
-    #         # self.grid_rowconfigure((0, 1, 2), weight=1)
-    #         subject_names = get_subject_names()
-    #         # create checkbox and switch frame
-    #         self.checkbox_slider_frame = ctk.CTkFrame(self)
-    #         self.checkbox_slider_frame.grid(row=1, column=1, padx=(20, 20), pady=(20, 0), sticky="nsew")
-    #         count = 1
-    #         for i in subject_names:
-    #             self.checkbox_1 = ctk.CTkCheckBox(master=self.checkbox_slider_frame, text=i)
-    #             self.checkbox_1.grid(row=count, column=1, pady=(20, 0), padx=20, sticky="n")
-    #             count += 1
-
-    #         # create scrollable frame
-    #         self.scrollable_frame = ctk.CTkScrollableFrame(self, label_text="CTkScrollableFrame")
-    #         self.scrollable_frame.grid(row=1, column=2, padx=(20, 0), pady=(20, 0), sticky="nsew")
-    #         self.scrollable_frame.grid_columnconfigure(0, weight=1)
-    #         self.scrollable_frame_switches = []
-    #         for i in range(100):
-    #             switch = ctk.CTkSwitch(master=self.scrollable_frame, text=f"CTkSwitch {i}")
-    #             switch.grid(row=i, column=0, padx=10, pady=(0, 20))
-    #             self.scrollable_frame_switches.append(switch)
-
-    # app = App()
-    # app.mainloop()
-
 ########################################################################################################################################
 
 
@@ -890,6 +898,8 @@ def subjet_select_gui():
 def plotBops():
     pass
 
+
+# when creating plots bops will only create the 
 def create_sto_plot(stoFilePath=False):
     # Specify the path to the .sto file
     if not stoFilePath:
@@ -951,7 +961,69 @@ def create_sto_plot(stoFilePath=False):
 
     return fig
 
-    
+def create_example_emg_plot(c3dFilePath=False):
+    # Specify the path to the .sto file
+    if not c3dFilePath:
+        c3dFilePath = get_testing_file_path('c3d')
+
+    # Read the .sto file into a pandas DataFrame
+    data = import_c3d_analog_data(c3dFilePath)
+    data_filtered = emg_filter(c3dFilePath)
+
+    # Get the column names excluding 'time'
+    column_names = [col for col in data.columns if col != 'time']
+
+    # Calculate the grid size
+    num_plots = len(column_names)
+    grid_size = int(num_plots ** 0.5) + 1
+
+    # Get the screen width and height
+    user32 = ctypes.windll.user32
+    screensize = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+    fig_width = screensize[0] * 0.9
+    fig_height = screensize[1] * 0.9
+
+    # Create the subplots
+    fig, axs = plt.subplots(grid_size, grid_size, figsize=(10, 10))
+
+    # Flatten the axs array for easier indexing
+    axs = axs.flatten()
+
+    # Create a custom color using RGB values (r,g,b)
+    custom_color = (0.8, 0.4, 0.5)
+
+    num_cols = data.shape[1]
+    num_rows = int(np.ceil(num_cols / 3))  # Adjust the number of rows based on the number of columns
+
+    # Iterate over the column names and plot the data
+    for i, column in enumerate(column_names):
+        ax = axs[i]
+        ax.plot(data['time'], data[column], color=custom_color, linewidth=1.5)
+        ax.plot(data_filtered['time'], data_filtered[column], color=custom_color, linewidth=1.5)
+        ax.set_title(column, fontsize=8)
+        
+        if i % 3 == 0:
+            ax.set_ylabel('Moment (Nm)',fontsize=9)
+            ax.set_yticks(np.arange(-3, 4))
+
+        if i >= num_cols - 3:
+            ax.set_xlabel('time (s)', fontsize=8)
+            ax.set_xticks(np.arange(0, 11, 2))
+        
+        ax.grid(True, linestyle='--', linewidth=0.5)
+        ax.tick_params(labelsize=8)
+
+    # Remove any unused subplots
+    if num_plots < len(axs):
+        for i in range(num_plots, len(axs)):
+            fig.delaxes(axs[i])
+
+    # Adjust the spacing between subplots
+    plt.tight_layout()
+
+    return fig
+
+        
 
 def show_image(image_path):
     # Create a Tkinter window
@@ -1054,7 +1126,7 @@ def add_markers_to_settings():
             for trial_name in get_trial_list(sessionPath,full_dir = False):
 
                 c3dFilePath = get_trial_dirs(sessionPath, trial_name)['c3d']
-                c3d_data = import_c3d_data(c3dFilePath)
+                c3d_data = import_c3d_to_dict(c3dFilePath)
 
 
                 settings['marker_names'] = c3d_data['marker_names']
@@ -1239,19 +1311,19 @@ class test_bops(unittest.TestCase):
         print('testing import opensim ... ')
         import opensim as osim
                     
-    def test_import_c3d_data(self):
-        print('testing import_c3d_data ... ')
+    def test_import_c3d_to_dict(self):
+        print('testing import_c3d_to_dict ... ')
         
         c3dFilePath = get_testing_file_path('c3d')       
         
         self.assertEqual(type(c3dFilePath),str)
         self.assertTrue(os.path.isfile(c3dFilePath))        
         
-        self.assertEqual(type(import_c3d_data(c3dFilePath)),dict)
+        self.assertEqual(type(import_c3d_to_dict(c3dFilePath)),dict)
         
         # make sure that import c3d does not work with a string
         with self.assertRaises(Exception):
-            import_c3d_data(2)  
+            import_c3d_to_dict(2)  
         
         
         filtered_emg = emg_filter(c3dFilePath)
@@ -1294,7 +1366,7 @@ class test_bops(unittest.TestCase):
     def test_c3d_export(self):
         print('testing c3d_export ... ')
         c3dFilePath = get_testing_file_path('c3d')
-        c3d_dict = import_c3d_data(c3dFilePath)
+        c3d_dict = import_c3d_to_dict(c3dFilePath)
         self.assertEqual(type(c3d_dict),dict)
         c3d_osim_export(c3dFilePath)
 
