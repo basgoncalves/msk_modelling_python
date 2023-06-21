@@ -16,12 +16,7 @@ import bops as bp
 # execution_time = end_time - start_time
 # print(execution_time)
 # exit()
-
-c3dFilePath = bp.get_testing_file_path('c3d')
-df = bp.import_c3d_analog_data(c3dFilePath)
-c3d_dict = bp.import_c3d_to_dict(c3dFilePath)
-# print('\n'.join(c3d_dict.keys()))
-df = bp.emg_filter(c3dFilePath)
+bp.play_pong()
 
 # plt.plot(df['time'],df['Voltage.RLicht'])
 # plt.show()
