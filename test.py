@@ -13,4 +13,4 @@ stoFilePath = bp.get_testing_file_path('id')
 df = bp.import_sto_data(stoFilePath)
 # bp.create_sto_plot()
 
-bp.play_random_walk() 
+bp.play_pong-0
