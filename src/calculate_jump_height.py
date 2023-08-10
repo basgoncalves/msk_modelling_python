@@ -2,8 +2,9 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-# Load data
+import bops as bp
 
+# Load data
 dir_path = os.path.dirname(os.path.realpath(__file__)) # for .py
 data_path = os.path.join(dir_path,'..\ExampleData\SJ_example\SJ1','grf.mot')
 if not os.path.isfile(data_path):

@@ -1373,11 +1373,39 @@ class test_bops(unittest.TestCase):
     def get_testing_data(self):
         self.assertTrue(get_testing_file_path('id'))
 
+    
 
 if __name__ == '__main__':
     
     clear_terminal()
     uni_vie_print()
+    
+    def add_bops_to_python_path():        
+        import os
+
+        # Directory to be added to the path
+        directory_to_add = get_dir_bops()
+
+        # Get the site-packages directory
+        site_packages_dir = os.path.dirname(os.path.dirname(os.__file__))
+        custom_paths_file = os.path.join(site_packages_dir, 'custom_paths.pth')
+
+        # Check if the custom_paths.pth file already exists
+        if not os.path.exists(custom_paths_file):
+            with open(custom_paths_file, 'w') as file:
+                file.write(directory_to_add)
+                print(f"Added '{directory_to_add}' to custom_paths.pth")
+        else:
+            with open(custom_paths_file, 'r') as file:
+                paths = file.read().splitlines()
+            if directory_to_add not in paths:
+                with open(custom_paths_file, 'a') as file:
+                    file.write('\n' + directory_to_add)
+                    print(f"Added '{directory_to_add}' to custom_paths.pth")
+            else:
+                print(f"'{directory_to_add}' already exists in custom_paths.pth")
+
+    add_bops_to_python_path()
     
     print('runnung all tests ...')
     output = unittest.main(exit=False)
@@ -1386,6 +1414,6 @@ if __name__ == '__main__':
     else:
         print('no errors')
         print_happy_platypus()
-            
-
+    
+    
 # end
