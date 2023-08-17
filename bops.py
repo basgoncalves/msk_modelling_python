@@ -24,16 +24,17 @@ from scipy.spatial.transform import Rotation
 from pathlib import Path
 import warnings
 import json
-from tkinter import messagebox
-import tkinter.messagebox as mbox
-from tkinter import filedialog
-import tkinter
-import tkfilebrowser
-import customtkinter as ctk
 import screeninfo as si
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+
 import tkinter as tk
+from tkinter import messagebox
+import tkinter.messagebox as mbox
+from tkinter import filedialog
+import tkfilebrowser
+import customtkinter as ctk
+
 from PIL import ImageTk, Image
 try:
     import opensim as osim
@@ -50,7 +51,7 @@ def select_folder(prompt='Please select your folder', staring_path=''):
     if not staring_path: # if empty
         staring_path = os.getcwd()
 
-    tkinter().withdraw()
+    tk.Tk().withdraw()
     selected_folder = filedialog.askdirectory(initialdir=staring_path,title=prompt)
     return selected_folder
 
@@ -102,7 +103,7 @@ def get_trial_list(sessionPath='',full_dir=False):
     return trial_list
 
 def get_bops_settings():
-    jsonfile = os.path.join(get_dir_bops(),'bops_settings.json')
+    jsonfile = os.path.join(get_dir_bops(),'settings.json')
     try:
         with open(jsonfile, 'r') as f:
             bops_settings = json.load(f)
@@ -127,7 +128,7 @@ def get_bops_settings():
     return bops_settings
 
 def save_bops_settings(settings):
-    jsonpath = Path(get_dir_bops()) / ("bops_settings.json")
+    jsonpath = Path(get_dir_bops()) / ("settings.json")
     jsonpath.write_text(json.dumps(settings,indent=2))
 
 def get_project_folder():
@@ -141,7 +142,7 @@ def get_project_folder():
         project_folder = select_folder('Please select project directory')
         bops_settings['current_project_folder'] = project_folder
 
-        jsonpath = Path(get_dir_bops()) / ("bops_settings.json")
+        jsonpath = Path(get_dir_bops()) / ("settings.json")
         jsonpath.write_text(json.dumps(bops_settings))
 
     if not os.path.isfile(project_json):                                         # if json does not exist, create one
@@ -151,6 +152,12 @@ def get_project_folder():
 
 def get_project_settings():
     jsonfile = os.path.join(get_project_folder(),'settings.json')
+    
+    if not os.path.isfile(jsonfile):
+        print('sad')
+    
+    return jsonfile
+    
     with open(jsonfile, 'r') as f:
         settings = json.load(f)
 
@@ -179,7 +186,7 @@ def select_new_project_folder():
     project_json = os.path.join(project_folder,'settings.json')
     bops_settings['current_project_folder'] = project_folder
 
-    jsonpath = Path(get_dir_bops()) / ("bops_settings.json")
+    jsonpath = Path(get_dir_bops()) / ("settings.json")
     jsonpath.write_text(json.dumps(bops_settings))
 
     if not os.path.isfile(project_json):                                         # if json does not exist, create one
@@ -201,10 +208,18 @@ def create_project_settings(project_folder=''):
 
     project_settings['emg_labels'] = ['all']
     project_settings['simulations'] = os.path.join(project_folder,'simulations')
+        
+    project_settings['setupFiles'] = dict()
+    project_settings['setupFiles']['scale'] = 'setup_Scale.xml' 
+    project_settings['setupFiles']['ik'] = 'setup_ik.xml' 
+    project_settings['setupFiles']['id'] = 'setup_id.xml' 
+    project_settings['setupFiles']['sp'] = 'setup_so.xml' 
+    project_settings['setupFiles']['jrf'] = 'setup_jrf.xml' 
 
     jsonpath = Path(project_folder) / ("settings.json")
     jsonpath.write_text(json.dumps(project_settings))
 
+    print('project directory was set to: ' + project_folder)
 
 #########################################################  C3D processing  ############################################################
 def import_c3d_to_dict(c3dFilePath):
@@ -538,6 +553,44 @@ def writeTRC(c3dFilePath, trcFilePath):
 
         print('trc file saved')
 
+def readXML(xml_file_path):
+    import xml.etree.ElementTree as ET
+
+    # Load XML file
+    xml_file_path = 'path_to_your_xml_file.xml'
+    tree = ET.parse(xml_file_path)
+    root = tree.getroot()
+
+    # Print the root element
+    print("Root element:", root.tag)
+
+    # Iterate through elements
+    for element in root:
+        print("Element:", element.tag)
+
+    # Find specific elements
+    target_element = root.find('target_element_name')
+    if target_element is not None:
+        print("Found target element:", target_element.tag)
+        # Manipulate target_element as needed
+
+    # Modify existing element attributes or text
+    for element in root:
+        if element.tag == 'target_element_name':
+            element.set('attribute_name', 'new_attribute_value')
+            element.text = 'new_text_value'
+
+    # Add new elements
+    new_element = ET.Element('new_element')
+    new_element.text = 'new_element_text'
+    root.append(new_element)
+
+    return tree
+
+def writeXML(tree,xml_file_path):    
+    tree.write(xml_file_path)
+
+
 ########################################################################################################################################
 
 
@@ -547,6 +600,19 @@ def writeTRC(c3dFilePath, trcFilePath):
 ########################################################################################################################################
 
 ###############################################  OpenSim (to be complete)  ############################################################
+def scale_model(originalModelPath,targetModelPath,trcFilePath,setupScaleXML):
+    osimModel = osim.Model(originalModelPath)                             
+    state = osimModel.initSystem()
+    
+    readXML(setupScaleXML)
+    
+    
+    command = f'opensim-cmd run-tool {setupScaleXML}'
+    subprocess.run(command, shell=True)
+    
+    print('Osim model scaled and saved in ' + targetModelPath)
+    print()
+
 def run_IK(osim_modelPath, trc_file, resultsDir, marker_weights_path):
 
     trc = osim.TimeSeriesTableMotion().loadTRC(trc_file)                # Load the TRC file
@@ -895,8 +961,6 @@ def subjet_select_gui():
 
 
 ########################################################  Plotting  ####################################################################
-def plotBops():
-    pass
 
 
 # when creating plots bops will only create the 
@@ -1021,9 +1085,7 @@ def create_example_emg_plot(c3dFilePath=False):
     # Adjust the spacing between subplots
     plt.tight_layout()
 
-    return fig
-
-        
+    return fig     
 
 def show_image(image_path):
     # Create a Tkinter window
