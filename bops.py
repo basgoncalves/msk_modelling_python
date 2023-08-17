@@ -3,6 +3,7 @@
 # BOPS: a Matlab toolbox to batch musculoskeletal data processing for OpenSim, Computer Methods in Biomechanics and Biomedical Engineering
 # DOI: 10.1080/10255842.2020.1867978
 
+import ctypes
 import sys
 import os
 import subprocess
@@ -23,16 +24,17 @@ from scipy.spatial.transform import Rotation
 from pathlib import Path
 import warnings
 import json
-from tkinter import messagebox
-import tkinter.messagebox as mbox
-from tkinter import filedialog
-import tkinter
-import tkfilebrowser
-import customtkinter as ctk
 import screeninfo as si
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+
 import tkinter as tk
+from tkinter import messagebox
+import tkinter.messagebox as mbox
+from tkinter import filedialog
+import tkfilebrowser
+import customtkinter as ctk
+
 from PIL import ImageTk, Image
 try:
     import opensim as osim
@@ -45,12 +47,11 @@ except:
     print('init path is: ', initPath)    
     print('=============================================================================================')
 
-
 def select_folder(prompt='Please select your folder', staring_path=''):
     if not staring_path: # if empty
         staring_path = os.getcwd()
 
-    tkinter().withdraw()
+    tk.Tk().withdraw()
     selected_folder = filedialog.askdirectory(initialdir=staring_path,title=prompt)
     return selected_folder
 
@@ -102,20 +103,38 @@ def get_trial_list(sessionPath='',full_dir=False):
     return trial_list
 
 def get_bops_settings():
-    bops_dir = os.path.dirname(os.path.realpath(__file__))
-    jsonfile = os.path.join(get_dir_bops(),'bops_settings.json')
-    with open(jsonfile, 'r') as f:
-        bops_settings = json.load(f)
-
+    jsonfile = os.path.join(get_dir_bops(),'settings.json')
+    try:
+        with open(jsonfile, 'r') as f:
+            bops_settings = json.load(f)
+    except:
+        
+        print('creating new bops "settings.json"...')
+        print('')
+        print('')
+        print('')
+        
+        bops_settings = dict()
+        bops_settings['current_project_folder'] = r'path\to\project\folder'
+        
+        jsonpath = Path(get_dir_bops()) / ("settings.json")
+        jsonpath.write_text(json.dumps(bops_settings))
+        
+        with open(jsonfile, 'r') as f:
+            bops_settings = json.load(f)
+            
+        
+        
     return bops_settings
 
 def save_bops_settings(settings):
-    jsonpath = Path(get_dir_bops()) / ("bops_settings.json")
+    jsonpath = Path(get_dir_bops()) / ("settings.json")
     jsonpath.write_text(json.dumps(settings,indent=2))
 
 def get_project_folder():
 
     bops_settings = get_bops_settings()
+        
     project_folder = bops_settings['current_project_folder']
     project_json = os.path.join(project_folder,'settings.json')
 
@@ -123,7 +142,7 @@ def get_project_folder():
         project_folder = select_folder('Please select project directory')
         bops_settings['current_project_folder'] = project_folder
 
-        jsonpath = Path(get_dir_bops()) / ("bops_settings.json")
+        jsonpath = Path(get_dir_bops()) / ("settings.json")
         jsonpath.write_text(json.dumps(bops_settings))
 
     if not os.path.isfile(project_json):                                         # if json does not exist, create one
@@ -133,6 +152,12 @@ def get_project_folder():
 
 def get_project_settings():
     jsonfile = os.path.join(get_project_folder(),'settings.json')
+    
+    if not os.path.isfile(jsonfile):
+        print('sad')
+    
+    return jsonfile
+    
     with open(jsonfile, 'r') as f:
         settings = json.load(f)
 
@@ -161,7 +186,7 @@ def select_new_project_folder():
     project_json = os.path.join(project_folder,'settings.json')
     bops_settings['current_project_folder'] = project_folder
 
-    jsonpath = Path(get_dir_bops()) / ("bops_settings.json")
+    jsonpath = Path(get_dir_bops()) / ("settings.json")
     jsonpath.write_text(json.dumps(bops_settings))
 
     if not os.path.isfile(project_json):                                         # if json does not exist, create one
@@ -183,18 +208,28 @@ def create_project_settings(project_folder=''):
 
     project_settings['emg_labels'] = ['all']
     project_settings['simulations'] = os.path.join(project_folder,'simulations')
+        
+    project_settings['setupFiles'] = dict()
+    project_settings['setupFiles']['scale'] = 'setup_Scale.xml' 
+    project_settings['setupFiles']['ik'] = 'setup_ik.xml' 
+    project_settings['setupFiles']['id'] = 'setup_id.xml' 
+    project_settings['setupFiles']['sp'] = 'setup_so.xml' 
+    project_settings['setupFiles']['jrf'] = 'setup_jrf.xml' 
 
     jsonpath = Path(project_folder) / ("settings.json")
     jsonpath.write_text(json.dumps(project_settings))
 
+    print('project directory was set to: ' + project_folder)
+
 #########################################################  C3D processing  ############################################################
-def import_c3d_data(c3dFilePath):
+def import_c3d_to_dict(c3dFilePath):
 
     c3d_dict = dict()
     # Get the COM object of C3Dserver (https://pypi.org/project/pyc3dserver/)
-    itf = c3d.c3dserver
+    itf = c3d.c3dserver(msg=False)
     c3d.open_c3d(itf, c3dFilePath)
 
+    c3d_dict['FilePath'] = c3dFilePath
     c3d_dict['DataRate'] = c3d.get_video_fps(itf)
     c3d_dict['CameraRate'] = c3d.get_video_fps(itf)
     c3d_dict["OrigDataRate"] = c3d.get_video_fps(itf)
@@ -210,7 +245,7 @@ def import_c3d_data(c3dFilePath):
 
     c3d_dict['Labels'] = c3d.get_marker_names(itf)
 
-    c3d_dict['Timestamps'] = c3d.get_video_times(itf)
+    c3d_dict['TimeStamps'] = c3d.get_video_times(itf)
 
     c3d_data = c3d.get_dict_markers(itf)
     my_dict = c3d_data['DATA']['POS']
@@ -224,15 +259,17 @@ def import_sto_data(stoFilePath):
     df = pd.read_csv(stoFilePath,delimiter='\t', skiprows=6)
     return df
 
-def get_analog_data(c3dFilePath):
+def import_c3d_analog_data(c3dFilePath):
     itf = c3d.c3dserver(msg=False)
     c3d.open_c3d(itf, c3dFilePath)
     analog_dict = c3d.get_dict_analogs(itf)
     analog_df = pd.DataFrame()
+    # analog_df['time'] = c3d.get_video_times(itf)
+    
     for iLab in analog_dict['LABELS']:
         iData = analog_dict['DATA'][iLab]
         analog_df[iLab] = iData.tolist()
-
+    
     return analog_df
 
 def c3d_osim_export(c3dFilePath):
@@ -356,6 +393,7 @@ def rotateAroundAxes(data, rotations, modelMarkers):
     return data
 ########################################################################################################################################
 
+########################################################  Operations  ###################################################################
 def selectOsimVersion():
     osim_folders = [folder for folder in os.listdir('C:/') if 'OpenSim' in folder]
     installed_versions = [folder.replace('OpenSim ', '') for folder in osim_folders]
@@ -417,15 +455,29 @@ def add_each_c3d_to_own_folder(sessionPath):
         dst = os.path.join(dst_folder, 'c3dfile.c3d')
         shutil.copy(src, dst)
 
-def emg_filter(c3dFilePath, band_lowcut=30, band_highcut=400, lowcut=6, order=4):
-    # save max emg values
-    c3d_dict = import_c3d_data (c3dFilePath)
+def emg_filter(c3d_dict=0, band_lowcut=30, band_highcut=400, lowcut=6, order=4):
+    
+    if isinstance(c3d_dict, dict):
+        pass
+    elif not c3d_dict:   # if no input value is given use example data
+        c3dFilePath = get_testing_file_path('c3d')
+        c3d_dict = import_c3d_to_dict (c3dFilePath)
+    elif os.path.isfile(c3d_dict):
+        try:
+            c3dFilePath = c3d_dict
+            c3d_dict = import_c3d_to_dict (c3d_dict)
+        except:
+            if not isinstance(c3d_dict, dict):
+                raise TypeError('first argument "c3d_dict" should be type dict. Use "get_testing_file_path(''c3d'')" for example file')
+            else:
+                raise TypeError('"c3d_dict"  has the correct file type but something is wrong with the file and doesnt open')
+    
     fs = c3d_dict['OrigAnalogRate']
     if fs < band_highcut * 2:
         band_highcut = fs / 2
         warnings.warn("High pass frequency was too high. Using 1/2 *  sampling frequnecy instead")
-
-    analog_df = get_analog_data(c3dFilePath)
+    
+    analog_df = import_c3d_analog_data(c3d_dict['FilePath'])
     max_emg_list = []
     for col in analog_df.columns:
             max_rolling_average = np.max(pd.Series(analog_df[col]).rolling(200, min_periods=1).mean())
@@ -450,7 +502,7 @@ def emg_filter(c3dFilePath, band_lowcut=30, band_highcut=400, lowcut=6, order=4)
     return analog_df
 
 def torsion_tool(): # to complete...
-   a=2
+   pass
 
 def selec_analog_labels (c3dFilePath):
     # Get the COM object of C3Dserver (https://pypi.org/project/pyc3dserver/)
@@ -469,7 +521,7 @@ def read_trc_file(trcFilePath):
 def writeTRC(c3dFilePath, trcFilePath):
 
     print('writing trc file ...')
-    c3d_dict = import_c3d_data (c3dFilePath)
+    c3d_dict = import_c3d_to_dict (c3dFilePath)
 
     with open(trcFilePath, 'w') as file:
         # from https://github.com/IISCI/c3d_2_trc/blob/master/extractMarkers.py
@@ -494,15 +546,73 @@ def writeTRC(c3dFilePath, trcFilePath):
 
         # Write data
         for i in range(len(c3d_dict["Data"][0])):
-            file.write("%d\t%f" % (i, c3d_dict["Timestamps"][i]))
+            file.write("%d\t%f" % (i, c3d_dict["TimeStamps"][i]))
             for l in range(len(c3d_dict["Data"])):
                 file.write("\t%f\t%f\t%f" % tuple(c3d_dict["Data"][l][i]))
             file.write("\n")
 
         print('trc file saved')
 
+def readXML(xml_file_path):
+    import xml.etree.ElementTree as ET
+
+    # Load XML file
+    xml_file_path = 'path_to_your_xml_file.xml'
+    tree = ET.parse(xml_file_path)
+    root = tree.getroot()
+
+    # Print the root element
+    print("Root element:", root.tag)
+
+    # Iterate through elements
+    for element in root:
+        print("Element:", element.tag)
+
+    # Find specific elements
+    target_element = root.find('target_element_name')
+    if target_element is not None:
+        print("Found target element:", target_element.tag)
+        # Manipulate target_element as needed
+
+    # Modify existing element attributes or text
+    for element in root:
+        if element.tag == 'target_element_name':
+            element.set('attribute_name', 'new_attribute_value')
+            element.text = 'new_text_value'
+
+    # Add new elements
+    new_element = ET.Element('new_element')
+    new_element.text = 'new_element_text'
+    root.append(new_element)
+
+    return tree
+
+def writeXML(tree,xml_file_path):    
+    tree.write(xml_file_path)
+
+
+########################################################################################################################################
+
+
+###############################################  Torsion Tool (to be complete)  ########################################################
+
+
+########################################################################################################################################
 
 ###############################################  OpenSim (to be complete)  ############################################################
+def scale_model(originalModelPath,targetModelPath,trcFilePath,setupScaleXML):
+    osimModel = osim.Model(originalModelPath)                             
+    state = osimModel.initSystem()
+    
+    readXML(setupScaleXML)
+    
+    
+    command = f'opensim-cmd run-tool {setupScaleXML}'
+    subprocess.run(command, shell=True)
+    
+    print('Osim model scaled and saved in ' + targetModelPath)
+    print()
+
 def run_IK(osim_modelPath, trc_file, resultsDir, marker_weights_path):
 
     trc = osim.TimeSeriesTableMotion().loadTRC(trc_file)                # Load the TRC file
@@ -846,50 +956,14 @@ def subjet_select_gui():
 
     root.mainloop()
 
-
-
-    # class App(ctk.CTk):
-    #     def __init__(self):
-    #         super().__init__()
-
-    #         # configure window
-    #         self.title("Select subjects")
-    #         self.geometry(f"{1100}x{580}")
-    #         # # configure grid layout (4x4)
-    #         # self.grid_columnconfigure(1, weight=1)
-    #         # self.grid_columnconfigure((2, 3), weight=0)
-    #         # self.grid_rowconfigure((0, 1, 2), weight=1)
-    #         subject_names = get_subject_names()
-    #         # create checkbox and switch frame
-    #         self.checkbox_slider_frame = ctk.CTkFrame(self)
-    #         self.checkbox_slider_frame.grid(row=1, column=1, padx=(20, 20), pady=(20, 0), sticky="nsew")
-    #         count = 1
-    #         for i in subject_names:
-    #             self.checkbox_1 = ctk.CTkCheckBox(master=self.checkbox_slider_frame, text=i)
-    #             self.checkbox_1.grid(row=count, column=1, pady=(20, 0), padx=20, sticky="n")
-    #             count += 1
-
-    #         # create scrollable frame
-    #         self.scrollable_frame = ctk.CTkScrollableFrame(self, label_text="CTkScrollableFrame")
-    #         self.scrollable_frame.grid(row=1, column=2, padx=(20, 0), pady=(20, 0), sticky="nsew")
-    #         self.scrollable_frame.grid_columnconfigure(0, weight=1)
-    #         self.scrollable_frame_switches = []
-    #         for i in range(100):
-    #             switch = ctk.CTkSwitch(master=self.scrollable_frame, text=f"CTkSwitch {i}")
-    #             switch.grid(row=i, column=0, padx=10, pady=(0, 20))
-    #             self.scrollable_frame_switches.append(switch)
-
-    # app = App()
-    # app.mainloop()
-
 ########################################################################################################################################
 
 
 
 ########################################################  Plotting  ####################################################################
-def plotBops():
-    pass
 
+
+# when creating plots bops will only create the 
 def create_sto_plot(stoFilePath=False):
     # Specify the path to the .sto file
     if not stoFilePath:
@@ -904,16 +978,16 @@ def create_sto_plot(stoFilePath=False):
     # Calculate the grid size
     num_plots = len(column_names)
     grid_size = int(num_plots ** 0.5) + 1
+
     # Get the screen width and height
-    root = tk.Tk()
-    screen_width = root.winfo_screenwidth()
-    screen_height = root.winfo_screenheight()
-    # Calculate the desired figure size
-    fig_width = int(screen_width * 0.9)
-    fig_height = int(screen_height * 0.9)
-    
+    user32 = ctypes.windll.user32
+    screensize = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+
+    fig_width = screensize[0] * 0.9
+    fig_height = screensize[1] * 0.9
+
     # Create the subplots
-    fig, axs = plt.subplots(grid_size, grid_size, figsize=(200, 200))
+    fig, axs = plt.subplots(grid_size, grid_size, figsize=(10, 10))
 
     # Flatten the axs array for easier indexing
     axs = axs.flatten()
@@ -928,8 +1002,11 @@ def create_sto_plot(stoFilePath=False):
     for i, column in enumerate(column_names):
         ax = axs[i]
         ax.plot(data['time'], data[column], color=custom_color, linewidth=1.5)
-        ax.set_title(column, fontsize=12)
-        ax.set_ylabel('Moment', fontsize=10)
+        ax.set_title(column, fontsize=8)
+        
+        if i % 3 == 0:
+            ax.set_ylabel('Moment (Nm)',fontsize=9)
+            ax.set_yticks(np.arange(-3, 4))
 
         if i >= num_cols - 3:
             ax.set_xlabel('time (s)', fontsize=8)
@@ -946,11 +1023,69 @@ def create_sto_plot(stoFilePath=False):
     # Adjust the spacing between subplots
     plt.tight_layout()
 
-   
+    return fig
 
-    
+def create_example_emg_plot(c3dFilePath=False):
+    # Specify the path to the .sto file
+    if not c3dFilePath:
+        c3dFilePath = get_testing_file_path('c3d')
 
+    # Read the .sto file into a pandas DataFrame
+    data = import_c3d_analog_data(c3dFilePath)
+    data_filtered = emg_filter(c3dFilePath)
 
+    # Get the column names excluding 'time'
+    column_names = [col for col in data.columns if col != 'time']
+
+    # Calculate the grid size
+    num_plots = len(column_names)
+    grid_size = int(num_plots ** 0.5) + 1
+
+    # Get the screen width and height
+    user32 = ctypes.windll.user32
+    screensize = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+    fig_width = screensize[0] * 0.9
+    fig_height = screensize[1] * 0.9
+
+    # Create the subplots
+    fig, axs = plt.subplots(grid_size, grid_size, figsize=(10, 10))
+
+    # Flatten the axs array for easier indexing
+    axs = axs.flatten()
+
+    # Create a custom color using RGB values (r,g,b)
+    custom_color = (0.8, 0.4, 0.5)
+
+    num_cols = data.shape[1]
+    num_rows = int(np.ceil(num_cols / 3))  # Adjust the number of rows based on the number of columns
+
+    # Iterate over the column names and plot the data
+    for i, column in enumerate(column_names):
+        ax = axs[i]
+        ax.plot(data['time'], data[column], color=custom_color, linewidth=1.5)
+        ax.plot(data_filtered['time'], data_filtered[column], color=custom_color, linewidth=1.5)
+        ax.set_title(column, fontsize=8)
+        
+        if i % 3 == 0:
+            ax.set_ylabel('Moment (Nm)',fontsize=9)
+            ax.set_yticks(np.arange(-3, 4))
+
+        if i >= num_cols - 3:
+            ax.set_xlabel('time (s)', fontsize=8)
+            ax.set_xticks(np.arange(0, 11, 2))
+        
+        ax.grid(True, linestyle='--', linewidth=0.5)
+        ax.tick_params(labelsize=8)
+
+    # Remove any unused subplots
+    if num_plots < len(axs):
+        for i in range(num_plots, len(axs)):
+            fig.delaxes(axs[i])
+
+    # Adjust the spacing between subplots
+    plt.tight_layout()
+
+    return fig     
 
 def show_image(image_path):
     # Create a Tkinter window
@@ -970,6 +1105,74 @@ def show_image(image_path):
 
 
 ######################################################  Error prints  ##################################################################
+
+def play_animation():
+    import turtle
+    import random
+    turtle.bgcolor('black')
+    turtle.colormode(255)
+    turtle.speed(0)
+    for x in range(500): 
+        r,b,g=random.randint(0,255),random.randint(0,255),random.randint(0,255)
+        turtle.pencolor(r,g,b)
+        turtle.fd(x+50)
+        turtle.rt(91)
+    turtle.exitonclick()
+
+def play_pong():
+    import pong
+
+def play_random_walk():
+    #https://matplotlib.org/stable/gallery/animation/random_walk.html
+    import matplotlib.animation as animation
+
+    # Fixing random state for reproducibility
+    np.random.seed(19680801)
+
+    def random_walk(num_steps, max_step=0.05):
+        """Return a 3D random walk as (num_steps, 3) array."""
+        start_pos = np.random.random(3)
+        steps = np.random.uniform(-max_step, max_step, size=(num_steps, 3))
+        walk = start_pos + np.cumsum(steps, axis=0)
+        return walk
+
+
+    def update_lines(num, walks, lines):
+        for line, walk in zip(lines, walks):
+            # NOTE: there is no .set_data() for 3 dim data...
+            line.set_data(walk[:num, :2].T)
+            line.set_3d_properties(walk[:num, 2])
+        return lines
+
+
+    # Data: 40 random walks as (num_steps, 3) arrays
+    num_steps = 30
+    walks = [random_walk(num_steps) for index in range(40)]
+
+    # Attaching 3D axis to the figure
+    fig = plt.figure()
+    ax = fig.add_subplot(projection="3d")
+
+    # Create lines initially without data
+    lines = [ax.plot([], [], [])[0] for _ in walks]
+
+    # Setting the axes properties
+    ax.set(xlim3d=(0, 1), xlabel='X')
+    ax.set(ylim3d=(0, 1), ylabel='Y')
+    ax.set(zlim3d=(0, 1), zlabel='Z')
+
+    # Creating the Animation object
+    ani = animation.FuncAnimation(
+        fig, update_lines, num_steps, fargs=(walks, lines), interval=100)
+
+    plt.show()
+
+########################################################################################################################################
+
+
+
+
+######################################################  Error prints  ##################################################################
 def exampleFunction():
     pass
 
@@ -985,7 +1188,7 @@ def add_markers_to_settings():
             for trial_name in get_trial_list(sessionPath,full_dir = False):
 
                 c3dFilePath = get_trial_dirs(sessionPath, trial_name)['c3d']
-                c3d_data = import_c3d_data(c3dFilePath)
+                c3d_data = import_c3d_to_dict(c3dFilePath)
 
 
                 settings['marker_names'] = c3d_data['marker_names']
@@ -1170,19 +1373,19 @@ class test_bops(unittest.TestCase):
         print('testing import opensim ... ')
         import opensim as osim
                     
-    def test_import_c3d_data(self):
-        print('testing import_c3d_data ... ')
+    def test_import_c3d_to_dict(self):
+        print('testing import_c3d_to_dict ... ')
         
         c3dFilePath = get_testing_file_path('c3d')       
         
         self.assertEqual(type(c3dFilePath),str)
         self.assertTrue(os.path.isfile(c3dFilePath))        
         
-        self.assertEqual(type(import_c3d_data(c3dFilePath)),dict)
+        self.assertEqual(type(import_c3d_to_dict(c3dFilePath)),dict)
         
         # make sure that import c3d does not work with a string
         with self.assertRaises(Exception):
-            import_c3d_data(2)  
+            import_c3d_to_dict(2)  
         
         
         filtered_emg = emg_filter(c3dFilePath)
@@ -1225,18 +1428,46 @@ class test_bops(unittest.TestCase):
     def test_c3d_export(self):
         print('testing c3d_export ... ')
         c3dFilePath = get_testing_file_path('c3d')
-        c3d_dict = import_c3d_data(c3dFilePath)
+        c3d_dict = import_c3d_to_dict(c3dFilePath)
         self.assertEqual(type(c3d_dict),dict)
         c3d_osim_export(c3dFilePath)
 
     def get_testing_data(self):
         self.assertTrue(get_testing_file_path('id'))
 
+    
 
 if __name__ == '__main__':
     
     clear_terminal()
     uni_vie_print()
+    
+    def add_bops_to_python_path():        
+        import os
+
+        # Directory to be added to the path
+        directory_to_add = get_dir_bops()
+
+        # Get the site-packages directory
+        site_packages_dir = os.path.dirname(os.path.dirname(os.__file__))
+        custom_paths_file = os.path.join(site_packages_dir, 'custom_paths.pth')
+
+        # Check if the custom_paths.pth file already exists
+        if not os.path.exists(custom_paths_file):
+            with open(custom_paths_file, 'w') as file:
+                file.write(directory_to_add)
+                print(f"Added '{directory_to_add}' to custom_paths.pth")
+        else:
+            with open(custom_paths_file, 'r') as file:
+                paths = file.read().splitlines()
+            if directory_to_add not in paths:
+                with open(custom_paths_file, 'a') as file:
+                    file.write('\n' + directory_to_add)
+                    print(f"Added '{directory_to_add}' to custom_paths.pth")
+            else:
+                print(f"'{directory_to_add}' already exists in custom_paths.pth")
+
+    add_bops_to_python_path()
     
     print('runnung all tests ...')
     output = unittest.main(exit=False)
@@ -1245,6 +1476,6 @@ if __name__ == '__main__':
     else:
         print('no errors')
         print_happy_platypus()
-            
-
+    
+    
 # end
