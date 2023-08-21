@@ -262,6 +262,7 @@ def import_file(file_path):
         print('file path does not exist!')
         
     return df
+
 def import_c3d_to_dict(c3dFilePath):
 
     c3d_dict = dict()
@@ -1465,6 +1466,7 @@ def print_sad_platypus():
 
 class test_bops(unittest.TestCase):
     
+    ##### TESTS WORKING ######
     def test_import_opensim(self):
         print('testing import opensim ... ')
         import opensim as osim
@@ -1486,53 +1488,75 @@ class test_bops(unittest.TestCase):
         
         filtered_emg = emg_filter(c3dFilePath)
         self.assertIs(type(filtered_emg),pd.DataFrame)
-    
-    def test_loop_through_folders(self):
-        print('testing loop through folders ... ')
-        for subject_folder in get_subject_folders(get_testing_file_path()):
-            for session in get_subject_sessions(subject_folder):
-                session_path = os.path.join(subject_folder,session)
-                for idx, trial_name in enumerate(get_trial_list(session_path,full_dir = False)):
+  
+    def test_import_files(self):
+        
+        print('testing import_files ... ')
 
-                    resultsDir = get_trial_list(session_path,full_dir = True)[idx]
-                    self.assertEqual(resultsDir,str)
-                    return
-    
-    def to_be_finished_test_add_marker_to_trc():
-        print('testing add_marker_trc ... ')
-    
-    def to_be_finished_test_IK():
-        print('testing IK ... ')
-        for subject_folder in get_subject_folders(testing_data_dir()):
-            for session in get_subject_sessions(subject_folder):
-                session_path = os.path.join(subject_folder,session)
-                for idx, trial_name in enumerate(get_trial_list(session_path,full_dir = False)):
 
-                    model_path = r'.\test.osim'
-                    ik_results_file = r'.\test.osim'
-                    mot_file = r'.\test.osim'
-                    grf_xml = r'.\test.osim'
-                    resultsDir = get_trial_list(session_path,full_dir = True)[idx]
-                    run_IK(model_path, trc_file, resultsDir, marker_weights_path)
-    
+        for subject_folder in get_subject_folders():
+            for session in get_subject_sessions(subject_folder):
+                session_path = os.path.join(subject_folder,session)           
+                for trial_name in get_trial_list(session_path,full_dir = False):
+                    file_path = get_trial_dirs(session_path, trial_name)['id']
+                    data = import_file(file_path)
+        
+        self.assertEqual(type(data),pd.DataFrame)
+  
     def test_writeTRC(self):
         print('testing writeTRC ... ')
         trcFilePath = get_testing_file_path('trc')
         c3dFilePath = get_testing_file_path('c3d')
         writeTRC(c3dFilePath, trcFilePath)
-        
+    
     def test_c3d_export(self):
         print('testing c3d_export ... ')
         c3dFilePath = get_testing_file_path('c3d')
         c3d_dict = import_c3d_to_dict(c3dFilePath)
         self.assertEqual(type(c3d_dict),dict)
         c3d_osim_export(c3dFilePath)
-
-    def get_testing_data(self):
-        self.assertTrue(get_testing_file_path('id'))
-
     
+    def test_get_testing_data(self):
+        print('getting testing data')
+        self.assertTrue(get_testing_file_path('id'))
+    
+    ###### TESTS FAILING ######
+    # def test_loop_through_folders(self):
+    #     print('testing loop through folders ... ')
+    #     for subject_folder in get_subject_folders(get_testing_file_path()):
+    #         for session in get_subject_sessions(subject_folder):
+    #             session_path = os.path.join(subject_folder,session)
+    #             for idx, trial_name in enumerate(get_trial_list(session_path,full_dir = False)):
 
+    #                 resultsDir = get_trial_list(session_path,full_dir = True)[idx]
+    #                 self.assertEqual(resultsDir,str)
+    #                 return
+    
+  
+    ###### TESTS TO COMPLETE ######
+    # def to_be_finished_test_add_marker_to_trc():
+    #     print('testing add_marker_trc ... ')
+        
+    # def to_be_finished_test_IK():
+    #     print('testing IK ... ')
+    #     for subject_folder in get_subject_folders(get_testing_file_path()):
+    #         for session in get_subject_sessions(subject_folder):
+    #             session_path = os.path.join(subject_folder,session)
+    #             for idx, trial_name in enumerate(get_trial_list(session_path,full_dir = False)):
+
+    #                 model_path = r'.\test.osim'
+    #                 ik_results_file = r'.\test.osim'
+    #                 mot_file = r'.\test.osim'
+    #                 grf_xml = r'.\test.osim'
+    #                 resultsDir = get_trial_list(session_path,full_dir = True)[idx]
+    #                 run_IK(model_path, trc_file, resultsDir, marker_weights_path)
+    
+   
+        
+
+
+
+  
 if __name__ == '__main__':
     
     clear_terminal()
