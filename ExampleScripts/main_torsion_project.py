@@ -1,4 +1,3 @@
-import msk_modelling_pkg_install
 import bops as bp
 from bops import *
 import matplotlib.pyplot as plt
@@ -16,10 +15,9 @@ for subject_folder in bp.get_subject_folders():
     for session in bp.get_subject_sessions(subject_folder):
         session_path = bp.os.path.join(subject_folder,session)           
         for trial_name in bp.get_trial_list(session_path,full_dir = False):
-            c3d_data = bp.get_c3d_data(bp.get_trial_dirs(session_path, trial_name)['c3d'])
-            
-            c3d_data['marker_names']
-            
+            file_path = bp.get_trial_dirs(session_path, trial_name)['id']
+            data = bp.import_file(file_path)
+            print(data)
             exit()
 
 def plot_data():

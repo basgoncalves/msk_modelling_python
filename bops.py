@@ -102,29 +102,43 @@ def get_trial_list(sessionPath='',full_dir=False):
 
     return trial_list
 
-def get_bops_settings():
+def get_bops_settings(project_folder=''):
+    
+    # get settings from bops directory
     jsonfile = os.path.join(get_dir_bops(),'settings.json')
+    
+    # if user asks for example path 
+    if project_folder.__contains__('example'):
+        c3dFilePath = get_testing_file_path()
+        project_folder = os.path.abspath(os.path.join(c3dFilePath, '../../../../..'))
+   
     try:
         with open(jsonfile, 'r') as f:
             bops_settings = json.load(f)
     except:
+        print('bops settings do not exist.')  
+        bops_settings = dict()
+           
+    # create a new settings.json if file 
+    if not bops_settings or not os.path.isdir(bops_settings['current_project_folder']):
         
         print('creating new bops "settings.json"...')
         print('')
         print('')
         print('')
         
-        bops_settings = dict()
-        bops_settings['current_project_folder'] = r'path\to\project\folder'
+        # if project folder do not exist, select new project
+        if not os.path.isdir(project_folder):                                       
+            project_folder = select_folder('Please select project directory')
+    
+    if os.path.isdir(project_folder) and not bops_settings['current_project_folder'] == project_folder:
+        bops_settings['current_project_folder'] = project_folder
+        save_bops_settings(bops_settings)
         
-        jsonpath = Path(get_dir_bops()) / ("settings.json")
-        jsonpath.write_text(json.dumps(bops_settings))
-        
+        # open settings to return variable    
         with open(jsonfile, 'r') as f:
             bops_settings = json.load(f)
             
-        
-        
     return bops_settings
 
 def save_bops_settings(settings):
@@ -138,45 +152,48 @@ def get_project_folder():
     project_folder = bops_settings['current_project_folder']
     project_json = os.path.join(project_folder,'settings.json')
 
-    if not os.path.isdir(project_folder) or not os.path.isfile(project_json):   # if project folder or project json do not exist, select new project
-        project_folder = select_folder('Please select project directory')
-        bops_settings['current_project_folder'] = project_folder
-
-        jsonpath = Path(get_dir_bops()) / ("settings.json")
-        jsonpath.write_text(json.dumps(bops_settings))
-
-    if not os.path.isfile(project_json):                                         # if json does not exist, create one
+    # if project settings.json does not exist, create one
+    if not os.path.isfile(project_json):                                         
         create_project_settings(project_folder)
 
     return project_folder
 
 def get_project_settings():
     jsonfile = os.path.join(get_project_folder(),'settings.json')
-    
-    if not os.path.isfile(jsonfile):
-        print('sad')
-    
-    return jsonfile
-    
+        
     with open(jsonfile, 'r') as f:
         settings = json.load(f)
 
     return settings
 
-def get_trial_dirs(sessionPath, trial_name):
-
+def get_trial_dirs(sessionPath, trialName):
+       
+    # get directories of all files for the trial name given 
     dirs = dict()
-    dirs['c3d'] = os.path.join(sessionPath,trial_name,'c3dfile.c3d')
-    dirs['grf'] = os.path.join(sessionPath,trial_name,'grf.mot')
-    dirs['emg'] = os.path.join(sessionPath,trial_name,'emg.csv')
-    dirs['inverse_kinematics'] = os.path.join(sessionPath,trial_name,'ik.mot')
-    dirs['inverse_dynamics'] = os.path.join(sessionPath,trial_name,'inverse_dynamics.sto')
-    dirs['static_op_force'] = os.path.join(sessionPath,trial_name,'_StaticOptimization_force.sto')
-    dirs['static_op_activation'] = os.path.join(sessionPath,trial_name,'_StaticOptimization_activation.sto')
-    dirs['jra'] = os.path.join(sessionPath,trial_name,'_joint reaction analysis_ReactionLoads.sto')
+    dirs['c3d'] = os.path.join(sessionPath,trialName,'c3dfile.c3d')
+    dirs['trc'] = os.path.join(sessionPath,trialName,'marker_experimental.trc')
+    dirs['grf'] = os.path.join(sessionPath,trialName,'grf.mot')
+    dirs['emg'] = os.path.join(sessionPath,trialName,'emg.csv')
+    dirs['ik'] = os.path.join(sessionPath,trialName,'ik.mot')
+    dirs['id'] = os.path.join(sessionPath,trialName,'inverse_dynamics.sto')
+    dirs['so_force'] = os.path.join(sessionPath,trialName,'_StaticOptimization_force.sto')
+    dirs['so_activation'] = os.path.join(sessionPath,trialName,'_StaticOptimization_activation.sto')
+    dirs['jra'] = os.path.join(sessionPath,trialName,'_joint reaction analysis_ReactionLoads.sto')
 
-    # if full_dir:
-    #     dirs.values() = [sessionPath + str(element) for element in dirs.values()]
+    all_paths_exist = True
+    for key in dirs:
+        if all_paths_exist and not os.path.isfile(dirs[key]):                                        
+            print(os.path.join(sessionPath,trialName))
+            print(dirs[key] + ' does not exist')
+            all_paths_exist = False
+        elif not os.path.isfile(dirs[key]):
+            print(dirs[key] + ' does not exist')
+            
+        
+        
+        
+            
+        
     return dirs
 
 def select_new_project_folder():
@@ -196,8 +213,8 @@ def select_new_project_folder():
 
 def create_project_settings(project_folder=''):
 
-    if not project_folder:
-        project_folder = get_project_folder()
+    if not project_folder or not os.path.isdir(project_folder):                                       
+        project_folder = select_folder('Please select project directory')
 
     project_settings = dict()
 
@@ -207,14 +224,14 @@ def create_project_settings(project_folder=''):
     project_settings['emg_filter']['order'] = [4]
 
     project_settings['emg_labels'] = ['all']
-    project_settings['simulations'] = os.path.join(project_folder,'simulations')
-        
+    project_settings['simulations'] = os.path.join(project_folder,'simulations')    
+    
     project_settings['setupFiles'] = dict()
-    project_settings['setupFiles']['scale'] = 'setup_Scale.xml' 
-    project_settings['setupFiles']['ik'] = 'setup_ik.xml' 
-    project_settings['setupFiles']['id'] = 'setup_id.xml' 
-    project_settings['setupFiles']['sp'] = 'setup_so.xml' 
-    project_settings['setupFiles']['jrf'] = 'setup_jrf.xml' 
+    project_settings['setupFiles']['scale'] = os.path.join(project_folder, 'setup_Scale.xml')
+    project_settings['setupFiles']['ik'] = os.path.join(project_folder, 'setup_ik.xml')
+    project_settings['setupFiles']['id'] = os.path.join(project_folder, 'setup_id.xml')
+    project_settings['setupFiles']['so'] = os.path.join(project_folder, 'setup_so.xml')
+    project_settings['setupFiles']['jrf'] = os.path.join(project_folder, 'setup_jrf.xml')
 
     jsonpath = Path(project_folder) / ("settings.json")
     jsonpath.write_text(json.dumps(project_settings))
@@ -222,6 +239,29 @@ def create_project_settings(project_folder=''):
     print('project directory was set to: ' + project_folder)
 
 #########################################################  C3D processing  ############################################################
+def import_file(file_path):
+    df = pd.DataFrame()
+    if os.path.isfile(file_path):
+        file_extension = os.path.splitext(file_path)[1]
+        if file_extension.lower() == ".c3d":
+            c3d_dict = import_c3d_to_dict(file_path)
+            df =  pd.DataFrame(c3d_dict.items())
+                    
+        elif file_extension.lower() == ".sto":
+            df = import_sto_data(file_path)
+            
+        elif file_extension.lower() == ".trc":
+            df = import_sto_data(file_path)
+            
+        elif file_extension.lower() == ".csv":
+            df = pd.read_csv(file_path)
+        else:
+            print('file extension does not match any of the bops options')
+            
+    else:
+        print('file path does not exist!')
+        
+    return df
 def import_c3d_to_dict(c3dFilePath):
 
     c3d_dict = dict()
@@ -256,7 +296,63 @@ def import_c3d_to_dict(c3dFilePath):
     return c3d_dict
 
 def import_sto_data(stoFilePath):
-    df = pd.read_csv(stoFilePath,delimiter='\t', skiprows=6)
+    """ Reads OpenSim .sto files.
+    Parameters
+    ----------
+    filename: absolute path to the .sto file
+    Returns
+    -------
+    header: the header of the .sto
+    labels: the labels of the columns
+    data: an array of the data
+    
+    Credit: Dimitar Stanev
+    https://gist.github.com/mitkof6/03c887ccc867e1c8976694459a34edc3#file-opensim_sto_reader-py
+    
+    Added the conversion to pd.DataFrame(s)
+    """
+
+    if not os.path.exists(stoFilePath):
+        print('file do not exists')
+
+    file_id = open(stoFilePath, 'r')
+
+    # read header
+    next_line = file_id.readline()
+    header = [next_line]
+    nc = 0
+    nr = 0
+    while not 'endheader' in next_line:
+        if 'datacolumns' in next_line:
+            nc = int(next_line[next_line.index(' ') + 1:len(next_line)])
+        elif 'datarows' in next_line:
+            nr = int(next_line[next_line.index(' ') + 1:len(next_line)])
+        elif 'nColumns' in next_line:
+            nc = int(next_line[next_line.index('=') + 1:len(next_line)])
+        elif 'nRows' in next_line:
+            nr = int(next_line[next_line.index('=') + 1:len(next_line)])
+
+        next_line = file_id.readline()
+        header.append(next_line)
+
+    # process column labels
+    next_line = file_id.readline()
+    if next_line.isspace() == True:
+        next_line = file_id.readline()
+
+    labels = next_line.split()
+
+    # get data
+    data = []
+    for i in range(1, nr + 1):
+        d = [float(x) for x in file_id.readline().split()]
+        data.append(d)
+
+    file_id.close()
+    
+    # Create a Pandas DataFrame
+    df = pd.DataFrame(data, columns=labels)
+
     return df
 
 def import_c3d_analog_data(c3dFilePath):
