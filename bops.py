@@ -36,6 +36,8 @@ import tkfilebrowser
 import customtkinter as ctk
 
 from PIL import ImageTk, Image
+from trc import TRCData
+import trc
 try:
     import opensim as osim
 except:
@@ -91,12 +93,22 @@ def get_subject_sessions(subject_folder):
     return [f.path for f in os.scandir(subject_folder) if f.is_dir()] # (for all subdirectories) [x[0] for x in os.walk(dir_simulations())]
 
 def get_trial_list(sessionPath='',full_dir=False):
-
+    # get all the folders in sessionPath that contain c3dfile.c3d and are not "static" trials
+    
     if not sessionPath:
         sessionPath = select_folder('Select session folder',get_dir_simulations())
 
     trial_list = [f.name for f in os.scandir(sessionPath) if f.is_dir()]
 
+    # check which folders have a file inside named "c3dfile.c3d" and if not delete the path from "trialList"
+    for trial_folder in trial_list.copy():
+        c3d_file_path = os.path.join(sessionPath, trial_folder, 'c3dfile.c3d')
+        if not os.path.isfile(c3d_file_path):
+            trial_list.remove(trial_folder)
+        
+        if trial_folder.lower().__contains__('static'):
+            trial_list.remove(trial_folder)
+    
     if full_dir:
         trial_list = [sessionPath + '\\' + str(element) for element in trial_list]
 
@@ -182,12 +194,14 @@ def get_trial_dirs(sessionPath, trialName):
 
     all_paths_exist = True
     for key in dirs:
+        filename = os.path.basename(dirs[key])
         if all_paths_exist and not os.path.isfile(dirs[key]):                                        
-            print(os.path.join(sessionPath,trialName))
-            print(dirs[key] + ' does not exist')
+            print(os.path.join(sessionPath))
+            
+            print(filename + ' does not exist')
             all_paths_exist = False
         elif not os.path.isfile(dirs[key]):
-            print(dirs[key] + ' does not exist')
+            print(filename + ' does not exist')
             
         
         
@@ -238,7 +252,7 @@ def create_project_settings(project_folder=''):
 
     print('project directory was set to: ' + project_folder)
 
-#########################################################  C3D processing  ############################################################
+#########################################################  import data  ############################################################
 def import_file(file_path):
     df = pd.DataFrame()
     if os.path.isfile(file_path):
@@ -251,10 +265,11 @@ def import_file(file_path):
             df = import_sto_data(file_path)
             
         elif file_extension.lower() == ".trc":
-            df = import_sto_data(file_path)
+            import_trc_file(file_path)
             
         elif file_extension.lower() == ".csv":
             df = pd.read_csv(file_path)
+        
         else:
             print('file extension does not match any of the bops options')
             
@@ -368,6 +383,29 @@ def import_c3d_analog_data(c3dFilePath):
         analog_df[iLab] = iData.tolist()
     
     return analog_df
+
+def import_trc_file(trcFilePath):
+    trc_data = TRCData()
+    trc_data.load(trcFilePath)
+    
+    # convert data to DataFrame 
+    data_dict = {}
+    headers = list(trc_data.keys())
+    
+    # only include columns from "Time" to "Markers" (i.e. labeled markers)
+    data = list(trc_data.values())[headers.index('Time'):headers.index('Markers')-1]
+    headers = headers[headers.index('Time'):headers.index('Markers')-1]
+    
+    for col_idx in range(1,len(data)):
+        col_name = headers[col_idx]
+        col_data = data[col_idx]
+        data_dict[col_name] = col_data
+
+    # convert data to DataFrame 
+    trc_dataframe = pd.DataFrame(data_dict)
+    trc_dataframe.to_csv(os.path.join(os.path.dirname(trcFilePath),'test.csv'))
+    
+    return trc_data, trc_dataframe
 
 def c3d_osim_export(c3dFilePath):
     maindir = os.path.dirname(c3dFilePath)
@@ -488,6 +526,7 @@ def rotateAroundAxes(data, rotations, modelMarkers):
 
 
     return data
+
 ########################################################################################################################################
 
 ########################################################  Operations  ###################################################################
@@ -710,16 +749,21 @@ def scale_model(originalModelPath,targetModelPath,trcFilePath,setupScaleXML):
     print('Osim model scaled and saved in ' + targetModelPath)
     print()
 
-def run_IK(osim_modelPath, trc_file, resultsDir, marker_weights_path):
+def run_IK(osim_modelPath, trc_file, resultsDir):
 
-    trc = osim.TimeSeriesTableMotion().loadTRC(trc_file)                # Load the TRC file
-    osimModel = osim.Model(osim_modelPath)                              # Load the model
+    # Load the TRC file
+    df = import_file (trc_file)
+    
+    # Load the model
+    osimModel = osim.Model(osim_modelPath)                              
     state = osimModel.initSystem()
 
-    initialTime = trc.getStartTime()                                    # Define the time range for the analysis
+    # Define the time range for the analysis
+    initialTime = trc.getIndependentColumn()
     finalTime = trc.getLastTime()
 
-    ikTool = osim.InverseKinematicsTool()                               # Create the inverse kinematics tool
+    # Create the inverse kinematics tool
+    ikTool = osim.InverseKinematicsTool()
     ikTool.setModel(osimModel)
     ikTool.setStartTime(initialTime)
     ikTool.setEndTime(finalTime)
@@ -728,9 +772,11 @@ def run_IK(osim_modelPath, trc_file, resultsDir, marker_weights_path):
     ikTool.set_accuracy(1e-6)
     ikTool.setOutputMotionFileName(os.path.join(resultsDir, "ik.mot"))
 
-    ikTool.printToXML(os.path.join(resultsDir, "ik_setup.xml"))         # print setup
+    # print setup
+    ikTool.printToXML(os.path.join(resultsDir, "ik_setup.xml"))         
 
-    print("running ik...")                                              # Run inverse kinematics
+    # Run inverse kinematics
+    print("running ik...")                                             
     ikTool.run()
 
 def run_ID(osim_modelPath, ik_results_file, mot_file, grf_xml, resultsDir):
