@@ -1,0 +1,3 @@
+[submodule "ExampleScripts/pymuscle"]
+	path = ExampleScripts/pymuscle
+	url = https://github.com/iandanforth/pymuscle
