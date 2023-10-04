@@ -637,6 +637,117 @@ def emg_filter(c3d_dict=0, band_lowcut=30, band_highcut=400, lowcut=6, order=4):
 
     return analog_df
 
+
+def filtering_force_plates(file_path, cutoff_frequency, order, sampling_rate):
+    def normalize_min_max(data):
+                normalized_data = [(x - np.min(data)) / (np.max(data) - np.min(data)) for x in data]
+                return normalized_data
+    nyquist_frequency = 0.5 * sampling_rate
+    Wn = cutoff_frequency / nyquist_frequency 
+    b, a = sig.butter(order, Wn, btype='low', analog=False)
+    if os.path.isfile(file_path):
+        file_extension = os.path.splitext(file_path)[1]
+        if file_extension.lower() == ".xlsx":
+            data = pd.read_excel(file_path)
+            fz=[]
+            for i in range(1, data.shape[0]):
+                fz.append(float(data.iloc[i,0])) 
+            normalized_time = np.arange(len(data) - 1) / (len(data) - 2)
+            fz_offset= fz - np.mean(fz)
+            filtered_fz = sig.lfilter(b, a, fz_offset)
+            plt.plot(normalized_time, normalize_min_max(filtered_fz), label='z values')
+            plt.xlabel('Time')
+            plt.ylabel('Force')
+            plt.legend()
+            plt.grid(True)
+            plt.title('Graph of force signal vs. time', fontsize=10)
+            plt.show()
+
+        elif file_extension.lower() == ".csv":
+            data = pd.read_csv(file_path, sep=",",header=3)
+            normalized_time = np.arange(len(data) - 1) / (len(data) - 2)
+            fx1=[]
+            fy1=[]
+            fz1=[]
+            fx2=[]
+            fy2=[]
+            fz2=[]
+            fx3=[]
+            fy3=[]
+            fz3=[]
+            fx4=[]
+            fy4=[]
+            fz4=[]
+            fx5=[]
+            fy5=[]
+            fz5=[]
+            data.fillna(0, inplace=True)
+            for i in range(1, data.shape[0]):
+                fx1.append(float(data.iloc[i,11]))  
+                fy1.append(float(data.iloc[i,12]))  
+                fz1.append(float(data.iloc[i,13]))  
+                fx2.append(float(data.iloc[i,2]))  
+                fy2.append(float(data.iloc[i,3]))  
+                fz2.append(float(data.iloc[i,4]))
+                fx3.append(float(data.iloc[i,36]))  
+                fy3.append(float(data.iloc[i,37]))  
+                fz3.append(float(data.iloc[i,38]))
+                fx4.append(float(data.iloc[i,42]))  
+                fy4.append(float(data.iloc[i,43]))  
+                fz4.append(float(data.iloc[i,44]))
+                fx5.append(float(data.iloc[i,48]))  
+                fy5.append(float(data.iloc[i,49]))  
+                fz5.append(float(data.iloc[i,50]))  
+
+
+        #OFFSET
+            list_fx = [fx1, fx2, fx3, fx4, fx5]
+            list_fy = [fy1, fy2, fy3, fy4, fy5]
+            list_fz = [fz1, fz2, fz3, fz4, fz5]
+            mean_fx = [np.mean(lst) for lst in list_fx]
+            mean_fy = [np.mean(lst) for lst in list_fy]
+            mean_fz = [np.mean(lst) for lst in list_fz]
+            fx_red = [[x - mean for x in lst] for lst, mean in zip(list_fx, mean_fx)]
+            fy_red = [[x - mean for x in lst] for lst, mean in zip(list_fy, mean_fy)]
+            fz_red = [[x - mean for x in lst] for lst, mean in zip(list_fz, mean_fz)]
+            
+            filtered_data_listx= []
+            for data in fx_red:
+                filtered_data_x = sig.lfilter(b, a, data)  
+                filtered_data_listx.append(filtered_data_x)
+            filtered_data_listy= []
+            for data in fy_red:
+                filtered_data_y = sig.lfilter(b, a, data)  
+                filtered_data_listy.append(filtered_data_y)
+            filtered_data_listz= []
+            for data in fz_red:
+                filtered_data_z = sig.lfilter(b, a, data)  
+                filtered_data_listz.append(filtered_data_z)
+            
+            fig, axes = plt.subplots(3,1)
+            axes[0].plot(normalized_time, normalize_min_max(sum(filtered_data_listx)), label='x values')
+            axes[1].plot(normalized_time, normalize_min_max(sum(filtered_data_listy)), label='y values')
+            axes[2].plot(normalized_time, normalize_min_max(sum(filtered_data_listz)), label='z values')
+            axes[0].legend(loc='upper right')
+            axes[1].legend(loc='upper right')
+            axes[2].legend(loc='upper right')
+            plt.xlabel('Time')
+            axes[0].set_ylabel('Force')
+            axes[1].set_ylabel('Force')
+            axes[2].set_ylabel('Force')
+            axes[0].set_title('Graph of force signal vs. time', fontsize=10)  
+            axes[0].grid(True)
+            axes[1].grid(True)
+            axes[2].grid(True)
+            plt.show()
+
+        else:
+            print('file extension does not match any of the bops options for filtering the force plates signal')
+    else:
+        print('file path does not exist!')
+filtering_force_plates("C:/Users/camil/OneDrive/Bureau/TN09/Project0.3_PythonBasilio/msk_modelling_python/ExampleData/BMA-force-plate/CSV-Test/p1/cmj3.csv", 2, 2, 1000)
+
+
 def torsion_tool(): # to complete...
    pass
 
