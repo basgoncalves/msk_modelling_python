@@ -642,9 +642,14 @@ def filtering_force_plates(file_path, cutoff_frequency, order, sampling_rate):
     def normalize_min_max(data):
                 normalized_data = [(x - np.min(data)) / (np.max(data) - np.min(data)) for x in data]
                 return normalized_data
+            
     nyquist_frequency = 0.5 * sampling_rate
     Wn = cutoff_frequency / nyquist_frequency 
     b, a = sig.butter(order, Wn, btype='low', analog=False)
+    
+    if not file_path:
+        file_path = os.path.join(get_dir_bops, 'ExampleData/BMA-force-plate/CSV-Test/p1/cmj3.csv')
+    
     if os.path.isfile(file_path):
         file_extension = os.path.splitext(file_path)[1]
         if file_extension.lower() == ".xlsx":
@@ -745,7 +750,6 @@ def filtering_force_plates(file_path, cutoff_frequency, order, sampling_rate):
             print('file extension does not match any of the bops options for filtering the force plates signal')
     else:
         print('file path does not exist!')
-filtering_force_plates("C:/Users/camil/OneDrive/Bureau/TN09/Project0.3_PythonBasilio/msk_modelling_python/ExampleData/BMA-force-plate/CSV-Test/p1/cmj3.csv", 2, 2, 1000)
 
 
 def torsion_tool(): # to complete...
