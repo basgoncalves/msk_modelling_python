@@ -638,7 +638,7 @@ def emg_filter(c3d_dict=0, band_lowcut=30, band_highcut=400, lowcut=6, order=4):
     return analog_df
 
 
-def filtering_force_plates(file_path, cutoff_frequency, order, sampling_rate):
+def filtering_force_plates(file_path, cutoff_frequency=2, order=2, sampling_rate=1000):
     def normalize_min_max(data):
                 normalized_data = [(x - np.min(data)) / (np.max(data) - np.min(data)) for x in data]
                 return normalized_data
