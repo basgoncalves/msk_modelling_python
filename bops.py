@@ -638,9 +638,11 @@ def emg_filter(c3d_dict=0, band_lowcut=30, band_highcut=400, lowcut=6, order=4):
     return analog_df
 
 
-def filtering_force_plates(file_path='', cutoff_frequency=2, order=2, sampling_rate=1000):
-    def normalize_min_max(data):
-                normalized_data = [(x - np.min(data)) / (np.max(data) - np.min(data)) for x in data]
+def filtering_force_plates(file_path='', cutoff_frequency=2, order=2, sampling_rate=1000, body_weight=''):
+    if not body_weight:
+        body_weight = 1 
+    def normalize_bodyweight(data):
+                normalized_data = [x  / body_weight for x in data]
                 return normalized_data
             
     nyquist_frequency = 0.5 * sampling_rate
@@ -660,9 +662,9 @@ def filtering_force_plates(file_path='', cutoff_frequency=2, order=2, sampling_r
             normalized_time = np.arange(len(data) - 1) / (len(data) - 2)
             fz_offset= fz - np.mean(fz)
             filtered_fz = sig.lfilter(b, a, fz_offset)
-            plt.plot(normalized_time, normalize_min_max(filtered_fz), label='z values')
-            plt.xlabel('Time (% task)')
-            plt.ylabel('Force')
+            plt.plot(normalized_time, normalize_bodyweight(filtered_fz), label='z values')
+            plt.xlabel('Time (% of the task)')
+            plt.ylabel('Force (% of body weight)')
             plt.legend()
             plt.grid(True)
             plt.title('Graph of force signal vs. time', fontsize=10)
@@ -730,16 +732,16 @@ def filtering_force_plates(file_path='', cutoff_frequency=2, order=2, sampling_r
                 filtered_data_listz.append(filtered_data_z)
             
             fig, axes = plt.subplots(3,1)
-            axes[0].plot(normalized_time, normalize_min_max(sum(filtered_data_listx)), label='x values')
-            axes[1].plot(normalized_time, normalize_min_max(sum(filtered_data_listy)), label='y values')
-            axes[2].plot(normalized_time, normalize_min_max(sum(filtered_data_listz)), label='z values')
+            axes[0].plot(normalized_time, normalize_bodyweight(sum(filtered_data_listx)), label='x values')
+            axes[1].plot(normalized_time, normalize_bodyweight(sum(filtered_data_listy)), label='y values')
+            axes[2].plot(normalized_time, normalize_bodyweight(sum(filtered_data_listz)), label='z values')
             axes[0].legend(loc='upper right')
             axes[1].legend(loc='upper right')
             axes[2].legend(loc='upper right')
-            plt.xlabel('Time (% task)')
-            axes[0].set_ylabel('Force')
-            axes[1].set_ylabel('Force')
-            axes[2].set_ylabel('Force')
+            plt.xlabel('Time (% of the task)')
+            axes[0].set_ylabel('Force (% of \nbody weight)')
+            axes[1].set_ylabel('Force (% of \nbody weight)')
+            axes[2].set_ylabel('Force (% of \nbody weight)')
             axes[0].set_title('Graph of force signal vs. time', fontsize=10)  
             axes[0].grid(True)
             axes[1].grid(True)
