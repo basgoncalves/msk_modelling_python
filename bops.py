@@ -3,10 +3,18 @@
 # BOPS: a Matlab toolbox to batch musculoskeletal data processing for OpenSim, Computer Methods in Biomechanics and Biomedical Engineering
 # DOI: 10.1080/10255842.2020.1867978
 
-import ctypes
-import sys
-import os
 import subprocess
+import importlib
+
+def import_bops(package,module=''):
+    p = importlib.__import__(package)
+    return p
+
+import_bops('ctypes')
+sys = import_bops('sys')
+
+
+import os
 src_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),'src')
 sys.path.append(src_path)
 import msk_modelling_pkg_install
@@ -36,8 +44,11 @@ import tkfilebrowser
 import customtkinter as ctk
 
 from PIL import ImageTk, Image
-from trc import TRCData
-import trc
+try:
+    from trc import TRCData
+    import trc
+except:
+    print('could not import trc package')
 try:
     import opensim as osim
 except:
