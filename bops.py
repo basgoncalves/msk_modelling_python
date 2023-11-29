@@ -13,7 +13,6 @@ def import_bops(package,module=''):
 import_bops('ctypes')
 sys = import_bops('sys')
 
-
 import os
 src_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),'src')
 sys.path.append(src_path)
