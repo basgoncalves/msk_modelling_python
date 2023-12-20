@@ -27,20 +27,20 @@ def add_to_system_path(path):
 def show_popup(message):
         ctypes.windll.user32.MessageBoxW(0, message, "System Path Update", 1)
 
-
-if is_admin():    
-    path = input('Paste the folder containing the OpenSim bin folder: \n')
-    if path.startswith('-rm '):
-        path = path[4:]
-        print(path)
-        remove_to_system_path(path)
-        show_popup('Removed from system path: ' + path)
+def run():
+    if is_admin():    
+        path = input('Paste the folder containing the OpenSim bin folder: \n')
+        if path.startswith('-rm '):
+            path = path[4:]
+            print(path)
+            remove_to_system_path(path)
+            show_popup('Removed from system path: ' + path)
+        else:
+            add_to_system_path(path)
+            show_popup('Added to system path: ' + path)
+        
     else:
-        add_to_system_path(path)
-        show_popup('Added to system path: ' + path)
-    
-else:
-    print('is not admin')
-    ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
-    
+        print('is not admin')
+        ctypes.windll.shell32.ShellExecuteW(None, "runas", sys.executable, " ".join(sys.argv), None, 1)
+        
 

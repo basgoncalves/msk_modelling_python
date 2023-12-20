@@ -1,0 +1,7 @@
+matplotlib
+scipy
+json
+sqlite3
+mpl_toolkits
+turtle
+Pillow

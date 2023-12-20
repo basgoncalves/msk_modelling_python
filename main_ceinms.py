@@ -1,32 +1,33 @@
+import os 
+import sys
 import tkinter as tk
 from tkinter import filedialog, Text
-import os 
 import unittest
 import subprocess
+import pkg_resources
 
-#install_requirements
-try:
-    subprocess.check_call(['pip', 'install', '-r', 'requirements.txt'])
-    print('Requirements installed successfully.')
-except subprocess.CalledProcessError:
-    print('Failed to install requirements.')
+from src.add_to_system_path import is_admin
+from src import download_dependencies
 
-
-# Get the file names in the src directory
-src_dir = 'src'
-file_names = os.listdir(src_dir)
-# Import all the modules in the src directory
-for file_name in file_names:
-    if file_name.endswith('.py'):
-        module_name = file_name[:-3]  # Remove the .py extension
-        module = __import__(f'{src_dir}.{module_name}', fromlist=[module_name])
+# download_dependencies.create_virtual_environment()
+# download_dependencies.create_requirements()
+# download_dependencies.install_requirements()
+exit()
+# # Get the file names in the src directory
+# src_dir = 'src'
+# file_names = os.listdir(src_dir)
+# # Import all the modules in the src directory
+# for file_name in file_names:
+#     if file_name.endswith('.py'):
+#         module_name = file_name[:-3]  # Remove the .py extension
+#         module = __import__(f'{src_dir}.{module_name}', fromlist=[module_name])
 
 from src import database_tools
 
 
 
 
-download_dependencies()
+
 
 def print_design():
     print('designed by Dr Bas')

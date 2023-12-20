@@ -7,7 +7,7 @@ import subprocess
 import sys
 import pkg_resources
 import os
-
+import importlib
 
 osimVersion = '4.3'
 installed_packages = pkg_resources.working_set
@@ -71,7 +71,7 @@ for pkg in Packages:
             subprocess.check_call([sys.executable, '-m', 'pip', 'install', pkg])
         except:
             install_opensim(4.3)
-            
+
 if __name__ == '__main__':
     opensimVersion = input('What is your current opensim version: ')
     print(opensimVersion)

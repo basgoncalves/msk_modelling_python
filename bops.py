@@ -5,21 +5,24 @@
 
 import subprocess
 import importlib
-
-def import_bops(package,module=''):
-    p = importlib.__import__(package)
-    return p
-
-import_bops('ctypes')
-sys = import_bops('sys')
-
 import os
+import unittest
+
+import sys
 src_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),'src')
 sys.path.append(src_path)
-import msk_modelling_pkg_install
-# import all pakages needed
-import unittest
-import numpy as np
+
+# import package from bops directory
+def import_bops(package,module=''): 
+    p = importlib.__import__(package)
+    return p
+Packages = ['autopep8','bs4','c3d','docx','jupyter','numpy','opensim','pyc3dserver','requests','pandas','selenium','webdriver-manager','matplotlib',
+        'scipy','tk','tkfilebrowser','customtkinter','xmltodict','screeninfo'] 
+
+ctypes = import_bops('ctypes')
+np = import_bops('numpy')
+import_bops('msk_modelling_pkg_install')
+
 import pandas as pd
 import math
 import shutil
@@ -43,6 +46,8 @@ import tkfilebrowser
 import customtkinter as ctk
 
 from PIL import ImageTk, Image
+
+exit()
 try:
     from trc import TRCData
     import trc
@@ -59,6 +64,9 @@ except:
     print('init path is: ', initPath)    
     print('=============================================================================================')
 
+
+
+
 def select_folder(prompt='Please select your folder', staring_path=''):
     if not staring_path: # if empty
         staring_path = os.getcwd()
@@ -71,7 +79,7 @@ def select_folder_multiple (prompt='Please select multiple folders', staring_pat
     if not staring_path: # if empty
         staring_path = os.getcwd()
 
-    tkinter().withdraw()
+    tk().withdraw()
     folder_list = tkfilebrowser.askopendirnames(initialdir=staring_path,title=prompt)
     return folder_list
 
@@ -1012,10 +1020,10 @@ def  simple_gui():
     button1.pack(pady=12,padx=10)
 
     label = ctk.CTkLabel(master=root, text="Write some text", width=120, height=25, corner_radius=8)
-    label.place(relx=0.5, rely=0.5, anchor=tkinter.CENTER)
+    label.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
 
     entry = ctk.CTkEntry(master=root, width=120, height=25,corner_radius=10)
-    entry.place(relx=0.5, rely=0.5, anchor=tkinter.CENTER)
+    entry.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
 
     text = entry.get()
     print(text)
@@ -1097,7 +1105,7 @@ def complex_gui():
             # create radiobutton frame
             self.radiobutton_frame = ctk.CTkFrame(self)
             self.radiobutton_frame.grid(row=0, column=3, padx=(20, 20), pady=(20, 0), sticky="nsew")
-            self.radio_var = tkinter.IntVar(value=0)
+            self.radio_var = tk.IntVar(value=0)
             self.label_radio_group = ctk.CTkLabel(master=self.radiobutton_frame, text="CTkRadioButton Group:")
             self.label_radio_group.grid(row=0, column=2, columnspan=1, padx=10, pady=10, sticky="")
             self.radio_button_1 = ctk.CTkRadioButton(master=self.radiobutton_frame, variable=self.radio_var, value=0)

@@ -1,12 +1,13 @@
 import os
+import sys
+sys.path.insert(0,os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import shutil
 import subprocess
 import zipfile
 import urllib.request
 import pkg_resources
-import sys
 import subprocess
-import add_to_system_path
+from src import add_to_system_path
 
 def download_ceinms():
     url = "https://github.com/CEINMS/CEINMS/archive/refs/heads/master.zip"
@@ -131,11 +132,27 @@ def create_virtual_environment(env_path=''):
         
     return env_path
 
+def activate_virtual_environment(env_path):
+    scripts_path = os.path.join(env_path, 'Scripts')
+    os.chdir(scripts_path)
+    
+    activate_script = os.path.join(scripts_path, 'activate')
+    
+    if os.path.exists(activate_script):
+        try:
+            subprocess.check_call(activate_script, shell=True)
+            print('Virtual environment activated.')
+        except subprocess.CalledProcessError as e:
+            print('Failed to activate virtual environment.')
+            print(e)
+    else:
+        print('Virtual environment activation script not found.')
 
 if __name__ == '__main__':
     # download_ceinms()
     # download_opensim()
     # create_requirements()
-    # add_to_system_path.run()
-    env_path = create_virtual_environment()
+    add_to_system_path.run()
+    # env_path = create_virtual_environment()
+    # activate_virtual_environment(env_path)
     print('done.')
