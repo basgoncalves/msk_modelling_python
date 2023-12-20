@@ -1,9 +1,12 @@
 import os
 import shutil
+import subprocess
 import zipfile
-import os
 import urllib.request
 import pkg_resources
+import sys
+import subprocess
+import add_to_system_path
 
 def download_ceinms():
     url = "https://github.com/CEINMS/CEINMS/archive/refs/heads/master.zip"
@@ -35,8 +38,7 @@ def download_ceinms():
     print("CEINMS downloaded successfully.")
     print(f"Saved at: {file_path}")
 
-def download_opensim():
-    opensim_path = "C:/OpenSim 4.4"  # Updated OpenSim path
+def download_opensim(opensim_path = "C:/OpenSim 4.4"):
 
     if not os.path.exists(opensim_path):
         try:
@@ -72,20 +74,68 @@ def create_requirements():
             for line in lines:
                 if line.startswith('import') or line.startswith('from'):
                     module = line.split()[1]
-                    imported_modules.add(module)
+                    if module == 'cv2':
+                        module = 'opencv-python'
+                    elif module == 'PIL':
+                        module = 'Pillow'
+                    imported_modules.add(module)                   
+
+    # Get the list of standard library modules
+    standard_library_modules = sys.modules.keys()
 
     # Filter out the installed packages from the imported modules
     required_modules = [module for module in imported_modules if module not in installed_packages]
-
+    
+    # Remove standard library modules
+    required_modules = [module for module in required_modules if module not in standard_library_modules]
+    
+    # If modules contain '.', remove the '.' and everything after it
+    required_modules = [module.split('.')[0] for module in required_modules]
+    
+    # Remove duplicates
+    required_modules = list(set(required_modules))
+    
     # Write the required modules to requirements.txt
-    with open('requirements.txt', 'w') as f:
+    requirements_filename = os.path.join(current_folder, 'requirements.txt')
+    with open(requirements_filename, 'w') as f:
         for module in required_modules:
             f.write(f"{module}\n")
     
     print('requirements.txt created successfully.')
+    print(f"Saved at: {requirements_filename}")
+    return requirements_filename
+
+def install_requirements():
+    requirements_filename = create_requirements()
+    current_folder = os.path.dirname(os.path.abspath(__file__))
+    print(current_folder)
+
+    try:
+        subprocess.check_call(['pip', 'install', '-r', requirements_filename])
+        print('Requirements installed successfully.')
+    except subprocess.CalledProcessError as e:
+        print('Failed to install requirements.')
+        print(e)
+
+def create_virtual_environment(env_path=''):
+    
+    if not env_path:
+        env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'virtual_environment')
+    
+    try:
+        subprocess.check_call(['python', '-m', 'venv', env_path])
+        print(f"Virtual environment created successfully at {env_path}.")
+    except subprocess.CalledProcessError as e:
+        print('Failed to create virtual environment.')
+        print(e)
+        
+    return env_path
 
 
 if __name__ == '__main__':
-    download_ceinms()
-    download_opensim()
-    create_requirements()
+    # download_ceinms()
+    # download_opensim()
+    # create_requirements()
+    # add_to_system_path.run()
+    env_path = create_virtual_environment()
+    print('done.')
