@@ -64,8 +64,6 @@ def find_number_of_keys_in_subject():
         
     return number_of_keys, key_names
 
-    
-
 def add_s_to_subject_info_id(subjectcsv):
     df = pd.read_csv(subjectcsv)
     df['id'] = 's' + df['id'].astype(str).str.zfill(3)
