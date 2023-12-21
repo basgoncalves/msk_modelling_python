@@ -1,4 +1,5 @@
-import os 
+import os
+import re 
 import sys
 import tkinter as tk
 from tkinter import filedialog, Text
@@ -14,8 +15,8 @@ from src import download_dependencies
 # download_dependencies.create_requirements()
 # download_dependencies.install_requirements()
 
-
 from src import database_tools
+import pandas as pd
 import pandas as pd
 
 def print_design():
@@ -47,6 +48,32 @@ def add_s_to_subject_info_id(subjectcsv):
     
     print('file saved at: ' + os.path.join(main_folder, subjectcsv))
 
-df = pd.read_csv(subjectcsv)
-for column in df.columns.tolist():
-    print(column)
+def print_columns(subjectcsv, column_name = 'group'):
+    df = pd.read_csv(subjectcsv)   
+    for column in df[column_name]:
+        print(column)
+        
+def convert_camel_case_to_snake_case(old_string):
+    # turn cammel to snake case (e.g aE => a_e)
+    pattern = re.compile(r'([a-z])([A-Z])')
+    snake_case_string = re.sub(pattern, r'\1_\2', old_string)
+    
+    new_string = snake_case_string.lower().replace(" ", "_")
+    
+    return new_string
+
+def replace_headers_with_camel_case(subjectcsv):
+    df = pd.read_csv(subjectcsv)
+    new_columns = [convert_camel_case_to_snake_case(col) for col in df.columns]
+    df.columns = new_columns
+    df.to_csv(os.path.join(main_folder, subjectcsv), index=False)
+    
+    print('file saved at: ' + os.path.join(main_folder, subjectcsv))    
+
+def print_id_values(subjectcsv, column_name = 'jcffai', value = 'Yes'):
+    df = pd.read_csv(subjectcsv)
+    filtered_df = df.loc[df['jcffai'] == 'Yes']
+    print('id values for ' + column_name + ' = ' + value)
+    print(filtered_df['id'].values)
+
+print_id_values(subjectcsv, column_name = 'jcffai', value = 'Yes')
