@@ -7,6 +7,7 @@ Biomechanical tools included:
     - BTK               https://biomechanical-toolkit.github.io/docs/Wrapping/Python/_getting_started.html
     - c3dServer         https://www.c3dserver.com/ 
     - opensim           https://simtk-confluence.stanford.edu:8443/display/OpenSim/Scripting+in+Python 
+    - animation_blender https://github.com/MattiasFredriksson/io_anim_c3d
 
 ## Installation
 
