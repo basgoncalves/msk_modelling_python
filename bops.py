@@ -47,7 +47,6 @@ import customtkinter as ctk
 
 from PIL import ImageTk, Image
 
-exit()
 try:
     from trc import TRCData
     import trc
@@ -786,8 +785,7 @@ def selec_analog_labels (c3dFilePath):
     print(type(analog_labels))
 
 def read_trc_file(trcFilePath):
-    df = pd.DataFrame(trcFilePath)
-    return df
+    pass
 
 def writeTRC(c3dFilePath, trcFilePath):
 

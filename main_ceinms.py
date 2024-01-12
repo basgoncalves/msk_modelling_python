@@ -40,7 +40,7 @@ class subject:
         self.faber = faber
         self.pain = pain
         self.test = test
-
+       
 class subject_with_variable_keys:
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)

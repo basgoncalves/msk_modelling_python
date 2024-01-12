@@ -59,6 +59,9 @@ def download_opensim(opensim_path = "C:/OpenSim 4.4"):
     else:
         print("OpenSim version 4.4 already exists.")
 
+def dowload_trcdata():
+    url = 'https://github.com/hsorby/trc-data-reader.git'
+
 def create_requirements():
     # Get the list of installed packages
     installed_packages = [pkg.key for pkg in pkg_resources.working_set]
@@ -79,7 +82,9 @@ def create_requirements():
                         module = 'opencv-python'
                     elif module == 'PIL':
                         module = 'Pillow'
-                    imported_modules.add(module)                   
+                    elif module == 'trc':
+                        module = 'trc-data-reader'                   
+                    imported_modules.add(module)
 
     # Get the list of standard library modules
     standard_library_modules = sys.modules.keys()
@@ -151,8 +156,8 @@ def activate_virtual_environment(env_path):
 if __name__ == '__main__':
     # download_ceinms()
     # download_opensim()
-    # create_requirements()
-    add_to_system_path.run()
+    create_requirements()
+    # add_to_system_path.run()
     # env_path = create_virtual_environment()
     # activate_virtual_environment(env_path)
     print('done.')

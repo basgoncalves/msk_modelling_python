@@ -84,5 +84,60 @@ def create_stick_man_window(scaling_factor = 1.5):
     # Start the main loop
     root.mainloop()
 
+#%% Create GUI with a few buttons
+import tkinter as tk
+from tkinter import filedialog
+def start_GUI():
+    def test():
+        print("Hello World!")
+
+    def test2():
+        print("Hello Hell!")
+
+    def create_window(title, geometry='500x500'):
+        
+        window = tk.Tk()
+
+        # Set the window title
+        screen_width = window.winfo_screenwidth()
+        screen_height = window.winfo_screenheight()
+
+        # Calculate the window width and height
+        window_width = screen_width // 2
+        window_height = screen_height // 2
+
+        # Calculate the x and y coordinates for centering the window
+        x = (screen_width - window_width) // 2
+        y = (screen_height - window_height) // 2
+
+        # Set the window size and position
+        window.geometry(f"{window_width}x{window_height}+{x}+{y}")
+
+        return window
+
+    def add_button(window, text, command, padx=5, pady=5, x=0, y=0):
+        button = tk.Button(window, text=text, command=command)
+        button.pack(padx=padx, pady=pady)
+        button.place(x=x, y=y)
+
+    def select_folder():
+        root = tk.Tk()
+        root.withdraw()
+
+        folder_path = filedialog.askdirectory()
+        print("Selected folder:", folder_path)
+
+    window = create_window("Test")
+    add_button(window, "select folder", select_folder, padx=5, pady=5, x=0, y=0)
+
+    # Start the GUI event loop
+    try:
+        window.mainloop()
+    except KeyboardInterrupt:
+        window.destroy()
+
+
+#%% if main 
 if __name__ == '__main__':
+    start_GUI()
     create_stick_man_window()

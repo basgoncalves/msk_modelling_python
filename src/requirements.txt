@@ -1,7 +1,10 @@
-matplotlib
+turtle
+opencv-python
 scipy
 json
+matplotlib
+tkinter
 sqlite3
 mpl_toolkits
-turtle
+ctypes,
 Pillow
