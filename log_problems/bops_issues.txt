@@ -1,0 +1,15 @@
+
+
+## opensim import with ezc3d 
+
+'''
+import opensim
+
+Traceback (most recent call last):
+  File "c:/Users/Bas/Desktop/osim_load.py", line 2, in <module>
+    import opensim
+  File "C:\Users\Bas\AppData\Local\Programs\Python\Python38\lib\site-packages\opensim\__init__.py", line 7, in <module>
+    from .common import *
+  File "C:\Users\Bas\AppData\Local\Programs\Python\Python38\lib\site-packages\opensim\common.py", line 13, in <module>
+    from . import _common
+ImportError: DLL load failed while importing _common: The specified procedure could not be found.

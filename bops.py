@@ -654,7 +654,6 @@ def emg_filter(c3d_dict=0, band_lowcut=30, band_highcut=400, lowcut=6, order=4):
 
     return analog_df
 
-
 def filtering_force_plates(file_path='', cutoff_frequency=2, order=2, sampling_rate=1000, body_weight=''):
     if not body_weight:
         body_weight = 1 
@@ -769,7 +768,6 @@ def filtering_force_plates(file_path='', cutoff_frequency=2, order=2, sampling_r
             print('file extension does not match any of the bops options for filtering the force plates signal')
     else:
         print('file path does not exist!')
-
 
 def torsion_tool(): # to complete...
    pass

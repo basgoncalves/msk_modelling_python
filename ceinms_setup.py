@@ -3,8 +3,13 @@
 import subprocess
 import os
 import tkinter as tk
-import opensim
+import opensim as osim
 from tkinter import filedialog
+import os
+import bops as bp   
+import pandas as pd
+import xml.etree.ElementTree as ET
+# import pyomeca as pym
 
 class subject_paths:
     def __init__(self, data_folder,subject_code='default',trial_name='trial1'):
@@ -18,14 +23,14 @@ class subject_paths:
         self.c3d = os.path.join(self.subject, trial_name, 'c3dfile.c3d')
         self.grf = os.path.join(self.subject, trial_name, 'grf.mot')
         self.markers = os.path.join(self.subject, trial_name, 'markers.trc')
-        self.emg = os.path.join(self.subject, trial_name, 'emg.mot')
+        self.emg = os.path.join(self.subject, trial_name, 'EMG_filtered.sto')
 
         # model paths
         self.model_generic = os.path.join(self.subject, 'generic_model.osim')
         self.model_scaled = os.path.join(self.subject, 'scaled_model.osim')
 
         # IK paths
-        self.ik_output = os.path.join(self.trial, 'ik.mot')
+        self.ik_output = os.path.join(self.trial, 'IK.mot')
         self.ik_setup = os.path.join(self.trial, 'setup_ik.xml')
 
         # ID paths
@@ -43,14 +48,17 @@ class subject_paths:
         # CEINMS paths 
         self.ceinms_src = r"C:\Git\msk_modelling_matlab\src\Ceinms\CEINMS_2"
         
-        self.uncalibrated_subject = os.path.join(self.subject,'ceinms','uncalibrated_subject.xml') 
-        
-        self.ceinms_exc_generator = os.path.join(self.subject,'ceinms','excitation_generator.xml') # excitation generator
+        self.uncalibrated_subject = os.path.join(self.subject,'ceinms_shared','ceinms_uncalibrated_subject.xml') 
+        self.calibrated_subject = os.path.join(self.subject,'ceinms_shared','ceinms_calibrated_subject.xml')
 
+        self.ceinms_exc_generator = os.path.join(self.subject,'ceinms_shared','ceinms_excitation_generator.xml') # excitation generator
+
+        self.ceinms_calibration_setup = os.path.join(self.subject,'ceinms_shared' ,'ceinms_calibration_setup.xml') # calibration setup
         
-        self.ceinms_calibration_setup = os.path.join(self.subject,'ceinms' ,'calibration_setup.xml') # calibration setup
+        self.ceinms_trial_xml = os.path.join(self.trial,'ceinms_trial.xml') # trial xml
         self.ceinms_exe_setup = os.path.join(self.trial, 'ceinms_exe_setup.xml')
         self.ceinms_exe_cfg = os.path.join(self.trial, 'ceinms_exe_cfg.xml')
+        self.ceinms_results = os.path.join(self.trial, 'ceinms_results')
 
 # Create the GUI window for the application
 def create_window(title, geometry='500x500'):
@@ -94,6 +102,38 @@ def isfile(path: str):
     else:
         return True
 
+# Load/Save data 
+def get_emg_labels(sto_file):
+    emg = osim.Storage(sto_file)
+    emg_labels = ''
+    print(emg.getColumnLabels())
+
+    for i in range(10000):
+        try:
+            if emg.getColumnLabels().get(i) == 'time':
+                continue
+            emg_labels = emg_labels + ' ' + emg.getColumnLabels().get(i)
+        except:
+            break
+
+    return emg_labels
+
+# XML edit
+def edit_xml_file(xml_file,tag,new_tag_value):
+    tree = ET.parse(xml_file)
+    root = tree.getroot()
+
+    for start_time in root.iter(tag):
+        print('old value ' + tag  + ' = ' + start_time.text)
+        start_time.text = str(new_tag_value)
+    
+    tree.write(xml_file, encoding='utf-8', xml_declaration=True)
+
+    for start_time in root.iter(tag):
+        print('new value ' + tag  + ' = ' + start_time.text)
+
+
+# Opensim functions
 def run_scale(model_file, marker_file, output_model_file):
     # Load model and create a ScaleTool
     model = opensim.Model(model_file)
@@ -113,14 +153,37 @@ def run_scale(model_file, marker_file, output_model_file):
 
     # Run ScaleTool
     scale_tool.run()
+#%%
+def convert_c3d_to_opensim(c3d_file, trc_file, mot_file):
+    # Load C3D file
+    c3d_adapter = opensim.C3DFileAdapter()
+    c3d_table = c3d_adapter.read(c3d_file)
 
+    # Extract marker data from C3D table
+    marker_data = opensim.TimeSeriesTableVec3()
+    marker_data.setColumnLabels(c3d_table.getColumnLabels())
+    for i in range(c3d_table.getNumRows()):
+        frame_time = c3d_table.getIndependentColumn()[i]
+        markers = opensim.StdVectorVec3()
+        for j in range(c3d_table.getNumColumns()):
+            marker = opensim.Vec3(c3d_table.getDependentColumnAtIndex(j)[i])
+            markers.append(marker)
+        marker_data.appendRow(frame_time, markers)
 
+    # Write TRC file
+    trc_adapter = opensim.TRCFileAdapter()
+    trc_adapter.write(marker_data, trc_file)
 
+    # Write MOT file (empty forces and EMG data)
+    mot_table = opensim.TimeSeriesTable()
+    mot_table.setColumnLabels(c3d_table.getColumnLabels())
+    mot_adapter = opensim.STOFileAdapter()
+    mot_adapter.write(mot_table, mot_file)
 
 def run_inverse_kinematics(model_file, marker_file, output_motion_file):
     # Load model and create an InverseKinematicsTool
-    model = opensim.Model(model_file)
-    ik_tool = opensim.InverseKinematicsTool()
+    model = osim.Model(model_file)
+    ik_tool = osim.InverseKinematicsTool()
 
     # Set the model for the InverseKinematicsTool
     ik_tool.setModel(model)
@@ -137,18 +200,57 @@ def run_inverse_kinematics(model_file, marker_file, output_motion_file):
     # Run Inverse Kinematics
     ik_tool.run()
 
-# CEINMS functions
-def edit_xml_file(xml_file: str, old_string: str, new_string: str):
-    pass
+def run_muscle_analysis(model_file, motion_file, output_folder):
+    # Load model and create a MuscleAnalysisTool
+    model = osim.Model(model_file)
+    ma_tool = osim.MuscleAnalysisTool()
 
+    # Set the model for the MuscleAnalysisTool
+    ma_tool.setModel(model)
+
+    # Set the motion data file for the MuscleAnalysisTool
+    ma_tool.setCoordinatesFileName(motion_file)
+
+    # Set the output folder for the MuscleAnalysisTool
+    ma_tool.setOutputDirectory(output_folder)
+
+    # Save setup file
+    ma_tool.printToXML('setup_ma.xml')
+
+    # Run MuscleAnalysisTool
+    ma_tool.run()
+
+def run_muscle_analysis_setup(setup_ma_file):
+    analyzeTool_MA = osim.AnalyzeTool(setup_ma_file)
+    analyzeTool_MA.run()
+
+def get_initial_and_last_times(mot_file):
+    # Read the .\IK.mot file into a pandas DataFrame
+    motData = osim.Storage(mot_file)
+
+    # Get initial and final time
+    initial_time = motData.getFirstTime()
+    final_time = motData.getLastTime()
+    print('initial time: ', initial_time)   
+    print('final time: ', final_time)
+
+    return initial_time, final_time
+    
+# CEINMS functions
 def run_calibration(paths: type):
     if isfile(paths.ceinms_calibration_setup):
+        os.chdir(os.path.dirname(paths.ceinms_calibration_setup))
         command = " ".join([paths.ceinms_src + "\CEINMScalibrate.exe -S", paths.ceinms_calibration_setup])
         print(command)
         proc = subprocess.run(command, shell=True)
 
 def run_execution(paths: type):
     if isfile(paths.ceinms_exe_setup):
+        try:
+            os.mkdir(paths.ceinms_results)
+        except:
+            pass
+        os.chdir(paths.ceinms_results)
         command = " ".join([paths.ceinms_src + "\CEINMS.exe -S", paths.ceinms_exe_setup])
         print(command)
         proc = subprocess.run(command, shell=True)
@@ -173,17 +275,46 @@ def run_full_pipeline():
 
 if __name__ == '__main__':
 
+    data_folder = r"C:\Users\Bas\Desktop\AlexP"
+    paths = subject_paths(data_folder,subject_code='ceinms_test',trial_name='sq_70')
+    
+    initial_time, last_time = get_initial_and_last_times(paths.ik_output)
+    
+    edit_xml_file(paths.ma_setup,'start_time',initial_time)
+    edit_xml_file(paths.ma_setup,'start_time',initial_time)
+    edit_xml_file(paths.ma_setup,'final_time',last_time)
+    edit_xml_file(paths.ma_setup,'end_time',last_time)
+
+    # edit excitation generator
+    edit_xml_file(paths.ceinms_exc_generator,'inputSignals',get_emg_labels(paths.emg))
+
+    # edit trial xml
+    new_time_range = (str(initial_time+0.5) + ' ' + str(last_time-0.5)) 
+    edit_xml_file(paths.ceinms_trial_xml,'startStopTime',new_time_range)
+    # run_muscle_analysis_setup(paths.ma_setup)
+    # run_calibration(paths)
+    run_execution(paths)
+
+    exit()
+    #%% start GUI
     window = create_window("cereated by BG27")
 
     folder_path = add_button(window, 'select folder', select_folder, padx=5, pady=5)
+    add_button(window, 'run_calibration', run_calibration, padx=15, pady=5,x=0, y=25)
        
     try:
         window.mainloop()
     except KeyboardInterrupt:
         window.destroy()
-    
-    
-    
 
+
+    exit()
+    c3d_file = r"C:\Users\Bas\ucloud\Shared\Data_CEINMS\simulations\TD10\2023_10_18\cmj01.c3d"
+    bp.c3d_osim_export(c3d_file)
+    bp.c3d_emg_export(c3d_file)
+
+
+
+    
 
 # END
