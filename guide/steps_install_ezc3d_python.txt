@@ -1,0 +1,36 @@
+steps to install 
+
+git clone https://github.com/pyomeca/ezc3d.git
+
+python .\setup.py develop -- -G"Visual Studio 16 2019" -A x64 -DSWIG_EXECUTABLE="D:/swigwin-4.0.2/swig.exe" -DSWIG_DIR="D:/swigwin-4.0.2/Lib"
+
+pip install scikit-build
+pip install cmake
+pip install numpy swig
+
+install Visual Studio 16 2019 - https://my.visualstudio.com/Downloads?q=visual%20studio%202019&wt.mc_id=o~msft~vscom~older-downloads
+	video here https://my.visualstudio.com/Downloads?q=visual%20studio%202019&wt.mc_id=o~msft~vscom~older-downloads
+
+compile using CMake 
+	https://www.youtube.com/watch?v=gWno_NXrITA&ab_channel=pariterre
+	- make sure to paste the final .dll file into the package path (find path with code below)
+		'''
+		import site
+		import os
+
+		ezc3d_path = os.path.join(site.getsitepackages()[0], 'ezc3d')
+		print(ezc3d_path)
+		'''
+
+install pyomeca
+	pip install git+https://github.com/pyomeca/pyomeca.git
+
+
+#######################################################################################
+########################## CHANGES TO PYOMECA #########################################
+#######################################################################################
+
+C:\Users\Bas\AppData\Local\Programs\Python\Python38\lib\site-packages\pyomeca\io\read.py
+
+Line 159: first_row=7 (instead of 6)
+Line 161: time_column=2 (intead of 1)

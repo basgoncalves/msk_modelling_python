@@ -26,6 +26,9 @@ https://simtk.org/frs/?group_id=91
 5. Configure OpenSim and Python by running bops.py
     for manual setup of opensim go to https://simtk-confluence.stanford.edu:8443/display/OpenSim/Scripting+in+Python
 
+6. Install ezc3d 
+    see ..\guide\steps_install_ezc3d_python.txt
+
 ## Usage
 
 Find examples under "ExampleScripts".

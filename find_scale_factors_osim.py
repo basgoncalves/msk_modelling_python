@@ -1,117 +1,78 @@
 import numpy as np
 import opensim
-import math
 import os
 import pandas as pd
+import xml.etree.ElementTree as ET
 
-osim_model1 = r"C:\Git\isbs2024\Data\Scaled_models\baseModel_upperBody2segments.osim"
-osim_model2 = r"C:\Git\isbs2024\Data\Scaled_models\Athlete_06_scaled.osim"
+# XML edit
+def edit_xml_file(xml_file,tag,new_tag_value):
+    tree = ET.parse(xml_file)
+    root = tree.getroot()
+
+    for character in root.iter(tag):
+        print('old value ' + tag  + ' = ' + character.text)
+        character.text = str(new_tag_value)
+    
+    tree.write(xml_file, encoding='utf-8', xml_declaration=True)
+
+    for character in root.iter(tag):
+        print('new value ' + tag  + ' = ' + character.text)
+    
+    return tree
+
+data_folder = r"C:\Git\isbs2024\Data"
+
+osim_model_scaled =os.path.join(data_folder,'Scaled_models\Alex\Athlete_26_scaled.osim')
+base_name_with_extension = os.path.basename(osim_model_scaled)
+athlete_name, file_extension = os.path.splitext(base_name_with_extension)
 
 # Load the OpenSim models
-model1 = opensim.Model(osim_model1)
-model2 = opensim.Model(osim_model2)
+model = opensim.Model(osim_model_scaled)
+body_set = model.get_BodySet()
+scale_factors = dict()
 
-# Get the number of bodies (segments) in the models
-num_bodies1 = model1.getBodySet().getSize()
-num_bodies2 = model2.getBodySet().getSize()
-
-# Get the number of joints in the models
-joint_set1 = model1.getJointSet()
-num_joints1 = joint_set1.getSize()
-
-# Compare the segment lengths
-
-
-# for i in range(num_bodies1):
-#     body1 = model1.getBodySet().get(i)
-#     body_name = body1.getName()
-#     body2 = model2.getBodySet().get(body_name)    
-
-#     methods_body1 = dir(body1)
-#     for method in methods_body1:
-#         # print(method)
-#         pass
-
-#     inertia_data = body1.get_inertia()
-#     mass = body1.get_mass()
-#     centre_of_mass = body1.get_mass_center()
-
-#     # Pad the inertia_data with zeros to make it a 1x9 array
-#     inertia_data_padded = inertia_data + [0, 0, 0]
-
-#     # Reshape the inertia data into a 3x3 matrix
-#     inertia_matrix = np.array(inertia_data_padded).reshape((3, 3))
-
-#     # Calculate the size (length) based on the moment of inertia tensor and mass distribution
-#     length_squared = np.trace(inertia_matrix) / mass
-
-#     # Take the square root to get the length
-#     length = np.sqrt(length_squared)
-
-#     print("Length:", length)
-
-
-#     # Use the PhysicalOffsetFrame to get the length
-#     length = 1
-#     print(length)
-#     break
-    
-#     length1 = body1.get_mass_center()
-#     length2 = body2.get_mass_center()
-#     print(f"Segment {i+1}: Length in model 1 = {length1}, Length in model 2 = {length2}")
-#     exit()
-
-
-def calculate_3d_distance(vector1, vector2):
-    x1, y1, z1 = vector1
-    x2, y2, z2 = vector2
-    distance = math.sqrt((x2 - x1)**2 + (y2 - y1)**2 + (z2 - z1)**2)
-    return distance
-
-def clear_terminal(mode = 'cls'):
-    if mode == 'cls':
-        os.system('cls' if os.name == 'nt' else 'clear')
+# Get the scale factors for each body
+no_geometry_bodies = ['Abdomen', 'Abd_L_L1','Abd_L_L2','Abd_L_L3','Abd_L_L4','Abd_L_L5',
+                       'Abd_R_L1','Abd_R_L2','Abd_R_L3','Abd_R_L4','Abd_R_L5']
+for i in range(body_set.getSize()):
+    body = body_set.get(i)
+    if body.getName() in no_geometry_bodies:
+        continue
     else:
-        print('\n'*3)
-    exit()
+        print(body.getName())
+        scale_factors[body.getName().lower()] = body.get_attached_geometry(0).get_scale_factors().to_numpy()
 
-def calculate_scale_factor(model1,model2,marker_name1,marker_name2):
-    
-    # Get the distance between the markers in the original model
-    state = model1.initSystem()
-    marker1 = model1.getMarkerSet().get(marker_name1).getLocationInGround(state).to_numpy()
-    marker2 = model1.getMarkerSet().get(marker_name2).getLocationInGround(state).to_numpy()
-    distance_model1 = calculate_3d_distance(marker1, marker2)
+# create np array of scale factors for lumbar and thoracic segments
+lumbar_thoracicic_segments = np.array([np.array(scale_factors['lumbar1']),
+    np.array(scale_factors['lumbar2']), np.array(scale_factors['lumbar3']), np.array(scale_factors['lumbar4']), np.array(scale_factors['lumbar5']),
+    np.array(scale_factors['thoracic1']), np.array(scale_factors['thoracic2']), np.array(scale_factors['thoracic3']), np.array(scale_factors['thoracic4']),
+    np.array(scale_factors['thoracic5']), np.array(scale_factors['thoracic6']), np.array(scale_factors['thoracic7']), np.array(scale_factors['thoracic8']),
+    np.array(scale_factors['thoracic9']), np.array(scale_factors['thoracic10']), np.array(scale_factors['thoracic11']), np.array(scale_factors['thoracic12'])])
 
+# Calculate scale factors for the torso as mean from lumbar and thoracic segments
+mean_torso = np.mean(lumbar_thoracicic_segments, axis=0)
+scale_factors['torso'] = mean_torso
+df = pd.DataFrame(scale_factors)
+df.to_csv(os.path.join(data_folder,r'Scaled_models\scale_factors.csv'))
 
-    # Get the distance between the markers in the second model
-    state = model2.initSystem()
-    marker1 = model2.getMarkerSet().get(marker_name1).getLocationInGround(state).to_numpy()
-    marker2 = model2.getMarkerSet().get(marker_name2).getLocationInGround(state).to_numpy()
-    distance_model2 = calculate_3d_distance(marker1, marker2)
+# initialise the model to get the mass
+state = model.initSystem()
+mass = model.getTotalMass(state)
 
-    # Calculate the scale factor
-    scale_factor = distance_model1 / distance_model2
-    return scale_factor
+# edit the scale file with mass and name 
+xml_file = os.path.join(data_folder,r'Setups\setup_scale_manual.xml')
+tree = edit_xml_file(xml_file,'mass',mass)
+root = tree.getroot()
+element_to_change = root.find(".//ScaleTool[@name='Catelli_high_hip_flexion']") # Change the name 
+element_to_change.set('name', athlete_name)
 
-# Add a marker to the model
-scale_factor = calculate_scale_factor(model1,model2,'RASI','LASI')
-print(scale_factor)
+# add scale fators to each element with the same name as the segment
 
+for scale_elem in root.findall(".//Scale"):
+    segment = scale_elem.find("segment").text.strip()
+    print(str(scale_factors[segment]))
+    scale_elem.find("scales").text = str(scale_factors[segment])
 
-
-# Need to fix the rest since the scaled model does not have some of the markera (e.g. RHJC RKNJC) to calculate the scale factors using markers
-clear_terminal(0)
-
-marker = opensim.Marker()
-marker.setName('RHJC')
-marker.set_location(opensim.Vec3(0,0,0))
-print(type(marker))
-clear_terminal(0)
-model2.addMarker(marker)
-print(type(model2))
-marker1 = model2.initSystem()
-clear_terminal(0)
-scale_factor = calculate_scale_factor(model1,model2,'RHJC','RKNEL')
-print(scale_factor)
-
+# write the xml file
+new_xml_file = os.path.join(data_folder,r'Scaled_models\{i}_scale_setup.xml'.format(i=athlete_name))
+tree.write(new_xml_file, encoding='utf-8', xml_declaration=True)
