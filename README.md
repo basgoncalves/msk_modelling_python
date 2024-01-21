@@ -9,6 +9,9 @@ Biomechanical tools included:
     - opensim           https://simtk-confluence.stanford.edu:8443/display/OpenSim/Scripting+in+Python 
     - animation_blender https://github.com/MattiasFredriksson/io_anim_c3d
 
+## Code diagram 
+- https://www.lucidchart.com/blog/visualize-code-documentation#:~:text=Visual%20documentation%20of%20your%20code,Conceptualize%20large%2Dscale%20projects.
+
 ## Installation
 
 1. Download a code interpreter (I recommend visual studio code, but do whatever)

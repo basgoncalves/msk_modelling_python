@@ -14,6 +14,8 @@ import bops as bp
 import pandas as pd
 import xml.etree.ElementTree as ET
 from memory_profiler import profile
+import numpy as np
+from sklearn.metrics import mean_squared_error
 # import pyomeca as pym
 
 def get_main_path():
@@ -127,7 +129,7 @@ def isfile(path: str):
         return True
 
 # Utils
-def suppress_output(func):
+def suppress_output(func): # DO NOT USE (randomly stops code, needs fixing)
     def wrapper(*args, **kwargs):
         # Redirect standard output to null device
         with open(os.devnull, 'w') as devnull:
@@ -176,7 +178,6 @@ def raise_exception(error_text = " ", err = " "):
 # Load/Save data 
 def get_emg_labels(sto_file):
     
-    @suppress_output
     def load_sto(mot_file):
         return osim.Storage(mot_file)
     
@@ -194,7 +195,6 @@ def get_emg_labels(sto_file):
 
 def get_initial_and_last_times(mot_file):
     # Read the .\IK.mot file into a pandas DataFrame
-    # @suppress_output
     def load_mot(mot_file):
         return osim.Storage(mot_file)
 
@@ -205,6 +205,52 @@ def get_initial_and_last_times(mot_file):
 
     return initial_time, final_time
   
+def import_sto_data(stoFilePath):
+
+    if not os.path.exists(stoFilePath):
+        print('file do not exists')
+
+    file_id = open(stoFilePath, 'r')
+
+    # read header
+    next_line = file_id.readline()
+    header = [next_line]
+    nc = 0
+    nr = 0
+    while not 'endheader' in next_line:
+        if 'datacolumns' in next_line:
+            nc = int(next_line[next_line.index(' ') + 1:len(next_line)])
+        elif 'datarows' in next_line:
+            nr = int(next_line[next_line.index(' ') + 1:len(next_line)])
+        elif 'nColumns' in next_line:
+            nc = int(next_line[next_line.index('=') + 1:len(next_line)])
+        elif 'nRows' in next_line:
+            nr = int(next_line[next_line.index('=') + 1:len(next_line)])
+
+        next_line = file_id.readline()
+        header.append(next_line)
+
+    # process column labels
+    next_line = file_id.readline()
+    if next_line.isspace() == True:
+        next_line = file_id.readline()
+
+    labels = next_line.split()
+
+    # get data
+    data = []
+    for i in range(1, nr + 1):
+        d = [float(x) for x in file_id.readline().split()]
+        data.append(d)
+
+    file_id.close()
+    
+    # Create a Pandas DataFrame
+    df = pd.DataFrame(data, columns=labels)
+
+    return df
+
+
 # XML edit
 def edit_xml_file(xml_file,tag,new_tag_value):
 
@@ -312,7 +358,6 @@ def run_inverse_kinematics(model_file, marker_file, output_motion_file):
     # Run Inverse Kinematics
     ik_tool.run()
 
-# @profile
 def edit_muscle_analysis_setup(ma_setup_path,model_file,initial_time, last_time):
     
     # sys.stdout.flush()
@@ -442,16 +487,15 @@ def run_full_pipeline():
 if __name__ == '__main__':
     data_folder = get_main_path()
     subject_list = ['Athlete_03','Athlete_06','Athlete_14','Athlete_20','Athlete_22','Athlete_25','Athlete_26']
-    subject_list = ['Athlete_03_torsion']
+    subject_list = ['Athlete_06_torsion','Athlete_14_torsion','Athlete_20_torsion','Athlete_22_torsion','Athlete_25_torsion','Athlete_26_torsion']
     
     trial_list = ['sq_70', 'sq_90']
-    trial_list = ['sq_90']
+    # trial_list = ['sq_90']
     for subject_name in subject_list:
         for trial_name in trial_list:
             
             # create subject paths object with all the paths in it 
             paths = subject_paths(data_folder,subject_code=subject_name,trial_name=trial_name)
-            # paths.model_scaled = os.path.join(data_folder,'Scaled_models\{i}_scaled.osim'.format(i=subject_name))
               
             if not os.path.isdir(paths.trial):
                 raise Exception('Trial folder not found: {}'.format(paths.trial))
@@ -468,31 +512,29 @@ if __name__ == '__main__':
             relative_path_grf = os.path.relpath(paths.grf, os.path.dirname(paths.grf_xml))
             edit_xml_file(paths.grf_xml,'datafile',relative_path_grf)
 
-            for i in range(50):
-                # find time range for the trial 
-                try:
-                    print_to_log_file('getting times from IK.mot  ... ', ' ', 'start') # log file
-                    initial_time, last_time = get_initial_and_last_times(paths.ik_output)
-                    print_to_log_file('done!', ' ', ' ') # log file
-                except Exception as e:
-                    print_to_log_file('stop for error ...' , ' ', ' ') # log file
-                    print_to_log_file(e)
-                    raise Exception('Get initial and last times failed for ' + subject_name + ' ' + trial_name)
+            # find time range for the trial 
+            try:
+                print_to_log_file('getting times from IK.mot  ... ', ' ', 'start') # log file
+                initial_time, last_time = get_initial_and_last_times(paths.ik_output)
+                print_to_log_file('done!', ' ', ' ') # log file
+            except Exception as e:
+                print_to_log_file('stop for error ...' , ' ', ' ') # log file
+                print_to_log_file(e)
+                raise Exception('Get initial and last times failed for ' + subject_name + ' ' + trial_name)
+        
             
+            # edit muscle analysis setup files
+            try:
+                print_to_log_file('muscle analysis setup  ... ', ' ', 'start') # log file
+                template_ma_setup = os.path.join(paths.setup_folder,'setup_ma.xml')
+                shutil.copy(template_ma_setup, paths.ma_setup)
+                edit_muscle_analysis_setup(paths.ma_setup,paths.model_scaled,initial_time, last_time)
+                print_to_log_file('done! ', ' ', ' ') # log file
+            except Exception as e:
+                print_to_log_file('stop for error ...' , ' ', ' ') # log file
+                print_to_log_file(e)
+                raise Exception('Muscle analysis setup failed for ' + subject_name + ' ' + trial_name)
             
-                # edit muscle analysis setup files
-                try:
-                    print_to_log_file('muscle analysis setup  ... ', ' ', 'start') # log file
-                    template_ma_setup = os.path.join(paths.setup_folder,'setup_ma.xml')
-                    shutil.copy(template_ma_setup, paths.ma_setup)
-                    edit_muscle_analysis_setup(paths.ma_setup,paths.model_scaled,initial_time, last_time)
-                    print_to_log_file('done! ', ' ', ' ') # log file
-                except Exception as e:
-                    print_to_log_file('stop for error ...' , ' ', ' ') # log file
-                    print_to_log_file(e)
-                    raise Exception('Muscle analysis setup failed for ' + subject_name + ' ' + trial_name)
-                
-            exit()
             try:
                 # (NOT WORKING YET)run_muscle_analysis(paths.ma_setup) use xml setup files for now
                 print_to_log_file('muscle analysis run ... ', ' ', 'start') # log file
