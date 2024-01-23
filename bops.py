@@ -285,7 +285,8 @@ def create_trial_folder(c3dFilePath):
         os.makedirs(trialFolder)
         
     return trialFolder 
-#########################################################  import / save data  #########################################################
+
+#%% ######################################################  import / save data  #########################################################
 def import_file(file_path):
     df = pd.DataFrame()
     if os.path.isfile(file_path):
@@ -623,9 +624,15 @@ def readXML(xml_file_path):
 def writeXML(tree,xml_file_path):    
     tree.write(xml_file_path)
 
-########################################################################################################################################
+def save_fig(fig, save_path):
+    if not os.path.exists(os.path.dirname(save_path)):
+            os.mkdir(os.path.dirname(save_path))
 
-########################################################  Operations  ###################################################################
+    fig.savefig(save_path)
+
+
+
+#%% #####################################################  Operations  ###################################################################
 def selectOsimVersion():
     osim_folders = [folder for folder in os.listdir('C:/') if 'OpenSim' in folder]
     installed_versions = [folder.replace('OpenSim ', '') for folder in osim_folders]
@@ -941,18 +948,101 @@ def rotateAroundAxes(data, rotations, modelMarkers):
 
     return data
 
-########################################################################################################################################
+def calculate_jump_height_impulse(vert_grf,sample_rate):
+    
+    gravity = 9.81
+    # Check if the variable is a NumPy array
+    if isinstance(vert_grf, np.ndarray):
+        print("Variable is a NumPy array")
+    else:
+        print("Variable is not a NumPy array")
+    
+    time = np.arange(0, len(vert_grf)/sample_rate, 1/sample_rate)
+
+    # Select time interval of interest
+    plt.plot(vert_grf)
+    x = plt.ginput(n=1, show_clicks=True)
+    plt.close()
+
+    baseline = np.mean(vert_grf[:250])
+    mass = baseline/gravity
+        
+    #find zeros on vGRF
+    idx_zeros = vert_grf[vert_grf == 0]
+    flight_time_sec = len(idx_zeros/sample_rate)/1000
+        
+    # find the end of jump index = first zero in vert_grf
+    take_off_frame = np.where(vert_grf == 0)[0][0] 
+        
+    # find the start of jump index --> the start value is already in the file
+    start_of_jump_frame = int(np.round(x[0][0]))
+    
+        # Calculate impulse of vertical GRF    
+    vgrf_of_interest = vert_grf[start_of_jump_frame:take_off_frame]
+
+    # Create the time vector
+    time = np.arange(0, len(vgrf_of_interest)/sample_rate, 1/sample_rate)
+
+    vertical_impulse_bw = mass * gravity * time[-1]
+    vertical_impulse_grf = np.trapz(vgrf_of_interest, time)
+
+    # subtract impulse BW
+    vertical_impulse_net = vertical_impulse_grf - vertical_impulse_bw
 
 
-###############################################  Torsion Tool (to be complete)  ########################################################
+    take_off_velocity = vertical_impulse_net / mass
+
+    # Calculate jump height using impulse-momentum relationship (DOI: 10.1123/jab.27.3.207)
+    jump_height = (take_off_velocity / 2 * gravity)
+    jump_height = (take_off_velocity**2 / 2 * 9.81) /100   # devie by 100 to convert to m
+
+    # calculate jump height from flight time
+    jump_height_flight = 0.5 * 9.81 * (flight_time_sec / 2)**2   
+
+    print('take off velocity = ' , take_off_velocity, 'm/s')
+    print('cmj time = ' , time[-1], ' s')
+    print('impulse = ', vertical_impulse_net, 'N.s')
+    print('impulse jump height = ', jump_height, ' m')
+    print('flight time jump height = ', jump_height_flight, ' m')
+    
+    return jump_height, vertical_impulse_net
+
+def blandAltman(method1=[],method2=[]):
+    # Generate example data
+    if not method1:
+        method1 = np.array([1.2, 2.4, 3.1, 4.5, 5.2, 6.7, 7.3, 8.1, 9.5, 10.2])
+        method2 = np.array([1.1, 2.6, 3.3, 4.4, 5.3, 6.5, 7.4, 8.0, 9.4, 10.4])
+
+    # Calculate the mean difference and the limits of agreement
+    mean_diff = np.mean(method1 - method2)
+    std_diff = np.std(method1 - method2, ddof=1)
+    upper_limit = mean_diff + 1.96 * std_diff
+    lower_limit = mean_diff - 1.96 * std_diff
+
+    # Plot the Bland-Altman plot
+    plt.scatter((method1 + method2) / 2, method1 - method2)
+    plt.axhline(mean_diff, color='gray', linestyle='--')
+    plt.axhline(upper_limit, color='gray', linestyle='--')
+    plt.axhline(lower_limit, color='gray', linestyle='--')
+    plt.xlabel('Mean of two methods')
+    plt.ylabel('Difference between two methods')
+    plt.title('Bland-Altman plot')
+    plt.show()
+
+    # Print the results
+    print('Mean difference:', mean_diff)
+    print('Standard deviation of difference:', std_diff)
+    print('Upper limit of agreement:', upper_limit)
+    print('Lower limit of agreement:', lower_limit)
+
+
+
+#%% ############################################  Torsion Tool (to be complete)  ########################################################
 def torsion_tool(): # to complete...
    pass
 
 
-
-########################################################################################################################################
-
-###############################################  OpenSim setup (to be complete)  #######################################################
+#%% #############################################  OpenSim setup (to be complete)  #######################################################
 def create_analysis_tool(coordinates_file, modelpath, results_directory, force_set_files=None):
     # Get mot data to determine time range
     motData = osim.Storage(coordinates_file)
@@ -1020,10 +1110,7 @@ def get_muscles_by_group_osim(xml_path, group_names): # olny tested for Catelli 
     return members_dict
 
 
-
-########################################################################################################################################
-
-###############################################  OpenSim (to be complete)  ############################################################
+#%% ##############################################  OpenSim (to be complete)  ############################################################
 def scale_model(originalModelPath,targetModelPath,trcFilePath,setupScaleXML):
     osimModel = osim.Model(originalModelPath)                             
     state = osimModel.initSystem()
@@ -1193,9 +1280,257 @@ def runSO(modelpath, trialpath, actuators_file_path):
     analyzeTool_SO.run()
 
 
-########################################################################################################################################
+#%% ##############################################  Data checks (to be complete) ############################################################
+def checkMuscleMomentArms(model_file_path, ik_file_path, leg = 'l'):
+# Adapted from Willi Koller: https://github.com/WilliKoller/OpenSimMatlabBasic/blob/main/checkMuscleMomentArms.m
+# Only checked if works for for the Rajagopal and Catelli models
 
-###############################################  GUI (to be complete)  #################################################################
+    def get_model_coord(model, coord_name):
+        try:
+            index = model.getCoordinateSet().getIndex(coord_name)
+            coord = model.updCoordinateSet().get(index)
+        except:
+            index = None
+            coord = None
+            print(f'Coordinate {coord_name} not found in model')
+        
+        return index, coord
+
+    # Load motions and model
+    motion = osim.Storage(ik_file_path)
+    model = osim.Model(model_file_path)
+
+    # Initialize system and state
+    model.initSystem()
+    state = model.initSystem()
+
+    # coordinate names
+    flexIndexL, flexCoordL = get_model_coord(model, 'hip_flexion_' + leg)
+    rotIndexL, rotCoordL = get_model_coord(model, 'hip_rotation_' + leg)
+    addIndexL, addCoordL = get_model_coord(model, 'hip_adduction_' + leg)
+    flexIndexLknee, flexCoordLknee = get_model_coord(model, 'knee_angle_' + leg)
+    flexIndexLank, flexCoordLank = get_model_coord(model, 'ankle_angle_' + leg)
+
+    # get names of the hip muscles
+    numMuscles = model.getMuscles().getSize()
+    muscleIndices_hip = []
+    muscleNames_hip = []
+    for i in range(numMuscles):
+        tmp_muscleName = str(model.getMuscles().get(i).getName())
+        if ('add' in tmp_muscleName or 'gl' in tmp_muscleName or 'semi' in tmp_muscleName or 'bf' in tmp_muscleName or
+                'grac' in tmp_muscleName or 'piri' in tmp_muscleName or 'sart' in tmp_muscleName or 'tfl' in tmp_muscleName or
+                'iliacus' in tmp_muscleName or 'psoas' in tmp_muscleName or 'rect' in tmp_muscleName) and ('_' + leg in tmp_muscleName):
+            muscleIndices_hip.append(i)
+            muscleNames_hip.append(tmp_muscleName)
+
+    flexMomentArms = np.zeros((motion.getSize(), len(muscleIndices_hip)))
+    addMomentArms = np.zeros((motion.getSize(), len(muscleIndices_hip)))
+    rotMomentArms = np.zeros((motion.getSize(), len(muscleIndices_hip)))
+
+    # get names of the knee muscles
+    numMuscles = model.getMuscles().getSize()
+    muscleIndices_knee = []
+    muscleNames_knee = []
+    for i in range(numMuscles):
+        tmp_muscleName = str(model.getMuscles().get(i).getName())
+        if ('bf' in tmp_muscleName or 'gas' in tmp_muscleName or 'grac' in tmp_muscleName or 'sart' in tmp_muscleName or
+                'semim' in tmp_muscleName or 'semit' in tmp_muscleName or 'rec' in tmp_muscleName or 'vas' in tmp_muscleName) and ('_' + leg in tmp_muscleName):
+            muscleIndices_knee.append(i)
+            muscleNames_knee.append(tmp_muscleName)
+
+    kneeFlexMomentArms = np.zeros((motion.getSize(), len(muscleIndices_knee)))
+
+    # get names of the ankle muscles
+    numMuscles = model.getMuscles().getSize()
+    muscleIndices_ankle = []
+    muscleNames_ankle = []
+    for i in range(numMuscles):
+        tmp_muscleName = str(model.getMuscles().get(i).getName())
+        print(tmp_muscleName)
+        if ('edl' in tmp_muscleName or 'ehl' in tmp_muscleName or 'tibant' in tmp_muscleName or 'gas' in tmp_muscleName or
+                'fdl' in tmp_muscleName or 'fhl' in tmp_muscleName or 'perb' in tmp_muscleName or 'perl' in tmp_muscleName or
+                'sole' in tmp_muscleName or 'tibpos' in tmp_muscleName) and ('_' + leg in tmp_muscleName):
+            muscleIndices_ankle.append(i)
+            muscleNames_ankle.append(tmp_muscleName)
+
+    ankleFlexMomentArms = np.zeros((motion.getSize(), len(muscleIndices_ankle)))
+
+    # compute moment arms for each muscle
+    for i in range(1, motion.getSize()):
+        flexAngleL = motion.getStateVector(i-1).getData().get(flexIndexL) / 180 * np.pi
+        rotAngleL = motion.getStateVector(i-1).getData().get(rotIndexL) / 180 * np.pi
+        addAngleL = motion.getStateVector(i-1).getData().get(addIndexL) / 180 * np.pi
+        flexAngleLknee = motion.getStateVector(i-1).getData().get(flexIndexLknee) / 180 * np.pi
+        flexAngleLank = motion.getStateVector(i-1).getData().get(flexIndexLank) / 180 * np.pi
+
+        # Update the state with the joint angle
+        coordSet = model.updCoordinateSet()
+        coordSet.get(flexIndexL).setValue(state, flexAngleL)
+        coordSet.get(rotIndexL).setValue(state, rotAngleL)
+        coordSet.get(addIndexL).setValue(state, addAngleL)
+        coordSet.get(flexIndexLknee).setValue(state, flexAngleLknee)
+        coordSet.get(flexIndexLank).setValue(state, flexAngleLank)
+
+        # Realize the state to compute dependent quantities
+        model.computeStateVariableDerivatives(state)
+        model.realizeVelocity(state)
+
+        # Compute the moment arm hip
+        for j in range(len(muscleIndices_hip)):
+            muscleIndex = muscleIndices_hip[j]
+            if muscleNames_hip[j][-1] == leg:
+                flexMomentArm = model.getMuscles().get(muscleIndex).computeMomentArm(state, flexCoordL)
+                flexMomentArms[i, j] = flexMomentArm
+
+                rotMomentArm = model.getMuscles().get(muscleIndex).computeMomentArm(state, rotCoordL)
+                rotMomentArms[i, j] = rotMomentArm
+
+                addMomentArm = model.getMuscles().get(muscleIndex).computeMomentArm(state, addCoordL)
+                addMomentArms[i, j] = addMomentArm
+
+        # Compute the moment arm knee
+        for j in range(len(muscleNames_knee)):
+            muscleIndex = muscleIndices_knee[j]
+            if muscleNames_knee[j][-1] == leg:
+                kneeFlexMomentArm = model.getMuscles().get(muscleIndex).computeMomentArm(state, flexCoordLknee)
+                kneeFlexMomentArms[i, j] = kneeFlexMomentArm
+
+        # Compute the moment arm ankle
+        for j in range(len(muscleNames_ankle)):
+            muscleIndex = muscleIndices_ankle[j]
+            if muscleNames_ankle[j][-1] == leg:
+                ankleFlexMomentArm = model.getMuscles().get(muscleIndex).computeMomentArm(state, flexCoordLank)
+                ankleFlexMomentArms[i, j] = ankleFlexMomentArm
+
+    threshold = 0.005
+
+    # check discontinuities
+    discontinuity = []
+    fDistC = plt.figure('Discontinuity', figsize=(8, 8))
+    plt.title(ik_file_path)
+    legArr = []
+    save_folder = os.path.join(os.path.dirname(ik_file_path),'momentArmsCheck')
+
+    # hip
+    for i in range(flexMomentArms.shape[1]):
+        dy = np.diff(flexMomentArms[:, i])
+        discontinuity_indices = np.where(np.abs(dy) > threshold)[0]
+        if discontinuity_indices.size > 0:
+            print('Discontinuity detected at', muscleNames_hip[i], 'at flexion moment arm')
+            plt.plot(flexMomentArms[:, i])
+            plt.plot(discontinuity_indices, flexMomentArms[discontinuity_indices, i], 'rx')
+            discontinuity.append(i)
+            legArr.append([muscleNames_hip[i] + ' flexion'])
+            legArr.append(' ')
+
+        dy = np.diff(addMomentArms[:, i])
+        discontinuity_indices = np.where(np.abs(dy) > threshold)[0]
+        if discontinuity_indices.size > 0:
+            print('Discontinuity detected at', muscleNames_hip[i], 'at adduction moment arm')
+            plt.plot(addMomentArms[:, i])
+            plt.plot(discontinuity_indices, addMomentArms[discontinuity_indices, i], 'rx')
+            discontinuity.append(i)
+            legArr.append([muscleNames_hip[i] + ' adduction'])
+            legArr.append(' ')
+
+        dy = np.diff(rotMomentArms[:, i])
+        discontinuity_indices = np.where(np.abs(dy) > threshold)[0]
+        if discontinuity_indices.size > 0:
+            print('Discontinuity detected at', muscleNames_hip[i], 'at rotation moment arm')
+            plt.plot(rotMomentArms[:, i])
+            plt.plot(discontinuity_indices, rotMomentArms[discontinuity_indices, i], 'rx')
+            discontinuity.append(i)
+            legArr.append([muscleNames_hip[i] + ' rotation'])
+            legArr.append(' ')
+
+    # knee
+    for i in range(kneeFlexMomentArms.shape[1]):
+        dy = np.diff(kneeFlexMomentArms[:, i])
+        discontinuity_indices = np.where(np.abs(dy) > threshold)[0]
+        if discontinuity_indices.size > 0:
+            print('Discontinuity detected at', muscleNames_hip[i], 'at rotation moment arm')
+            plt.plot(kneeFlexMomentArms[:, i])
+            plt.plot(discontinuity_indices, kneeFlexMomentArms[discontinuity_indices, i], 'rx')
+            discontinuity.append(i)
+            legArr.append([muscleNames_knee[i] + ' rotation'])
+            legArr.append(' ')
+
+    # ankle
+    for i in range(ankleFlexMomentArms.shape[1]):
+        dy = np.diff(ankleFlexMomentArms[:, i])
+        discontinuity_indices = np.where(np.abs(dy) > threshold)[0]
+        if discontinuity_indices.size > 0:
+            print('Discontinuity detected at', muscleNames_ankle[i], 'at rotation moment arm')
+            plt.plot(ankleFlexMomentArms[:, i])
+            plt.plot(discontinuity_indices, ankleFlexMomentArms[discontinuity_indices, i], 'rx')
+            discontinuity.append(i)
+            legArr.append([muscleNames_ankle[i] + ' rotation'])
+            legArr.append(' ')
+
+    if len(discontinuity) > 0:
+        plt.legend(legArr)
+        plt.ylabel('Muscle Moment Arms with discontinuities (m)')
+        plt.xlabel('Frame (after start time)')
+        save_fig(plt.gcf(), save_path=os.path.join(save_folder, 'discontinuities_' + leg + '.png'))
+        print('\n\nYou should alter the model - most probably you have to reduce the radius of corresponding wrap objects for the identified muscles\n\n\n')
+        momentArmsAreWrong = 1
+    else:
+        plt.close(fDistC)
+        print('No discontinuities detected')
+        momentArmsAreWrong = 0
+
+    # hip flexion
+    plt.figure('flexMomentArms_' + leg, figsize=(8, 8))
+    plt.plot(flexMomentArms)
+    plt.title('All muscle moment arms in motion ' + ik_file_path)
+    plt.legend(muscleNames_hip, loc='best')
+    plt.ylabel('Hip Flexion Moment Arm (m)')
+    plt.xlabel('Frame (after start time)')
+    save_fig(plt.gcf(), save_path=os.path.join(save_folder, 'hip_flex_MomentArms_' + leg + '.png'))
+
+    # hip adduction
+    plt.figure('addMomentArms_' + leg, figsize=(8, 8))
+    plt.plot(addMomentArms)
+    plt.title('All muscle moment arms in motion ' + ik_file_path)
+    plt.legend(muscleNames_hip, loc='best')
+    plt.ylabel('Hip Adduction Moment Arm (m)')
+    plt.xlabel('Frame (after start time)')
+    save_fig(plt.gcf(), save_path=os.path.join(save_folder, 'hip_add_MomentArms_' + leg + '.png'))
+
+    # hip rotation
+    plt.figure('rotMomentArms_' + leg, figsize=(8, 8))
+    plt.plot(rotMomentArms)
+    plt.title('All muscle moment arms in motion ' + ik_file_path)
+    plt.legend(muscleNames_hip, loc='best')
+    plt.ylabel('Hip Rotation Moment Arm (m)')
+    plt.xlabel('Frame (after start time)')
+    save_fig(plt.gcf(), save_path=os.path.join(save_folder, 'hip_rot_MomentArms_' + leg + '.png'))
+
+    # knee flexion
+    plt.figure('kneeFlexMomentArms_' + leg, figsize=(8, 8))
+    plt.plot(kneeFlexMomentArms)
+    plt.title('All muscle moment arms in motion ' + ik_file_path)
+    plt.legend(muscleNames_knee, loc='best')
+    plt.ylabel('Knee Flexion Moment Arm (m)')
+    plt.xlabel('Frame (after start time)')
+    save_fig(plt.gcf(), save_path=os.path.join(save_folder, 'knee_MomentArms_' + leg + '.png'))
+
+    # ankle flexion
+    plt.figure('ankleFlexMomentArms_' + leg, figsize=(8, 8))
+    plt.plot(ankleFlexMomentArms)
+    plt.title('All muscle moment arms in motion ' + ik_file_path)
+    plt.legend(muscleNames_ankle, loc='best')
+    plt.ylabel('Ankle Dorsiflexion Moment Arm (m)')
+    plt.xlabel('Frame (after start time)')
+    save_fig(plt.gcf(), save_path=os.path.join(save_folder, 'ankle_MomentArms_' + leg + '.png'))
+
+    plt.show()
+
+    return momentArmsAreWrong
+
+
+
+#%% ###############################################  GUI (to be complete)  #################################################################
 def simple_gui():
     ctk.set_appearance_mode('dark')
     ctk.set_default_color_theme('dark-blue')
@@ -1435,14 +1770,9 @@ def subjet_select_gui():
 
     root.mainloop()
 
-########################################################################################################################################
 
-
-
-########################################################  Plotting  ####################################################################
-
-
-# when creating plots bops will only create the 
+#%% ########################################################  Plotting  ####################################################################
+# when creating plots bops will only create the fig and axs. Use plt.show() to show the plot
 def create_sto_plot(stoFilePath=False):
     # Specify the path to the .sto file
     if not stoFilePath:
@@ -1580,10 +1910,7 @@ def show_image(image_path):
     # Run the Tkinter event loop
     window.mainloop()
 
-########################################################################################################################################
-
-
-######################################################  Error prints  ##################################################################
+#%% ####################################################  Error prints  ##################################################################
 
 def play_animation():
     import turtle
@@ -1646,19 +1973,12 @@ def play_random_walk():
 
     plt.show()
 
-########################################################################################################################################
-
-
-
-
-######################################################  Error prints  ##################################################################
+#%% ####################################################  Error prints  ##################################################################
 def exampleFunction():
     pass
 
-########################################################################################################################################
 
-
-##################################################  CREATE BOPS SETTINGS ###############################################################
+#%% ################################################  CREATE BOPS SETTINGS ###############################################################
 def add_markers_to_settings():
     settings = get_bops_settings()
     for subject_folder in get_subject_folders():
@@ -1711,109 +2031,9 @@ def progress_bar():
     total_steps = 5
     with tqdm(total=total_steps, desc="Processing") as pbar:
         pbar.update(1)
-########################################################################################################################################
 
 
-
-
-
-
-############################################################## OPERATIONS ##############################################################
-def calculate_jump_height_impulse(vert_grf,sample_rate):
-    
-    gravity = 9.81
-    # Check if the variable is a NumPy array
-    if isinstance(vert_grf, np.ndarray):
-        print("Variable is a NumPy array")
-    else:
-        print("Variable is not a NumPy array")
-    
-    time = np.arange(0, len(vert_grf)/sample_rate, 1/sample_rate)
-
-    # Select time interval of interest
-    plt.plot(vert_grf)
-    x = plt.ginput(n=1, show_clicks=True)
-    plt.close()
-
-    baseline = np.mean(vert_grf[:250])
-    mass = baseline/gravity
-        
-    #find zeros on vGRF
-    idx_zeros = vert_grf[vert_grf == 0]
-    flight_time_sec = len(idx_zeros/sample_rate)/1000
-        
-    # find the end of jump index = first zero in vert_grf
-    take_off_frame = np.where(vert_grf == 0)[0][0] 
-        
-    # find the start of jump index --> the start value is already in the file
-    start_of_jump_frame = int(np.round(x[0][0]))
-    
-        # Calculate impulse of vertical GRF    
-    vgrf_of_interest = vert_grf[start_of_jump_frame:take_off_frame]
-
-    # Create the time vector
-    time = np.arange(0, len(vgrf_of_interest)/sample_rate, 1/sample_rate)
-
-    vertical_impulse_bw = mass * gravity * time[-1]
-    vertical_impulse_grf = np.trapz(vgrf_of_interest, time)
-
-    # subtract impulse BW
-    vertical_impulse_net = vertical_impulse_grf - vertical_impulse_bw
-
-
-    take_off_velocity = vertical_impulse_net / mass
-
-    # Calculate jump height using impulse-momentum relationship (DOI: 10.1123/jab.27.3.207)
-    jump_height = (take_off_velocity / 2 * gravity)
-    jump_height = (take_off_velocity**2 / 2 * 9.81) /100   # devie by 100 to convert to m
-
-    # calculate jump height from flight time
-    jump_height_flight = 0.5 * 9.81 * (flight_time_sec / 2)**2   
-
-    print('take off velocity = ' , take_off_velocity, 'm/s')
-    print('cmj time = ' , time[-1], ' s')
-    print('impulse = ', vertical_impulse_net, 'N.s')
-    print('impulse jump height = ', jump_height, ' m')
-    print('flight time jump height = ', jump_height_flight, ' m')
-    
-    return jump_height, vertical_impulse_net
-
-def blandAltman(method1=[],method2=[]):
-    # Generate example data
-    if not method1:
-        method1 = np.array([1.2, 2.4, 3.1, 4.5, 5.2, 6.7, 7.3, 8.1, 9.5, 10.2])
-        method2 = np.array([1.1, 2.6, 3.3, 4.4, 5.3, 6.5, 7.4, 8.0, 9.4, 10.4])
-
-    # Calculate the mean difference and the limits of agreement
-    mean_diff = np.mean(method1 - method2)
-    std_diff = np.std(method1 - method2, ddof=1)
-    upper_limit = mean_diff + 1.96 * std_diff
-    lower_limit = mean_diff - 1.96 * std_diff
-
-    # Plot the Bland-Altman plot
-    plt.scatter((method1 + method2) / 2, method1 - method2)
-    plt.axhline(mean_diff, color='gray', linestyle='--')
-    plt.axhline(upper_limit, color='gray', linestyle='--')
-    plt.axhline(lower_limit, color='gray', linestyle='--')
-    plt.xlabel('Mean of two methods')
-    plt.ylabel('Difference between two methods')
-    plt.title('Bland-Altman plot')
-    plt.show()
-
-    # Print the results
-    print('Mean difference:', mean_diff)
-    print('Standard deviation of difference:', std_diff)
-    print('Upper limit of agreement:', upper_limit)
-    print('Lower limit of agreement:', lower_limit)
-
-
-########################################################################################################################################
-
-
-
-
-
-################################################ UTILS
+#%% ############################################################ UTILS ####################################################################
 
 def clear_terminal():
     # Clear terminal command based on the operating system
@@ -1830,7 +2050,7 @@ def uni_vie_print():
     print("=============================================")
                                                                                                             
 
-######################################################### BOPS TESTING #################################################################
+#%% ######################################################### BOPS TESTING #################################################################
 def platypus_pic_path(imageType = 'happy'):
     dir_bops = get_dir_bops()
     if imageType == 'happy':
@@ -1933,12 +2153,8 @@ class test_bops(unittest.TestCase):
     #                 resultsDir = get_trial_list(session_path,full_dir = True)[idx]
     #                 run_IK(model_path, trc_file, resultsDir, marker_weights_path)
     
-   
-        
 
-
-
-  
+#%% ######################################################### BOPS MAIN ####################################################################
 if __name__ == '__main__':
     
     clear_terminal()
