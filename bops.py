@@ -31,6 +31,7 @@ import pyc3dserver as c3d
 import scipy
 import scipy.signal as sig
 from scipy.spatial.transform import Rotation
+import scipy.integrate as integrate
 from pathlib import Path
 import warnings
 import json
@@ -47,6 +48,8 @@ import customtkinter as ctk
 
 from PIL import ImageTk, Image
 
+from sklearn.preprocessing import MinMaxScaler
+
 try:
     from trc import TRCData
     import trc
@@ -62,8 +65,6 @@ except:
     initPath = os.path.join(pythonPath,'lib\site-packages\opensim\__init__.py')
     print('init path is: ', initPath)    
     print('=============================================================================================')
-
-
 
 
 def select_folder(prompt='Please select your folder', staring_path=''):
@@ -255,7 +256,7 @@ def create_project_settings(project_folder=''):
     project_settings['emg_filter']['order'] = [4]
 
     project_settings['emg_labels'] = ['all']
-    project_settings['simulations'] = os.path.join(project_folder,'simulations')    
+    project_settings['simulations'] = os.path.join(project_folder,'Simulations')    
     
     project_settings['setupFiles'] = dict()
     project_settings['setupFiles']['scale'] = os.path.join(project_folder, 'setup_Scale.xml')
@@ -264,12 +265,18 @@ def create_project_settings(project_folder=''):
     project_settings['setupFiles']['so'] = os.path.join(project_folder, 'setup_so.xml')
     project_settings['setupFiles']['jrf'] = os.path.join(project_folder, 'setup_jrf.xml')
 
+    # subject list 
+    project_settings['subject_list'] = [f for f in os.listdir(project_settings['simulations']) if os.path.isdir(os.path.join(project_settings['simulations'], f))]
+
+
     jsonpath = Path(project_folder) / ("settings.json")
     jsonpath.write_text(json.dumps(project_settings))
 
     print('project directory was set to: ' + project_folder)
 
-#########################################################  import data  ############################################################
+    return project_settings
+
+#########################################################  import / save data  #########################################################
 def import_file(file_path):
     df = pd.DataFrame()
     if os.path.isfile(file_path):
@@ -350,6 +357,10 @@ def import_sto_data(stoFilePath):
 
     file_id = open(stoFilePath, 'r')
 
+    if os.path.getsize(stoFilePath) == 0:
+        print(stoFilePath + ' is empty') 
+        return pd.DataFrame()
+    
     # read header
     next_line = file_id.readline()
     header = [next_line]
@@ -513,36 +524,90 @@ def c3d_emg_export(c3dFilePath,emg_labels='all'):
     emg_filename = os.path.join(maindir,'emg.csv')
     analog_df.to_csv(emg_filename, index=False)
 
-def rotateAroundAxes(data, rotations, modelMarkers):
+def selec_analog_labels (c3dFilePath):
+    # Get the COM object of C3Dserver (https://pypi.org/project/pyc3dserver/)
+    itf = c3d.c3dserver(msg=False)
+    c3d.open_c3d(itf, c3dFilePath)
+    dict_analogs = c3d.get_dict_analogs(itf)
+    analog_labels = dict_analogs['LABELS']
 
-    if len(rotations) != len(rotations[0]*2) + 1:
-        raise ValueError("Correct format is order of axes followed by two marker specifying each axis")
+    print(analog_labels)
+    print(type(analog_labels))
 
-    for a, axis in enumerate(rotations[0]):
+def read_trc_file(trcFilePath):
+    pass
 
-        markerName1 = rotations[1+a*2]
-        markerName2 = rotations[1 + a*2 + 1]
-        marker1 = data["Labels"].index(markerName1)
-        marker2 = data["Labels"].index(markerName2)
-        axisIdx = ord(axis) - ord('x')
-        if (0<=axisIdx<=2) == False:
-            raise ValueError("Axes can only be x y or z")
+def writeTRC(c3dFilePath, trcFilePath):
 
-        origAxis = [0,0,0]
-        origAxis[axisIdx] = 1
-        if modelMarkers is not None:
-            origAxis = modelMarkers[markerName1] - modelMarkers[markerName2]
-            origAxis /= scipy.linalg.norm(origAxis)
-        rotateAxis = data["Data"][marker1] - data["Data"][marker2]
-        rotateAxis /= scipy.linalg.norm(rotateAxis, axis=1, keepdims=True)
+    print('writing trc file ...')
+    c3d_dict = import_c3d_to_dict (c3dFilePath)
 
-        for i, rotAxis in enumerate(rotateAxis):
-            angle = np.arccos(np.clip(np.dot(origAxis, rotAxis), -1.0, 1.0))
-            r = Rotation.from_euler('y', -angle)
-            data["Data"][:,i] = r.apply(data["Data"][:,i])
+    with open(trcFilePath, 'w') as file:
+        # from https://github.com/IISCI/c3d_2_trc/blob/master/extractMarkers.py
+        # Write header
+        file.write("PathFileType\t4\t(X/Y/Z)\toutput.trc\n")
+        file.write("DataRate\tCameraRate\tNumFrames\tNumMarkers\tUnits\tOrigDataRate\tOrigDataStartFrame\tOrigNumFrames\n")
+        file.write("%d\t%d\t%d\t%d\tmm\t%d\t%d\t%d\n" % (c3d_dict["DataRate"], c3d_dict["CameraRate"], c3d_dict["NumFrames"],
+                                                        c3d_dict["NumMarkers"], c3d_dict["OrigDataRate"],
+                                                        c3d_dict["OrigDataStartFrame"], c3d_dict["OrigNumFrames"]))
 
+        # Write labels
+        file.write("Frame#\tTime\t")
+        for i, label in enumerate(c3d_dict["Labels"]):
+            if i != 0:
+                file.write("\t")
+            file.write("\t\t%s" % (label))
+        file.write("\n")
+        file.write("\t")
+        for i in range(len(c3d_dict["Labels"]*3)):
+            file.write("\t%c%d" % (chr(ord('X')+(i%3)), math.ceil((i+3)/3)))
+        file.write("\n")
 
-    return data
+        # Write data
+        for i in range(len(c3d_dict["Data"][0])):
+            file.write("%d\t%f" % (i, c3d_dict["TimeStamps"][i]))
+            for l in range(len(c3d_dict["Data"])):
+                file.write("\t%f\t%f\t%f" % tuple(c3d_dict["Data"][l][i]))
+            file.write("\n")
+
+        print('trc file saved')
+
+def readXML(xml_file_path):
+    import xml.etree.ElementTree as ET
+
+    # Load XML file
+    xml_file_path = 'path_to_your_xml_file.xml'
+    tree = ET.parse(xml_file_path)
+    root = tree.getroot()
+
+    # Print the root element
+    print("Root element:", root.tag)
+
+    # Iterate through elements
+    for element in root:
+        print("Element:", element.tag)
+
+    # Find specific elements
+    target_element = root.find('target_element_name')
+    if target_element is not None:
+        print("Found target element:", target_element.tag)
+        # Manipulate target_element as needed
+
+    # Modify existing element attributes or text
+    for element in root:
+        if element.tag == 'target_element_name':
+            element.set('attribute_name', 'new_attribute_value')
+            element.text = 'new_text_value'
+
+    # Add new elements
+    new_element = ET.Element('new_element')
+    new_element.text = 'new_element_text'
+    root.append(new_element)
+
+    return tree
+
+def writeXML(tree,xml_file_path):    
+    tree.write(xml_file_path)
 
 ########################################################################################################################################
 
@@ -769,99 +834,177 @@ def filtering_force_plates(file_path='', cutoff_frequency=2, order=2, sampling_r
     else:
         print('file path does not exist!')
 
-def torsion_tool(): # to complete...
-   pass
+def time_normalise_df(df, fs=''):
 
-def selec_analog_labels (c3dFilePath):
-    # Get the COM object of C3Dserver (https://pypi.org/project/pyc3dserver/)
-    itf = c3d.c3dserver(msg=False)
-    c3d.open_c3d(itf, c3dFilePath)
-    dict_analogs = c3d.get_dict_analogs(itf)
-    analog_labels = dict_analogs['LABELS']
+    if not type(df) == pd.core.frame.DataFrame:
+        raise Exception('Input must be a pandas DataFrame')
+    
+    if not fs:
+        try:
+            fs = 1/(df['time'][1]-df['time'][0])
+        except  KeyError:
+            raise Exception('Input DataFrame must contain a column named "time"')
+    
+    normalised_df = pd.DataFrame(columns=df.columns)
 
-    print(analog_labels)
-    print(type(analog_labels))
+    for column in df.columns:
+        normalised_df[column] = np.zeros(101)
 
-def read_trc_file(trcFilePath):
-    pass
+        currentData = df[column]
+        currentData = currentData[~np.isnan(currentData)]
+        
+        timeTrial = np.arange(0, len(currentData)/fs, 1/fs)        
+        Tnorm = np.arange(0, timeTrial[-1], timeTrial[-1]/101)
+        if len(Tnorm) == 102:
+            Tnorm = Tnorm[:-1]
+        normalised_df[column] = np.interp(Tnorm, timeTrial, currentData)
+    
+    return normalised_df
 
-def writeTRC(c3dFilePath, trcFilePath):
+def sum_similar_columns(df):
+    # Sum columns with the same name except for one digit
+    summed_df = pd.DataFrame()
 
-    print('writing trc file ...')
-    c3d_dict = import_c3d_to_dict (c3dFilePath)
+    for col_name in df.columns:
+        # Find the position of the last '_' in the column name
+        last_underscore_index = col_name.rfind('_')
+        leg = col_name[last_underscore_index + 1]
+        muscle_name = col_name[:last_underscore_index-1]
 
-    with open(trcFilePath, 'w') as file:
-        # from https://github.com/IISCI/c3d_2_trc/blob/master/extractMarkers.py
-        # Write header
-        file.write("PathFileType\t4\t(X/Y/Z)\toutput.trc\n")
-        file.write("DataRate\tCameraRate\tNumFrames\tNumMarkers\tUnits\tOrigDataRate\tOrigDataStartFrame\tOrigNumFrames\n")
-        file.write("%d\t%d\t%d\t%d\tmm\t%d\t%d\t%d\n" % (c3d_dict["DataRate"], c3d_dict["CameraRate"], c3d_dict["NumFrames"],
-                                                        c3d_dict["NumMarkers"], c3d_dict["OrigDataRate"],
-                                                        c3d_dict["OrigDataStartFrame"], c3d_dict["OrigNumFrames"]))
+        # Find all columns with similar names (e.g., 'glmax_r')
+        similar_columns = [col for col in df.columns if 
+                           col == col_name or (col.startswith(muscle_name) and col[-1] == leg)]
+    
+        summed_df[col_name] = df[col_name]
 
-        # Write labels
-        file.write("Frame#\tTime\t")
-        for i, label in enumerate(c3d_dict["Labels"]):
-            if i != 0:
-                file.write("\t")
-            file.write("\t\t%s" % (label))
-        file.write("\n")
-        file.write("\t")
-        for i in range(len(c3d_dict["Labels"]*3)):
-            file.write("\t%c%d" % (chr(ord('X')+(i%3)), math.ceil((i+3)/3)))
-        file.write("\n")
+        # Check if the muscle name is already in the new DataFrame
+        if not muscle_name in summed_df.columns and len(similar_columns) > 1:    
+            # Sum the selected columns and add to the new DataFrame
+            summed_df[muscle_name] = df[similar_columns].sum(axis=1)
+        
 
-        # Write data
-        for i in range(len(c3d_dict["Data"][0])):
-            file.write("%d\t%f" % (i, c3d_dict["TimeStamps"][i]))
-            for l in range(len(c3d_dict["Data"])):
-                file.write("\t%f\t%f\t%f" % tuple(c3d_dict["Data"][l][i]))
-            file.write("\n")
+    return summed_df
 
-        print('trc file saved')
+def calculate_integral(df):
+    # Calculate the integral over time for all columns
+    integral_df = pd.DataFrame({'time': [1]})
 
-def readXML(xml_file_path):
-    import xml.etree.ElementTree as ET
+    for column in df.columns[1:]:
+        integral_values = integrate.trapz(df[column], df['time'])
+        integral_df[column] = integral_values
 
-    # Load XML file
-    xml_file_path = 'path_to_your_xml_file.xml'
-    tree = ET.parse(xml_file_path)
-    root = tree.getroot()
+    integral_df = sum_similar_columns(integral_df)
+    return integral_df
 
-    # Print the root element
-    print("Root element:", root.tag)
+def rotateAroundAxes(data, rotations, modelMarkers):
 
-    # Iterate through elements
-    for element in root:
-        print("Element:", element.tag)
+    if len(rotations) != len(rotations[0]*2) + 1:
+        raise ValueError("Correct format is order of axes followed by two marker specifying each axis")
 
-    # Find specific elements
-    target_element = root.find('target_element_name')
-    if target_element is not None:
-        print("Found target element:", target_element.tag)
-        # Manipulate target_element as needed
+    for a, axis in enumerate(rotations[0]):
 
-    # Modify existing element attributes or text
-    for element in root:
-        if element.tag == 'target_element_name':
-            element.set('attribute_name', 'new_attribute_value')
-            element.text = 'new_text_value'
+        markerName1 = rotations[1+a*2]
+        markerName2 = rotations[1 + a*2 + 1]
+        marker1 = data["Labels"].index(markerName1)
+        marker2 = data["Labels"].index(markerName2)
+        axisIdx = ord(axis) - ord('x')
+        if (0<=axisIdx<=2) == False:
+            raise ValueError("Axes can only be x y or z")
 
-    # Add new elements
-    new_element = ET.Element('new_element')
-    new_element.text = 'new_element_text'
-    root.append(new_element)
+        origAxis = [0,0,0]
+        origAxis[axisIdx] = 1
+        if modelMarkers is not None:
+            origAxis = modelMarkers[markerName1] - modelMarkers[markerName2]
+            origAxis /= scipy.linalg.norm(origAxis)
+        rotateAxis = data["Data"][marker1] - data["Data"][marker2]
+        rotateAxis /= scipy.linalg.norm(rotateAxis, axis=1, keepdims=True)
 
-    return tree
+        for i, rotAxis in enumerate(rotateAxis):
+            angle = np.arccos(np.clip(np.dot(origAxis, rotAxis), -1.0, 1.0))
+            r = Rotation.from_euler('y', -angle)
+            data["Data"][:,i] = r.apply(data["Data"][:,i])
 
-def writeXML(tree,xml_file_path):    
-    tree.write(xml_file_path)
 
+    return data
 
 ########################################################################################################################################
 
 
 ###############################################  Torsion Tool (to be complete)  ########################################################
+def torsion_tool(): # to complete...
+   pass
+
+
+
+########################################################################################################################################
+
+###############################################  OpenSim setup (to be complete)  #######################################################
+def create_analysis_tool(coordinates_file, modelpath, results_directory, force_set_files=None):
+    # Get mot data to determine time range
+    motData = osim.Storage(coordinates_file)
+
+    # Get initial and final time
+    initial_time = motData.getFirstTime()
+    final_time = motData.getLastTime()
+
+    # Set the model
+    model = osim.Model(modelpath)
+
+    # Create AnalyzeTool
+    analyzeTool = osim.AnalyzeTool()
+    analyzeTool.setModel(model)
+    analyzeTool.setModelFilename(model.getDocumentFileName())
+
+    analyzeTool.setReplaceForceSet(False)
+    analyzeTool.setResultsDir(results_directory)
+    analyzeTool.setOutputPrecision(8)
+
+    if force_set_files is not None:  # Set actuators file
+        forceSet = osim.ArrayStr()
+        forceSet.append(force_set_files)
+        analyzeTool.setForceSetFiles(forceSet)
+
+    # motData.print('.\states.sto')
+    # states = osim.Storage('.\states.sto')
+    # analyzeTool.setStatesStorage(states)
+    analyzeTool.setInitialTime(initial_time)
+    analyzeTool.setFinalTime(final_time)
+
+    analyzeTool.setSolveForEquilibrium(False)
+    analyzeTool.setMaximumNumberOfSteps(20000)
+    analyzeTool.setMaxDT(1)
+    analyzeTool.setMinDT(1e-008)
+    analyzeTool.setErrorTolerance(1e-005)
+
+    analyzeTool.setExternalLoadsFileName('.\GRF.xml')
+    analyzeTool.setCoordinatesFileName(coordinates_file)
+    analyzeTool.setLowpassCutoffFrequency(6)
+
+    return analyzeTool
+
+def get_muscles_by_group_osim(xml_path, group_names): # olny tested for Catelli model Opensim 3.3
+    members_dict = {}
+
+    try:
+        with open(xml_path, 'r', encoding='utf-8') as file:
+            tree = ET.parse(xml_path)
+            root = tree.getroot()
+    except Exception as e:
+        print('Error parsing xml file: {}'.format(e))
+        return members_dict
+    
+    members_dict['all_selected'] = []
+    for group_name in group_names:
+        members = []
+        for group in root.findall(".//ObjectGroup[@name='{}']".format(group_name)):
+            members_str = group.find('members').text
+            members.extend(members_str.split())
+        
+        members_dict[group_name] = members
+        members_dict['all_selected'] = members_dict['all_selected'] + members 
+
+    return members_dict
+
 
 
 ########################################################################################################################################
@@ -988,10 +1131,58 @@ def run_MA(osim_modelPath, ik_mot, grf_xml, resultsDir):
     # Run the muscle analysis calculation
     maTool.run()
 
+def runSO(modelpath, trialpath, actuators_file_path):
+    os.chdir(trialpath)
+
+    # create directories
+    results_directory = os.path.relpath(trialpath, trialpath)
+    coordinates_file = os.path.join(trialpath, "IK.mot")
+    modelpath_relative = os.path.relpath(modelpath, trialpath)
+
+    # create a local copy of the actuator file path and update name
+    actuators_file_path = os.path.relpath(actuators_file_path, trialpath)
+
+    # start model
+    OsimModel = osim.Model(modelpath_relative)
+
+    # Get mot data to determine time range
+    motData = osim.Storage(coordinates_file)
+
+    # Get initial and intial time
+    initial_time = motData.getFirstTime()
+    final_time = motData.getLastTime()
+
+    # Static Optimization
+    so = osim.StaticOptimization()
+    so.setName('StaticOptimization')
+    so.setModel(OsimModel)
+
+    # Set other parameters as needed
+    so.setStartTime(initial_time)
+    so.setEndTime(final_time)
+    so.setMaxIterations(25)
+
+    analyzeTool_SO = create_analysis_tool(coordinates_file,modelpath_relative,results_directory)
+    analyzeTool_SO.getAnalysisSet().cloneAndAppend (so)
+    analyzeTool_SO.getForceSetFiles().append(actuators_file_path)
+    analyzeTool_SO.setReplaceForceSet(False)
+    OsimModel.addAnalysis(so)
+
+    analyzeTool_SO.printToXML(".\setup_so.xml")
+
+    analyzeTool_SO = osim.AnalyzeTool(".\setup_so.xml")
+
+    trial = os.path.basename(trialpath)
+    print(f"so for {trial}")
+
+    # run
+    analyzeTool_SO.run()
+
+
 ########################################################################################################################################
 
 ###############################################  GUI (to be complete)  #################################################################
-def  simple_gui():
+def simple_gui():
     ctk.set_appearance_mode('dark')
     ctk.set_default_color_theme('dark-blue')
 

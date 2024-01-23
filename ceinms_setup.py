@@ -1,4 +1,3 @@
-
 # to import bops need to deactivate some packages not intalled (offline mode, consider this when packaging)
 import subprocess
 import sys
@@ -10,12 +9,13 @@ import tkinter as tk
 import opensim as osim
 from tkinter import filedialog
 import os
-import bops as bp   
 import pandas as pd
 import xml.etree.ElementTree as ET
 from memory_profiler import profile
 import numpy as np
 from sklearn.metrics import mean_squared_error
+
+import bops as bp
 # import pyomeca as pym
 
 def get_main_path():
@@ -35,6 +35,7 @@ class subject_paths:
         self.simulations = os.path.join(self.main,'Simulations')
         self.subject = os.path.join(self.simulations, subject_code)
         self.trial = os.path.join(self.subject, trial_name)
+        self.results = os.path.join(self.main, 'results')
 
         # raw data paths
         self.c3d = os.path.join(self.subject, trial_name, 'c3dfile.c3d')
@@ -62,6 +63,11 @@ class subject_paths:
         # MA paths 
         self.ma_output_folder = os.path.join(self.trial, 'muscle_analysis')
 
+        # SO paths
+        self.so_output_forces = os.path.join(self.trial, '_StaticOptimization_force.sto')
+        self.so_output_activations = os.path.join(self.trial, '_StaticOptimization_activation.sto')
+        self.so_actuators = os.path.join(self.trial, 'actuators_so.xml')
+
         # JRA paths
         self.jra_output = os.path.join(self.trial, 'joint_reaction.sto')
         self.jra_setup = os.path.join(self.trial, 'setup_jra.xml')
@@ -85,6 +91,8 @@ class subject_paths:
 
         # results folder
         self.ceinms_results = os.path.join(self.trial, 'ceinms_results')
+        self.ceinms_results_forces = os.path.join(self.ceinms_results,'MuscleForces.sto')
+        self.ceinms_results_activations = os.path.join(self.ceinms_results,'Activations.sto')
 
 # Create the GUI window for the application
 def create_window(title, geometry='500x500'):
@@ -147,18 +155,27 @@ def suppress_output(func): # DO NOT USE (randomly stops code, needs fixing)
 
     return wrapper
 
-def print_to_log_file(step = 'analysis',subject=' ',stage = ' '):
+def print_to_log_file(step = 'analysis',subject=' ',mode = ' '): # stage = start, end, simple
     file_path = get_main_path() + r'\log.txt'
 
+    if not mode in ['start', 'end', 'simple', ' ']:
+        print('mode not recognised')
+        pass
+        # raise Exception('mode not recognised: {}'.format(mode))
+     
     try:
         with open(file_path, 'a') as file:
-            current_datetime = datetime.datetime.now()
-            if not step:
-                log_message = f"\n\n"
+            if mode == 'simple':
+                file.write(f"{step}\n")
             else:
-                log_message = f"{step} {subject} {stage} {current_datetime}\n"
-            file.write(log_message)
-            
+                current_datetime = datetime.datetime.now()
+                if not step:
+                    log_message = f"\n\n"
+                else:
+                    log_message = f"{step} {subject} {mode} {current_datetime}\n"
+                
+                file.write(log_message)
+        
     except FileNotFoundError:
         print("File not found.")
 
@@ -205,52 +222,6 @@ def get_initial_and_last_times(mot_file):
 
     return initial_time, final_time
   
-def import_sto_data(stoFilePath):
-
-    if not os.path.exists(stoFilePath):
-        print('file do not exists')
-
-    file_id = open(stoFilePath, 'r')
-
-    # read header
-    next_line = file_id.readline()
-    header = [next_line]
-    nc = 0
-    nr = 0
-    while not 'endheader' in next_line:
-        if 'datacolumns' in next_line:
-            nc = int(next_line[next_line.index(' ') + 1:len(next_line)])
-        elif 'datarows' in next_line:
-            nr = int(next_line[next_line.index(' ') + 1:len(next_line)])
-        elif 'nColumns' in next_line:
-            nc = int(next_line[next_line.index('=') + 1:len(next_line)])
-        elif 'nRows' in next_line:
-            nr = int(next_line[next_line.index('=') + 1:len(next_line)])
-
-        next_line = file_id.readline()
-        header.append(next_line)
-
-    # process column labels
-    next_line = file_id.readline()
-    if next_line.isspace() == True:
-        next_line = file_id.readline()
-
-    labels = next_line.split()
-
-    # get data
-    data = []
-    for i in range(1, nr + 1):
-        d = [float(x) for x in file_id.readline().split()]
-        data.append(d)
-
-    file_id.close()
-    
-    # Create a Pandas DataFrame
-    df = pd.DataFrame(data, columns=labels)
-
-    return df
-
-
 # XML edit
 def edit_xml_file(xml_file,tag,new_tag_value):
 
@@ -360,11 +331,7 @@ def run_inverse_kinematics(model_file, marker_file, output_motion_file):
 
 def edit_muscle_analysis_setup(ma_setup_path,model_file,initial_time, last_time):
     
-    # sys.stdout.flush()
-    try:
-        print('creating setup files muscle analysis ...')    
-    except:
-        pass
+    print('creating setup files muscle analysis ...')    
 
     edit_xml_file(ma_setup_path,'start_time',initial_time)
     edit_xml_file(ma_setup_path,'initial_time',initial_time)
@@ -391,6 +358,18 @@ def run_muscle_analysis(model_file, motion_file, output_folder):
 
     # Run MuscleAnalysisTool
     ma_tool.run()
+
+def run_so(paths, rerun=False):
+
+    if not os.path.isfile(paths.so_actuators):
+        shutil.copy(os.path.join(paths.setup_folder,'actuators_so.xml'), paths.so_actuators)    
+
+    if os.path.exists(paths.so_output_forces) and not rerun:
+        pass
+    else:
+        print_to_log_file('static opt run ... ', ' ', 'start') # log file
+        bp.runSO(paths.model_scaled, paths.trial, paths.so_actuators)
+        print_to_log_file('done! ', ' ', ' ') # log file
 
 # CEINMS functions
 def copy_template_files_ceinms(paths: type,replace = False):
@@ -462,6 +441,22 @@ def remove_missing_emgs_from_excitation_generator(input_file_path, sto_file):
 
     tree.write(input_file_path, encoding='utf-8', xml_declaration=True)
 
+def print_excitation_input_pairs(xml_path):
+    with open(xml_path, 'r', encoding='utf-8') as file:
+        tree = ET.parse(xml_path)
+        root = tree.getroot()
+
+    # Get the input signals
+    input_signals = root.find('./inputSignals')
+    input_signal_names = input_signals.text.split()
+
+    
+    # Iterate through excitation elements and print pairs
+    for excitation in root.findall('./mapping/excitation'):
+        excitation_id = excitation.get('id')
+        input_element = excitation.find('input')
+        input_value = input_element.text if input_element is not None else None
+
 def run_calibration(paths: type):
     if isfile(paths.ceinms_calibration_setup):
         os.chdir(os.path.dirname(paths.ceinms_calibration_setup))
@@ -486,17 +481,27 @@ def run_full_pipeline():
 
 if __name__ == '__main__':
     data_folder = get_main_path()
-    subject_list = ['Athlete_03','Athlete_06','Athlete_14','Athlete_20','Athlete_22','Athlete_25','Athlete_26']
-    subject_list = ['Athlete_06_torsion','Athlete_14_torsion','Athlete_20_torsion','Athlete_22_torsion','Athlete_25_torsion','Athlete_26_torsion']
+    project_settings = bp.create_project_settings(data_folder)
+
+    analyis_to_run = ['scale','ik','id','ma','so','ceinms_cal','ceinms_exe']
     
-    trial_list = ['sq_70', 'sq_90']
+    # options to re-run the analysis ['scale','ik','id','ma','so','ceinms_cal','ceinms_templates','ceinms_exe']
+    re_run = ['scale','ik','id','ma','so','ceinms_cal','ceinms_templates','ceinms_exe'] 
+
+    data_folder = get_main_path()
+    subject_list = project_settings['subject_list']
+    # subject_list = ['Athlete_03','Athlete_06','Athlete_14','Athlete_20','Athlete_22','Athlete_25','Athlete_26']
+    # subject_list = ['Athlete_06_torsion','Athlete_14_torsion','Athlete_20_torsion','Athlete_22_torsion','Athlete_25_torsion','Athlete_26_torsion']
+    subject_list = ['Athlete_03']
+    trial_list = ['sq_70','sq_90']
+    calibration_trials = ['sq_70']
     # trial_list = ['sq_90']
     for subject_name in subject_list:
         for trial_name in trial_list:
             
             # create subject paths object with all the paths in it 
             paths = subject_paths(data_folder,subject_code=subject_name,trial_name=trial_name)
-              
+                        
             if not os.path.isdir(paths.trial):
                 raise Exception('Trial folder not found: {}'.format(paths.trial))
 
@@ -506,97 +511,113 @@ if __name__ == '__main__':
             print_terminal_spaced('Running pipeline for ' + subject_name + ' ' + trial_name)
 
             print_to_log_file('')
-            print_to_log_file('Running pipeline for ',subject_name + ' ' + trial_name, 'start') # log file
+            print_to_log_file('Running pipeline for ',subject_name + ' ' + trial_name, mode='start') # log file
 
             # edit xml files 
             relative_path_grf = os.path.relpath(paths.grf, os.path.dirname(paths.grf_xml))
             edit_xml_file(paths.grf_xml,'datafile',relative_path_grf)
-
-            # find time range for the trial 
-            try:
-                print_to_log_file('getting times from IK.mot  ... ', ' ', 'start') # log file
-                initial_time, last_time = get_initial_and_last_times(paths.ik_output)
-                print_to_log_file('done!', ' ', ' ') # log file
-            except Exception as e:
-                print_to_log_file('stop for error ...' , ' ', ' ') # log file
-                print_to_log_file(e)
-                raise Exception('Get initial and last times failed for ' + subject_name + ' ' + trial_name)
-        
+            initial_time, last_time = get_initial_and_last_times(paths.ik_output)
+           
+            #######################################################################################################
+            #######################################      MUSCLE ANALYSIS         ##################################
+            #######################################################################################################
             
-            # edit muscle analysis setup files
-            try:
-                print_to_log_file('muscle analysis setup  ... ', ' ', 'start') # log file
-                template_ma_setup = os.path.join(paths.setup_folder,'setup_ma.xml')
-                shutil.copy(template_ma_setup, paths.ma_setup)
-                edit_muscle_analysis_setup(paths.ma_setup,paths.model_scaled,initial_time, last_time)
-                print_to_log_file('done! ', ' ', ' ') # log file
-            except Exception as e:
-                print_to_log_file('stop for error ...' , ' ', ' ') # log file
-                print_to_log_file(e)
-                raise Exception('Muscle analysis setup failed for ' + subject_name + ' ' + trial_name)
-            
-            try:
-                # (NOT WORKING YET)run_muscle_analysis(paths.ma_setup) use xml setup files for now
-                print_to_log_file('muscle analysis run ... ', ' ', 'start') # log file
-                length_sto_file = os.path.join(paths.ma_output_folder,'_MuscleAnalysis_Length.sto')
-                if not os.path.isfile(length_sto_file):
-                    analyzeTool_MA = osim.AnalyzeTool(paths.ma_setup)
-                    analyzeTool_MA.run()
-                    
-                    print_to_log_file('done! ',' ', ' ') # log file
-                else:
-                    print('Muscle analysis already in the folder for ' + subject_name + ' ' + trial_name)
-                    print_to_log_file('Muscle analysis already exists. Continue... ',' ', ' ') # log file
-            except Exception as e:
-                print_to_log_file('stop for error ...' , ' ', ' ') # log file
-                print_to_log_file(e)
-                raise Exception('Muscle analysis failed for ' + subject_name + ' ' + trial_name)
-
-
-            # edit ceinms files
-            try:
-                print_to_log_file('ceinms setup ',' ', 'start') # log file
-
-                copy_template_files_ceinms(paths, replace=False)
-
-                time_range_execution = (str(initial_time) + ' ' + str(last_time)) 
-                time_range_calibration = (str(initial_time) + ' ' + str(initial_time+1))
-                remove_missing_emgs_from_excitation_generator(paths.ceinms_exc_generator, paths.emg)
-                edit_xml_file(paths.ceinms_exc_generator,'inputSignals',get_emg_labels(paths.emg)) 
-                edit_xml_file(paths.ceinms_trial_exe,'startStopTime',time_range_execution)
-                edit_xml_file(paths.ceinms_trial_cal,'startStopTime',time_range_calibration)
-                edit_xml_file(paths.uncalibrated_subject,'opensimModelFile',paths.model_scaled)
-                
-                sys.stdout.flush()
-                print('ceinms files edited for ' + subject_name + ' ' + trial_name)
-
-                print_to_log_file(' done! ', ' ' , ' ') # log file
-            except Exception as e:
-                print_to_log_file('stop for error ...' , ' ', ' ') # log file
-                print_to_log_file(e)
-                raise Exception('Error creating ceinsm setup files failed for ' + subject_name + ' ' + trial_name)    
-            
-            # run CEINMS calibration only for sq_70
-            if trial_name == 'sq_70' and not os.path.isfile(paths.calibrated_subject):
+            if ('ma' in analyis_to_run and not os.path.isdir(paths.ma_output_folder)) or 'ma' in re_run:
+                # edit muscle analysis setup files
                 try:
-                    print_to_log_file('ceinms calibration ... ',' ', ' start') # log file
-                    
-                    run_calibration(paths)
-
-                    print_to_log_file('done! ',' ', ' ') # log file
+                    print_to_log_file('muscle analysis setup  ... ', ' ', 'start') # log file
+                    template_ma_setup = os.path.join(paths.setup_folder,'setup_ma.xml')
+                    shutil.copy(template_ma_setup, paths.ma_setup)
+                    edit_muscle_analysis_setup(paths.ma_setup,paths.model_scaled,initial_time, last_time)
+                    print_to_log_file('done! ', ' ', ' ') # log file
                 except Exception as e:
-                    error_text = 'CEINMS calibration failed for ' + subject_name + ' ' + trial_name
-                    print_to_log_file(error_text , ' ', ' ') # log file
-                    raise Exception (error_text)
-            
-            # run CEINMS execution
-            try:
-                print_to_log_file('ceinms execution ... ',' ', 'start') # log file
-                run_execution(paths)
-                print_to_log_file('done! ', ' ', ' ') # log file
-            except Exception as e:
-                raise_exception('CEINMS execution failed for ' + subject_name + ' ' + trial_name,e)      
+                    print_to_log_file('stop for error ...' , ' ', ' ') # log file
+                    print_to_log_file(e)
+                    raise Exception('Muscle analysis setup failed for ' + subject_name + ' ' + trial_name)
                 
+                # run muscle analysis
+                try:
+                    # (NOT WORKING YET)run_muscle_analysis(paths.ma_setup) use xml setup files for now
+                    print_to_log_file('muscle analysis run ... ', ' ', 'start') # log file
+                    length_sto_file = os.path.join(paths.ma_output_folder,'_MuscleAnalysis_Length.sto')
+                    if not os.path.isfile(length_sto_file) or 'ma' in re_run:
+                        analyzeTool_MA = osim.AnalyzeTool(paths.ma_setup)
+                        analyzeTool_MA.run()
+                        
+                        print_to_log_file('done! ',' ', ' ') # log file
+                    else:
+                        print('Muscle analysis already in the folder for ' + subject_name + ' ' + trial_name)
+                        print_to_log_file('Muscle analysis already exists. Continue... ',' ', ' ') # log file
+                except Exception as e:
+                    print_to_log_file('stop for error ...' , ' ', ' ') # log file
+                    print_to_log_file(e)
+                    raise Exception('Muscle analysis failed for ' + subject_name + ' ' + trial_name)
+
+            #######################################################################################################
+            #######################################             SO               ##################################
+            #######################################################################################################
+            if ('so' in analyis_to_run and not os.path.isfile(paths.so_output_forces)) or 'so' in re_run:
+                try:
+                    if 'so' in re_run:
+                        run_so(paths, rerun=True)
+                    else:
+                        run_so(paths, rerun=False)
+
+                except Exception as e:
+                    raise_exception('Static opt failed for ' + subject_name + ' ' + trial_name,e)     
+
+            #######################################################################################################
+            #######################################           CEINMS             ##################################
+            #######################################################################################################
+            if 'ceinms_exe' in analyis_to_run or 'ceinms_cal' in analyis_to_run:
+                
+                # edit ceinms files
+                try:
+                    print_to_log_file('ceinms setup ',' ', 'start') # log file
+                    
+                    if 'ceinms_templates' in re_run:
+                        copy_template_files_ceinms(paths, replace=False)
+
+                    time_range_execution = (str(initial_time) + ' ' + str(last_time)) 
+                    time_range_calibration = (str(initial_time) + ' ' + str(initial_time+1))
+                    remove_missing_emgs_from_excitation_generator(paths.ceinms_exc_generator, paths.emg)
+                    edit_xml_file(paths.ceinms_exc_generator,'inputSignals',get_emg_labels(paths.emg)) 
+                    edit_xml_file(paths.ceinms_trial_exe,'startStopTime',time_range_execution)
+                    edit_xml_file(paths.ceinms_trial_cal,'startStopTime',time_range_calibration)
+                    edit_xml_file(paths.uncalibrated_subject,'opensimModelFile',paths.model_scaled)
+                    
+                    sys.stdout.flush()
+                    print('ceinms files edited for ' + subject_name + ' ' + trial_name)
+
+                    print_to_log_file(' done! ', ' ' , ' ') # log file
+                except Exception as e:
+                    print_to_log_file('stop for error ...' , ' ', ' ') # log file
+                    print_to_log_file(e)
+                    raise Exception('Error creating ceinsm setup files failed for ' + subject_name + ' ' + trial_name)    
+                
+                # run CEINMS calibration only for sq_70
+                if ('ceinms_cal' in analyis_to_run, trial_name in calibration_trials and not os.path.isfile(paths.calibrated_subject)) or 'ceinms_cal' in re_run:
+                    try:
+                        print_to_log_file('ceinms calibration ... ',' ', ' start') # log file
+                        
+                        run_calibration(paths)
+
+                        print_to_log_file('done! ',' ', ' ') # log file
+                    except Exception as e:
+                        error_text = 'CEINMS calibration failed for ' + subject_name + ' ' + trial_name
+                        print_to_log_file(error_text , ' ', ' ') # log file
+                        raise Exception (error_text)
+                
+                # run CEINMS execution
+                if ('ceinms_exe' in analyis_to_run and not os.path.isfile(paths.ceinms_results_forces)) or 'ceinms_exe' in re_run:
+                    try:
+                        print_to_log_file('ceinms execution ... ',' ', 'start') # log file
+                        run_execution(paths)
+                        print_to_log_file('done! ', ' ', ' ') # log file
+                    except Exception as e:
+                        raise_exception('CEINMS execution failed for ' + subject_name + ' ' + trial_name,e)      
+        
+            exit()
         # end trial loop
         
     # end subject loop
