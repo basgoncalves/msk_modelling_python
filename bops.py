@@ -276,6 +276,15 @@ def create_project_settings(project_folder=''):
 
     return project_settings
 
+def create_trial_folder(c3dFilePath):
+    trialName = os.path.splitext(c3dFilePath)[0]
+    parentDirC3d = os.path.dirname(c3dFilePath)
+    trialFolder = os.path.join(parentDirC3d, trialName)
+
+    if not os.path.isdir(trialFolder):
+        os.makedirs(trialFolder)
+        
+    return trialFolder 
 #########################################################  import / save data  #########################################################
 def import_file(file_path):
     df = pd.DataFrame()
@@ -436,7 +445,11 @@ def import_trc_file(trcFilePath):
     return trc_data, trc_dataframe
 
 def c3d_osim_export(c3dFilePath):
-    maindir = os.path.dirname(c3dFilePath)
+    
+    trialFolder = create_trial_folder(c3dFilePath)
+    
+    # create a copy of c3d file 
+    shutil.copyfile(c3dFilePath, os.path.join(trialFolder,'c3dfile.c3d'))
 
     # import c3d file data to a table
     adapter = osim.C3DFileAdapter()
@@ -446,7 +459,7 @@ def c3d_osim_export(c3dFilePath):
     try:
         markers = adapter.getMarkersTable(tables)
         markersFlat = markers.flatten()
-        markersFilename = os.path.join(maindir,'markers.trc')
+        markersFilename = os.path.join(trialFolder,'markers.trc')
         stoAdapter = osim.STOFileAdapter()
         stoAdapter.write(markersFlat, markersFilename)
     except:
@@ -456,7 +469,7 @@ def c3d_osim_export(c3dFilePath):
     try:
         forces = adapter.getForcesTable(tables)
         forcesFlat = forces.flatten()
-        forcesFilename = os.path.join(maindir,'grf.mot')
+        forcesFilename = os.path.join(trialFolder,'grf.mot')
         stoAdapter = osim.STOFileAdapter()
         stoAdapter.write(forcesFlat, forcesFilename)
     except:
@@ -499,6 +512,8 @@ def c3d_osim_export_multiple(sessionPath='',replace=0):
 
 def c3d_emg_export(c3dFilePath,emg_labels='all'):
 
+    trialFolder = create_trial_folder(c3dFilePath)
+    
     itf = c3d.c3dserver(msg=False)   # Get the COM object of C3Dserver (https://pypi.org/project/pyc3dserver/)
     c3d.open_c3d(itf, c3dFilePath)   # Open a C3D file
 
@@ -518,10 +533,9 @@ def c3d_emg_export(c3dFilePath,emg_labels='all'):
         if iLab in emg_labels:
             iData = dict_analogs['DATA'][iLab]
             analog_df[iLab] = iData.tolist()
-    maindir = os.path.dirname(c3dFilePath)
-
+    
     # Sava data in parent directory
-    emg_filename = os.path.join(maindir,'emg.csv')
+    emg_filename = os.path.join(trialFolder,'emg.csv')
     analog_df.to_csv(emg_filename, index=False)
 
 def selec_analog_labels (c3dFilePath):
