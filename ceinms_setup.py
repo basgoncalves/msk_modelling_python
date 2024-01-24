@@ -40,7 +40,7 @@ class subject_paths:
         # raw data paths
         self.c3d = os.path.join(self.subject, trial_name, 'c3dfile.c3d')
         self.grf = os.path.join(self.subject, trial_name, 'grf.mot')
-        self.markers = os.path.join(self.subject, trial_name, 'markers.trc')
+        self.markers = os.path.join(self.subject, trial_name, 'marker_experimental.trc')
         self.emg = os.path.join(self.subject, trial_name, 'EMG_filtered.sto')
 
         # model paths
@@ -137,6 +137,9 @@ def isfile(path: str):
         return True
 
 # Utils
+def relpath(path, start=os.path.curdir):
+    return os.path.relpath(path, start)
+
 def suppress_output(func): # DO NOT USE (randomly stops code, needs fixing)
     def wrapper(*args, **kwargs):
         # Redirect standard output to null device
@@ -361,8 +364,11 @@ def run_muscle_analysis(model_file, motion_file, output_folder):
 
 def run_so(paths, rerun=False):
 
-    if not os.path.isfile(paths.so_actuators):
+    if not os.path.isfile(paths.so_actuators) or rerun:
         shutil.copy(os.path.join(paths.setup_folder,'actuators_so.xml'), paths.so_actuators)    
+
+    if not os.path.isfile(paths.so_setup) or rerun:
+        shutil.copy(os.path.join(paths.setup_folder,'setup_so.xml'), paths.so_setup)
 
     if os.path.exists(paths.so_output_forces) and not rerun:
         pass
@@ -450,12 +456,16 @@ def print_excitation_input_pairs(xml_path):
     input_signals = root.find('./inputSignals')
     input_signal_names = input_signals.text.split()
 
-    
     # Iterate through excitation elements and print pairs
+    excitation_pairs = dict()
     for excitation in root.findall('./mapping/excitation'):
         excitation_id = excitation.get('id')
         input_element = excitation.find('input')
         input_value = input_element.text if input_element is not None else None
+
+        excitation_pairs[excitation_id] = input_value
+
+    return excitation_pairs
 
 def run_calibration(paths: type):
     if isfile(paths.ceinms_calibration_setup):
@@ -470,10 +480,19 @@ def run_execution(paths: type):
             os.mkdir(paths.ceinms_results)
         except:
             pass
+        
         os.chdir(paths.ceinms_results)
         command = " ".join([paths.ceinms_src + "\CEINMS.exe -S", paths.ceinms_exe_setup])
-        print(command)
         proc = subprocess.run(command, shell=True)
+        try:
+            forces = bp.import_sto_data(paths.ceinms_results_forces)
+        except:
+            forces = pd.DataFrame()
+
+        while forces.empty:
+            print_to_log_file('Force file is empty. Rerunning ceinms execution...', ' ', ' ')
+            time.sleep(1)
+            proc = subprocess.run(command, shell=True) 
 
 def run_full_pipeline():
     pass
@@ -484,44 +503,135 @@ if __name__ == '__main__':
     project_settings = bp.create_project_settings(data_folder)
 
     analyis_to_run = ['scale','ik','id','ma','so','ceinms_cal','ceinms_exe']
+    # analyis_to_run = analyis_to_run[3:-1]
     
     # options to re-run the analysis ['scale','ik','id','ma','so','ceinms_cal','ceinms_templates','ceinms_exe']
     re_run = ['scale','ik','id','ma','so','ceinms_cal','ceinms_templates','ceinms_exe'] 
+    re_run = re_run
 
     data_folder = get_main_path()
     subject_list = project_settings['subject_list']
     # subject_list = ['Athlete_03','Athlete_06','Athlete_14','Athlete_20','Athlete_22','Athlete_25','Athlete_26']
     # subject_list = ['Athlete_06_torsion','Athlete_14_torsion','Athlete_20_torsion','Athlete_22_torsion','Athlete_25_torsion','Athlete_26_torsion']
-    subject_list = ['Athlete_03']
+    subject_list = subject_list[2:]
     trial_list = ['sq_70','sq_90']
     calibration_trials = ['sq_70']
     # trial_list = ['sq_90']
+
+    print_terminal_spaced(' ')
+    print('subject list: ')
+    print(subject_list)
+    print('trial list: ')
+    print(trial_list)
+    print('calibration trials: ')
+    print(calibration_trials)
+    print('analysis to run (if input does not exist): ')
+    print(analyis_to_run)
+    print('re-run analysis: ')
+    print(re_run)
+    print(' ')
+
+    bp.ask_to_continue()
+
     for subject_name in subject_list:
         for trial_name in trial_list:
-            
+                       
             # create subject paths object with all the paths in it 
             paths = subject_paths(data_folder,subject_code=subject_name,trial_name=trial_name)
                         
             if not os.path.isdir(paths.trial):
-                raise Exception('Trial folder not found: {}'.format(paths.trial))
+                print_to_log_file('Trial folder not found. Continue... ',' ', ' ')
+                continue
 
             if not os.path.isfile(paths.model_scaled):
-                raise Exception('Scaled model not found: {}'.format(paths.model_scaled))
+                print_to_log_file('Scaled model not found. Continue... ',' ', ' ')
+                continue             
 
-            print_terminal_spaced('Running pipeline for ' + subject_name + ' ' + trial_name)
-
+            # print to terminal and log file
+            print_terminal_spaced('Running pipeline for ' + subject_name + ' ' + trial_name) 
             print_to_log_file('')
             print_to_log_file('Running pipeline for ',subject_name + ' ' + trial_name, mode='start') # log file
 
             # edit xml files 
-            relative_path_grf = os.path.relpath(paths.grf, os.path.dirname(paths.grf_xml))
+            relative_path_grf = relpath(paths.grf, paths.trial)
             edit_xml_file(paths.grf_xml,'datafile',relative_path_grf)
+            
+            # find initial and last time from IK file
             initial_time, last_time = get_initial_and_last_times(paths.ik_output)
-           
+
+            #######################################################################################################
+            #######################################              IK              ##################################
+            #######################################################################################################
+            if ('ik' in analyis_to_run and not os.path.isfile(paths.ik_output)) or 'ik' in re_run:
+                              
+                try:
+                    print_to_log_file('IK setup  ... ', ' ', 'start') # log file
+                    old_ik_setup = os.path.join(paths.trial,'ikSettings.xml')
+                    if os.path.isfile(old_ik_setup):
+                        shutil.copy(old_ik_setup, paths.ik_setup)
+                    else:
+                        shutil.copy(os.path.join(paths.setup_folder,'setup_ik.xml'),paths.ik_setup)
+                        
+                    
+                    edit_xml_file(paths.ik_setup,'model_file',relpath(paths.model_scaled,paths.trial))
+                    edit_xml_file(paths.ik_setup,'marker_file', relpath(paths.markers,paths.trial))
+                    edit_xml_file(paths.ik_setup,'time_range',str(initial_time) + ' ' + str(last_time))
+                    edit_xml_file(paths.ik_setup,'output_motion_file',relpath(paths.ik_output,paths.trial))
+
+                    ik = osim.InverseKinematicsTool(paths.ik_setup)
+                    ik.set_model_file(paths.model_scaled)
+                    ik.run()
+
+                    print_to_log_file('done! ', ' ', ' ') # log file
+                except Exception as e:
+                    print_to_log_file('stop for error ...', ' ', ' ')
+                    print_to_log_file(str(e), ' ', ' ')
+
+
+                try: 
+                    print_to_log_file('check muscle moment arms ... ', ' ', 'start') # log file
+                    bp.checkMuscleMomentArms(paths.model_scaled, paths.ik_output, leg = 'l')
+                    bp.checkMuscleMomentArms(paths.model_scaled, paths.ik_output, leg = 'r')
+                    print_to_log_file('done! ', ' ', ' ') # log file
+                except Exception as e:
+                    print_to_log_file('stop for error ...', ' ', ' ')
+                    print_to_log_file(str(e), ' ', ' ')
+            else:
+                print_to_log_file('IK already exists. Continue... ',' ', ' ')
+            #######################################################################################################
+            #######################################              ID              ##################################
+            #######################################################################################################
+            if ('id' in analyis_to_run and not os.path.isfile(paths.id_output)) or 'id' in re_run:
+                
+                try:
+                    print_to_log_file('ID setup  ... ', ' ', 'start') # log file
+                    old_id_setup = os.path.join(paths.trial,'idSettings.xml')
+                    if os.path.isfile(old_id_setup):
+                        shutil.copy(old_id_setup, paths.id_setup)
+                    else:
+                        shutil.copy(os.path.join(paths.setup_folder,'setup_id.xml'),paths.id_setup)
+                    
+                    edit_xml_file(paths.id_setup,'model_file',relpath(paths.model_scaled,paths.trial))
+                    edit_xml_file(paths.id_setup,'coordinates_file', relpath(paths.ik_output,paths.trial))
+                    edit_xml_file(paths.id_setup,'time_range',str(initial_time) + ' ' + str(last_time))
+                    edit_xml_file(paths.id_setup,'external_loads_file',relpath(paths.grf_xml,paths.trial))
+                    edit_xml_file(paths.id_setup,'results_directory',relpath(paths.trial,paths.trial))
+                   
+                    id = osim.InverseDynamicsTool(paths.id_setup)
+                    model = osim.Model(paths.model_scaled)
+                    id.setModel(model)
+                    id.run()
+
+                    print_to_log_file('done! ', ' ', ' ') # log file
+                except Exception as e:
+                    print_to_log_file('stop for error ...' , ' ', ' ')
+                    print_to_log_file(str(e), ' ', ' ')
+            else:
+                print_to_log_file('ID already exists. Continue... ',' ', ' ')
+
             #######################################################################################################
             #######################################      MUSCLE ANALYSIS         ##################################
-            #######################################################################################################
-            
+            #######################################################################################################   
             if ('ma' in analyis_to_run and not os.path.isdir(paths.ma_output_folder)) or 'ma' in re_run:
                 # edit muscle analysis setup files
                 try:
@@ -533,7 +643,6 @@ if __name__ == '__main__':
                 except Exception as e:
                     print_to_log_file('stop for error ...' , ' ', ' ') # log file
                     print_to_log_file(e)
-                    raise Exception('Muscle analysis setup failed for ' + subject_name + ' ' + trial_name)
                 
                 # run muscle analysis
                 try:
@@ -551,7 +660,8 @@ if __name__ == '__main__':
                 except Exception as e:
                     print_to_log_file('stop for error ...' , ' ', ' ') # log file
                     print_to_log_file(e)
-                    raise Exception('Muscle analysis failed for ' + subject_name + ' ' + trial_name)
+            else:
+                print_to_log_file('Muscle analysis already exists. Continue... ',' ', ' ')
 
             #######################################################################################################
             #######################################             SO               ##################################
@@ -562,21 +672,22 @@ if __name__ == '__main__':
                         run_so(paths, rerun=True)
                     else:
                         run_so(paths, rerun=False)
-
                 except Exception as e:
-                    raise_exception('Static opt failed for ' + subject_name + ' ' + trial_name,e)     
-
+                    print_to_log_file('stop for error ...' , ' ', ' ')
+                    print_to_log_file(str(e), ' ', ' ')
+            else:
+                print_to_log_file('SO already exists. Continue... ',' ', ' ')
+            
             #######################################################################################################
             #######################################           CEINMS             ##################################
             #######################################################################################################
-            if 'ceinms_exe' in analyis_to_run or 'ceinms_cal' in analyis_to_run:
-                
-                # edit ceinms files
+            
+            # edit ceinms files
+            if ('ceinms_exe' in analyis_to_run or 'ceinms_cal' in analyis_to_run) and 'ceinms_templates' in re_run:     
                 try:
                     print_to_log_file('ceinms setup ',' ', 'start') # log file
                     
-                    if 'ceinms_templates' in re_run:
-                        copy_template_files_ceinms(paths, replace=False)
+                    copy_template_files_ceinms(paths, replace=False)
 
                     time_range_execution = (str(initial_time) + ' ' + str(last_time)) 
                     time_range_calibration = (str(initial_time) + ' ' + str(initial_time+1))
@@ -586,38 +697,41 @@ if __name__ == '__main__':
                     edit_xml_file(paths.ceinms_trial_cal,'startStopTime',time_range_calibration)
                     edit_xml_file(paths.uncalibrated_subject,'opensimModelFile',paths.model_scaled)
                     
-                    sys.stdout.flush()
                     print('ceinms files edited for ' + subject_name + ' ' + trial_name)
 
                     print_to_log_file(' done! ', ' ' , ' ') # log file
                 except Exception as e:
                     print_to_log_file('stop for error ...' , ' ', ' ') # log file
                     print_to_log_file(e)
-                    raise Exception('Error creating ceinsm setup files failed for ' + subject_name + ' ' + trial_name)    
-                
-                # run CEINMS calibration only for sq_70
-                if ('ceinms_cal' in analyis_to_run, trial_name in calibration_trials and not os.path.isfile(paths.calibrated_subject)) or 'ceinms_cal' in re_run:
-                    try:
+            else:
+                print_to_log_file('ceinms templates already exist. Continue... ',' ', ' ')
+
+            # run CEINMS calibration only for calibration_trials
+            if ('ceinms_cal' in analyis_to_run and trial_name in calibration_trials and not os.path.isfile(paths.calibrated_subject)) or 'ceinms_cal' in re_run:
+                try:
+                    if trial_name in calibration_trials:
                         print_to_log_file('ceinms calibration ... ',' ', ' start') # log file
                         
                         run_calibration(paths)
 
                         print_to_log_file('done! ',' ', ' ') # log file
-                    except Exception as e:
-                        error_text = 'CEINMS calibration failed for ' + subject_name + ' ' + trial_name
-                        print_to_log_file(error_text , ' ', ' ') # log file
-                        raise Exception (error_text)
-                
-                # run CEINMS execution
-                if ('ceinms_exe' in analyis_to_run and not os.path.isfile(paths.ceinms_results_forces)) or 'ceinms_exe' in re_run:
-                    try:
-                        print_to_log_file('ceinms execution ... ',' ', 'start') # log file
-                        run_execution(paths)
-                        print_to_log_file('done! ', ' ', ' ') # log file
-                    except Exception as e:
-                        raise_exception('CEINMS execution failed for ' + subject_name + ' ' + trial_name,e)      
-        
-            exit()
+                except Exception as e:
+                    error_text = 'CEINMS calibration failed for ' + subject_name + ' ' + trial_name
+                    print_to_log_file(error_text , ' ', ' ') # log file
+                    print_to_log_file(str(e), ' ', ' ')
+            else:
+                print_to_log_file('CEINMS calibration already exists. Continue... ',' ', ' ')
+            # run CEINMS execution
+            if ('ceinms_exe' in analyis_to_run and not os.path.isfile(paths.ceinms_results_forces)) or 'ceinms_exe' in re_run:
+                try:
+                    print_to_log_file('ceinms execution ... ',' ', 'start') # log file
+                    run_execution(paths)
+                    print_to_log_file('done! ', ' ', ' ') # log file
+                except Exception as e:
+                    print_to_log_file('stop for error ...' , ' ', ' ') # log file
+                    print_to_log_file(str(e), ' ', ' ')
+            else:
+                print_to_log_file('CEINMS execution already exists. Continue... ',' ', ' ')
         # end trial loop
         
     # end subject loop

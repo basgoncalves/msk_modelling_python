@@ -67,6 +67,79 @@ except:
     print('=============================================================================================')
 
 
+# %% ######################################################  Classes  ###################################################################
+class subject_paths:
+    def __init__(self, data_folder,subject_code='default',trial_name='trial1'):
+
+        # main paths
+        self.main = data_folder
+        self.setup_folder = os.path.join(self.main,'Setups')
+        self.setup_ceinms = os.path.join(self.main,'Setups','ceinms')
+        self.simulations = os.path.join(self.main,'Simulations')
+        self.subject = os.path.join(self.simulations, subject_code)
+        self.trial = os.path.join(self.subject, trial_name)
+        self.results = os.path.join(self.main, 'results')
+
+        # raw data paths
+        self.c3d = os.path.join(self.subject, trial_name, 'c3dfile.c3d')
+        self.grf = os.path.join(self.subject, trial_name, 'grf.mot')
+        self.markers = os.path.join(self.subject, trial_name, 'marker_experimental.trc')
+        self.emg = os.path.join(self.subject, trial_name, 'EMG_filtered.sto')
+
+        # model paths
+        self.models = os.path.join(self.main, 'Scaled_models')
+        self.model_generic = os.path.join(self.models, 'generic_model.osim')
+        self.model_scaled = os.path.join(self.models, subject_code + '_scaled.osim')
+
+        # setup files
+        self.grf_xml = os.path.join(self.trial,'GRF.xml')
+        self.ik_setup = os.path.join(self.trial, 'setup_ik.xml')
+        self.id_setup = os.path.join(self.trial, 'setup_id.xml')
+        self.ma_setup = os.path.join(self.trial, 'setup_ma.xml')
+
+        # IK paths
+        self.ik_output = os.path.join(self.trial, 'IK.mot')
+        
+        # ID paths
+        self.id_output = os.path.join(self.trial, 'inverse_dynamics.sto')
+    
+        # MA paths 
+        self.ma_output_folder = os.path.join(self.trial, 'muscle_analysis')
+
+        # SO paths
+        self.so_output_forces = os.path.join(self.trial, '_StaticOptimization_force.sto')
+        self.so_output_activations = os.path.join(self.trial, '_StaticOptimization_activation.sto')
+        self.so_actuators = os.path.join(self.trial, 'actuators_so.xml')
+
+        # JRA paths
+        self.jra_output = os.path.join(self.trial, 'joint_reaction.sto')
+        self.jra_setup = os.path.join(self.trial, 'setup_jra.xml')
+
+        # CEINMS paths 
+        self.ceinms_src = r"C:\Git\msk_modelling_matlab\src\Ceinms\CEINMS_2"
+        if not os.path.isdir(self.ceinms_src):
+            raise Exception('CEINMS source folder not found: {}'.format(self.ceinms_src))
+
+        # subject files (model, excitation generator, calibration setup, trial xml)
+        self.uncalibrated_subject = os.path.join(self.subject,'ceinms_shared','ceinms_uncalibrated_subject.xml') 
+        self.calibrated_subject = os.path.join(self.subject,'ceinms_shared','ceinms_calibrated_subject.xml')
+        self.ceinms_exc_generator = os.path.join(self.subject,'ceinms_shared','ceinms_excitation_generator.xml')
+        self.ceinms_calibration_setup = os.path.join(self.subject,'ceinms_shared' ,'ceinms_calibration_setup.xml')
+        
+        # trial files (trial xml, ceinms_exe_setup, ceinms_exe_cfg)
+        self.ceinms_trial_exe = os.path.join(self.trial,'ceinms_trial.xml')
+        self.ceinms_trial_cal = os.path.join(self.trial,'ceinms_trial_cal.xml')
+        self.ceinms_exe_setup = os.path.join(self.trial, 'ceinms_exe_setup.xml')
+        self.ceinms_exe_cfg = os.path.join(self.trial, 'ceinms_exe_cfg.xml')
+
+        # results folder
+        self.ceinms_results = os.path.join(self.trial, 'ceinms_results')
+        self.ceinms_results_forces = os.path.join(self.ceinms_results,'MuscleForces.sto')
+        self.ceinms_results_activations = os.path.join(self.ceinms_results,'Activations.sto')
+
+
+
+#%% ######################################################  General  #####################################################################
 def select_folder(prompt='Please select your folder', staring_path=''):
     if not staring_path: # if empty
         staring_path = os.getcwd()
@@ -587,6 +660,28 @@ def writeTRC(c3dFilePath, trcFilePath):
 
         print('trc file saved')
 
+# sto functions
+
+def write_sto_file(dataframe, file_path): # not working yet
+    # Add header information
+    header = [
+        'CEINMS output',
+        f'datacolumns {len(dataframe.columns)}',
+        f'datarows {len(dataframe)}',
+        'endheader'
+    ]
+
+    # Create a DataFrame with the header information
+    header_df = pd.DataFrame([header], columns=['CEINMS output'])
+
+    # Concatenate the header DataFrame with the original DataFrame
+    output_df = pd.concat([header_df, dataframe], ignore_index=True)
+
+    # Write the resulting DataFrame to the specified file
+    output_df.to_csv(file_path, index=False, header=False)
+
+
+# XML functions
 def readXML(xml_file_path):
     import xml.etree.ElementTree as ET
 
@@ -624,12 +719,33 @@ def readXML(xml_file_path):
 def writeXML(tree,xml_file_path):    
     tree.write(xml_file_path)
 
+def get_tag_xml(xml_file_path, tag_name):
+    try:
+        # Load the XML file
+        tree = ET.parse(xml_file_path)
+        root = tree.getroot()
+
+        # Find the specified tag and return its value
+        tag = root.find(f'.//{tag_name}')
+        if tag is not None:
+            tag_value = tag.text
+            return tag_value
+        else:
+            return None  # Return None if the specified tag is not found
+
+    except Exception as e:
+        print(f"Error while processing the XML file: {e}")
+        return None
+
+
+# figure functions
 def save_fig(fig, save_path):
     if not os.path.exists(os.path.dirname(save_path)):
             os.mkdir(os.path.dirname(save_path))
 
     fig.savefig(save_path)
 
+    print('figure saved to: ' + save_path)
 
 
 #%% #####################################################  Operations  ###################################################################
@@ -863,7 +979,7 @@ def time_normalise_df(df, fs=''):
     if not fs:
         try:
             fs = 1/(df['time'][1]-df['time'][0])
-        except  KeyError:
+        except  KeyError as e:
             raise Exception('Input DataFrame must contain a column named "time"')
     
     normalised_df = pd.DataFrame(columns=df.columns)
@@ -882,6 +998,14 @@ def time_normalise_df(df, fs=''):
     
     return normalised_df
 
+def normalise_df(df,value = 1):
+    normlaised_df = df.copy()
+    for column in normlaised_df.columns:
+        if column != 'time':
+            normlaised_df[column] = normlaised_df[column] / value
+
+    return normlaised_df
+
 def sum_similar_columns(df):
     # Sum columns with the same name except for one digit
     summed_df = pd.DataFrame()
@@ -896,7 +1020,7 @@ def sum_similar_columns(df):
         similar_columns = [col for col in df.columns if 
                            col == col_name or (col.startswith(muscle_name) and col[-1] == leg)]
     
-        summed_df[col_name] = df[col_name]
+        summed_df[col_name] = pd.concat(df[col_name])
 
         # Check if the muscle name is already in the new DataFrame
         if not muscle_name in summed_df.columns and len(similar_columns) > 1:    
@@ -909,6 +1033,9 @@ def sum_similar_columns(df):
 def calculate_integral(df):
     # Calculate the integral over time for all columns
     integral_df = pd.DataFrame({'time': [1]})
+
+    if not 'time' in df.columns:
+        raise Exception('Input DataFrame must contain a column named "time"')
 
     for column in df.columns[1:]:
         integral_values = integrate.trapz(df[column], df['time'])
@@ -1097,6 +1224,11 @@ def get_muscles_by_group_osim(xml_path, group_names): # olny tested for Catelli 
         print('Error parsing xml file: {}'.format(e))
         return members_dict
     
+    if group_names == 'all':
+        # Find all ObjectGroup names
+        group_names = [group.attrib['name'] for group in root.findall(".//ObjectGroup")]
+
+
     members_dict['all_selected'] = []
     for group_name in group_names:
         members = []
@@ -1279,9 +1411,74 @@ def runSO(modelpath, trialpath, actuators_file_path):
     # run
     analyzeTool_SO.run()
 
+# %% ##############################################  OpenSim operations (to be complete)  ############################################################
+def sum_muscle_work(model_path, sto_path, body_weight = 1):
+    
+    def sum_df_columns(df, groups = {}):
+        # Function to sum columns of a dataframe based on a dictionary of groups
+        # groups = {group_name: [column1, column2, column3]}
+        summed_df = pd.DataFrame()
+
+        if not groups:
+            groups = {'all': df.columns}
+
+        for group_name, group_columns in groups.items():
+            group_sum = df[group_columns].sum(axis=1)
+            summed_df[group_name] = group_sum
+
+        return summed_df
+
+    muscle_force = import_sto_data(sto_path)
+
+    muscle_work = calculate_integral(muscle_force)
+    muscle_work.to_csv(os.path.join(os.path.dirname(sto_path),'MuscleWork.csv'), index=False)
+    
+    # force curce normalise to weight and save as csv
+    muscle_force_normalised_to_weight = normalise_df(muscle_force,body_weight)
+    muscle_force_normalised_to_weight.to_csv(os.path.join(os.path.dirname(sto_path),'MuscleForces_normalised.csv'), index=False)
+
+    # muscle work normalised to weight and save as csv
+    muscle_work_normalised_to_weight = calculate_integral(muscle_force_normalised_to_weight)
+    muscle_work_normalised_to_weight.to_csv(os.path.join(os.path.dirname(sto_path),'MuscleWork_normalised.csv'), index=False)
+
+    muscles_r_hip_flex = get_muscles_by_group_osim(model_path,['hip_flex_r','hip_add_r','hip_inrot_r'])
+    muscles_r_hip_ext = get_muscles_by_group_osim(model_path,['hip_ext_r','hip_abd_r','hip_exrot_r'])
+    muscles_r_knee_flex = get_muscles_by_group_osim(model_path,['knee_flex_r'])
+    muscles_r_knee_ext = get_muscles_by_group_osim(model_path,['knee_ext_r'])
+    muscles_r_ankle_df = get_muscles_by_group_osim(model_path,['ankle_df_r'])
+    muscles_r_ankle_pf = get_muscles_by_group_osim(model_path,['ankle_pf_r'])
+
+    muscles_l_hip_flex = get_muscles_by_group_osim(model_path,['hip_flex_l','hip_add_l','hip_inrot_l'])
+    muscles_l_hip_ext = get_muscles_by_group_osim(model_path,['hip_ext_l','hip_abd_l','hip_exrot_l'])
+    muscles_l_knee_flex = get_muscles_by_group_osim(model_path,['knee_flex_l'])
+    muscles_l_knee_ext = get_muscles_by_group_osim(model_path,['knee_ext_l'])
+    muscles_l_ankle_df = get_muscles_by_group_osim(model_path,['ankle_df_l'])
+    muscles_l_ankle_pf = get_muscles_by_group_osim(model_path,['ankle_pf_l'])
+
+    groups = {  'RightHipFlex': muscles_r_hip_flex['all_selected'],
+                'RightHipExt': muscles_r_hip_ext['all_selected'],
+                'RightKneeFlex': muscles_r_knee_flex['all_selected'],
+                'RightKneeExt': muscles_r_knee_ext['all_selected'],
+                'RightAnkleDF': muscles_r_ankle_df['all_selected'],
+                'RightAnklePF': muscles_r_ankle_pf['all_selected'],
+                'LeftHipFlex': muscles_l_hip_flex['all_selected'],
+                'LeftHipExt': muscles_l_hip_ext['all_selected'],
+                'LeftKneeFlex': muscles_l_knee_flex['all_selected'],
+                'LeftKneeExt': muscles_l_knee_ext['all_selected'],
+                'LeftAnkleDF': muscles_l_ankle_df['all_selected'],
+                'LeftAnklePF': muscles_l_ankle_pf['all_selected']
+    }
+    # Perform grouping and summing for each group
+    muscle_work_summed = sum_df_columns(muscle_work_normalised_to_weight,groups)
+
+    return muscle_work_summed
+    pass
+
+
+
 
 #%% ##############################################  Data checks (to be complete) ############################################################
-def checkMuscleMomentArms(model_file_path, ik_file_path, leg = 'l'):
+def checkMuscleMomentArms(model_file_path, ik_file_path, leg = 'l', threshold = 0.005):
 # Adapted from Willi Koller: https://github.com/WilliKoller/OpenSimMatlabBasic/blob/main/checkMuscleMomentArms.m
 # Only checked if works for for the Rajagopal and Catelli models
 
@@ -1295,6 +1492,9 @@ def checkMuscleMomentArms(model_file_path, ik_file_path, leg = 'l'):
             print(f'Coordinate {coord_name} not found in model')
         
         return index, coord
+
+
+    raise Exception('This function is not yet working. Please use the Matlab version for now or fix line containing " time_discontinuity.append(time_vector[discontinuity_indices]) "')
 
     # Load motions and model
     motion = osim.Storage(ik_file_path)
@@ -1355,7 +1555,8 @@ def checkMuscleMomentArms(model_file_path, ik_file_path, leg = 'l'):
 
     ankleFlexMomentArms = np.zeros((motion.getSize(), len(muscleIndices_ankle)))
 
-    # compute moment arms for each muscle
+    # compute moment arms for each muscle and create time vector
+    time_vector = []
     for i in range(1, motion.getSize()):
         flexAngleL = motion.getStateVector(i-1).getData().get(flexIndexL) / 180 * np.pi
         rotAngleL = motion.getStateVector(i-1).getData().get(rotIndexL) / 180 * np.pi
@@ -1363,6 +1564,7 @@ def checkMuscleMomentArms(model_file_path, ik_file_path, leg = 'l'):
         flexAngleLknee = motion.getStateVector(i-1).getData().get(flexIndexLknee) / 180 * np.pi
         flexAngleLank = motion.getStateVector(i-1).getData().get(flexIndexLank) / 180 * np.pi
 
+        time_vector.append(motion.getStateVector(i-1).getTime())
         # Update the state with the joint angle
         coordSet = model.updCoordinateSet()
         coordSet.get(flexIndexL).setValue(state, flexAngleL)
@@ -1402,84 +1604,84 @@ def checkMuscleMomentArms(model_file_path, ik_file_path, leg = 'l'):
                 ankleFlexMomentArm = model.getMuscles().get(muscleIndex).computeMomentArm(state, flexCoordLank)
                 ankleFlexMomentArms[i, j] = ankleFlexMomentArm
 
-    threshold = 0.005
-
     # check discontinuities
     discontinuity = []
+    muscle_action = []
+    time_discontinuity = []
+
     fDistC = plt.figure('Discontinuity', figsize=(8, 8))
     plt.title(ik_file_path)
-    legArr = []
+
     save_folder = os.path.join(os.path.dirname(ik_file_path),'momentArmsCheck')
 
-    # hip
-    for i in range(flexMomentArms.shape[1]):
-        dy = np.diff(flexMomentArms[:, i])
-        discontinuity_indices = np.where(np.abs(dy) > threshold)[0]
-        if discontinuity_indices.size > 0:
-            print('Discontinuity detected at', muscleNames_hip[i], 'at flexion moment arm')
-            plt.plot(flexMomentArms[:, i])
-            plt.plot(discontinuity_indices, flexMomentArms[discontinuity_indices, i], 'rx')
-            discontinuity.append(i)
-            legArr.append([muscleNames_hip[i] + ' flexion'])
-            legArr.append(' ')
+    def find_discontinuities(momArms, threshold, muscleNames, action, discontinuity, muscle_action, time_discontinuity):
+        for i in range(momArms.shape[1]):
+            dy = np.diff(momArms[:, i])
+            discontinuity_indices = np.where(np.abs(dy) > threshold)[0]
+            if discontinuity_indices.size > 0:
+                print('Discontinuity detected at', muscleNames[i], 'at ', action, ' moment arm')
+                plt.plot(momArms[:, i])
+                plt.plot(discontinuity_indices, momArms[discontinuity_indices, i], 'rx')
+                discontinuity.append(i)
+                muscle_action.append(str(muscleNames[i] + ' ' + action + ' at frames: ' + str(discontinuity_indices)))
+                try:
+                    time_discontinuity.append(time_vector[discontinuity_indices])
+                except:
+                    print
+                    print(discontinuity_indices)
+                    exit()
 
-        dy = np.diff(addMomentArms[:, i])
-        discontinuity_indices = np.where(np.abs(dy) > threshold)[0]
-        if discontinuity_indices.size > 0:
-            print('Discontinuity detected at', muscleNames_hip[i], 'at adduction moment arm')
-            plt.plot(addMomentArms[:, i])
-            plt.plot(discontinuity_indices, addMomentArms[discontinuity_indices, i], 'rx')
-            discontinuity.append(i)
-            legArr.append([muscleNames_hip[i] + ' adduction'])
-            legArr.append(' ')
+        return discontinuity, muscle_action, time_discontinuity
 
-        dy = np.diff(rotMomentArms[:, i])
-        discontinuity_indices = np.where(np.abs(dy) > threshold)[0]
-        if discontinuity_indices.size > 0:
-            print('Discontinuity detected at', muscleNames_hip[i], 'at rotation moment arm')
-            plt.plot(rotMomentArms[:, i])
-            plt.plot(discontinuity_indices, rotMomentArms[discontinuity_indices, i], 'rx')
-            discontinuity.append(i)
-            legArr.append([muscleNames_hip[i] + ' rotation'])
-            legArr.append(' ')
+    # hip flexion
+    discontinuity, muscle_action, time_discontinuity = find_discontinuities(
+        flexMomentArms, threshold, muscleNames_hip, 'flexion', discontinuity, muscle_action, time_discontinuity)
 
-    # knee
-    for i in range(kneeFlexMomentArms.shape[1]):
-        dy = np.diff(kneeFlexMomentArms[:, i])
-        discontinuity_indices = np.where(np.abs(dy) > threshold)[0]
-        if discontinuity_indices.size > 0:
-            print('Discontinuity detected at', muscleNames_hip[i], 'at rotation moment arm')
-            plt.plot(kneeFlexMomentArms[:, i])
-            plt.plot(discontinuity_indices, kneeFlexMomentArms[discontinuity_indices, i], 'rx')
-            discontinuity.append(i)
-            legArr.append([muscleNames_knee[i] + ' rotation'])
-            legArr.append(' ')
-
-    # ankle
-    for i in range(ankleFlexMomentArms.shape[1]):
-        dy = np.diff(ankleFlexMomentArms[:, i])
-        discontinuity_indices = np.where(np.abs(dy) > threshold)[0]
-        if discontinuity_indices.size > 0:
-            print('Discontinuity detected at', muscleNames_ankle[i], 'at rotation moment arm')
-            plt.plot(ankleFlexMomentArms[:, i])
-            plt.plot(discontinuity_indices, ankleFlexMomentArms[discontinuity_indices, i], 'rx')
-            discontinuity.append(i)
-            legArr.append([muscleNames_ankle[i] + ' rotation'])
-            legArr.append(' ')
-
+    # hip adduction
+    discontinuity, muscle_action, time_discontinuity = find_discontinuities(
+        addMomentArms, threshold, muscleNames_hip, 'adduction', discontinuity, muscle_action, time_discontinuity)
+    
+    # hip rotation
+    discontinuity, muscle_action, time_discontinuity = find_discontinuities(
+        rotMomentArms, threshold, muscleNames_hip, 'rotation', discontinuity, muscle_action, time_discontinuity)
+    
+    # knee flexion
+    discontinuity, muscle_action, time_discontinuity = find_discontinuities(
+        kneeFlexMomentArms, threshold, muscleNames_knee, 'flexion', discontinuity, muscle_action, time_discontinuity)
+    
+    # ankle flexion
+    discontinuity, muscle_action, time_discontinuity = find_discontinuities(
+        ankleFlexMomentArms, threshold, muscleNames_ankle, 'dorsiflexion', discontinuity, muscle_action, time_discontinuity)
+    
+    # plot discontinuities
     if len(discontinuity) > 0:
-        plt.legend(legArr)
+        plt.legend(muscle_action)
         plt.ylabel('Muscle Moment Arms with discontinuities (m)')
         plt.xlabel('Frame (after start time)')
         save_fig(plt.gcf(), save_path=os.path.join(save_folder, 'discontinuities_' + leg + '.png'))
         print('\n\nYou should alter the model - most probably you have to reduce the radius of corresponding wrap objects for the identified muscles\n\n\n')
+
+        # save txt file with discontinuities
+        with open(os.path.join(save_folder, 'discontinuities_' + leg + '.txt'), 'w') as f:
+            f.write(f"model file = {model_file_path}\n")
+            f.write(f"motion file = {ik_file_path}\n")
+            f.write(f"leg checked = {leg}\n")
+            
+            f.write("\n muscles with discontinuities \n", ) 
+            
+            for i in range(len(muscle_action)):
+                try:
+                    f.write("%s : time %s \n" % (muscle_action[i], time_discontinuity[i]))
+                except:
+                    print('no discontinuities detected')
+
         momentArmsAreWrong = 1
     else:
         plt.close(fDistC)
         print('No discontinuities detected')
         momentArmsAreWrong = 0
 
-    # hip flexion
+    # plot hip flexion
     plt.figure('flexMomentArms_' + leg, figsize=(8, 8))
     plt.plot(flexMomentArms)
     plt.title('All muscle moment arms in motion ' + ik_file_path)
@@ -1524,9 +1726,10 @@ def checkMuscleMomentArms(model_file_path, ik_file_path, leg = 'l'):
     plt.xlabel('Frame (after start time)')
     save_fig(plt.gcf(), save_path=os.path.join(save_folder, 'ankle_MomentArms_' + leg + '.png'))
 
-    plt.show()
+    print('Moment arms checked for ' + ik_file_path)
+    print('Results saved in ' + save_folder + ' \n\n' )
 
-    return momentArmsAreWrong
+    return momentArmsAreWrong,  discontinuity, muscle_action
 
 
 
@@ -1910,6 +2113,94 @@ def show_image(image_path):
     # Run the Tkinter event loop
     window.mainloop()
 
+def calculate_axes_number(num_plots):
+    if num_plots  > 2:
+        ncols = math.ceil(math.sqrt(num_plots))
+        nrows = math.ceil(num_plots / ncols)
+    else:
+        ncols = num_plots
+        nrows = 1
+
+    return ncols, nrows
+
+def plot_line_df(df,sep_subplots = True, columns_to_plot='all',xlabel=' ',ylabel=' ', legend=['data1'],save_path='', title=''):
+    
+    # Check if the input is a file path
+    if os.path.isfile(df):
+        df = import_sto_data(df)
+    
+    if columns_to_plot == 'all':
+        columns_to_plot = df.columns
+    
+    # Create a new figure and subplots
+    if sep_subplots:
+        ncols, nrows = calculate_axes_number(len(columns_to_plot))
+        fig, axs = plt.subplots(nrows, ncols, figsize=(15, 5))
+        
+        for row, ax_row in enumerate(axs):
+            for col, ax in enumerate(ax_row):
+                ax_count = row * ncols + col
+
+                heading = columns_to_plot[ax_count]    
+                if heading not in df.columns:
+                    print(f'Heading not found: {heading}')
+                    continue    
+                
+                # Plot data
+                ax.plot(df[heading])
+                ax.set_title(f'{heading}')
+                
+                if row == 1:
+                    ax.set_xlabel(xlabel)
+                if col == 0:
+                    ax.set_ylabel(ylabel)
+    
+        plt.legend(legend)
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.title(title)
+    
+    else:
+        fig, axs = plt.subplots(1, 1, figsize=(15, 5))
+        for column in columns_to_plot:
+            axs.plot(df[column])
+            axs.set_title(f'{column}')
+            axs.set_xlabel(xlabel)
+            axs.set_ylabel(ylabel)
+        
+        plt.legend(columns_to_plot)
+        plt.title(title)
+
+    
+    fig.set_tight_layout(True)
+
+    if save_path:
+        save_fig(fig,save_path)
+    
+    return fig, axs
+
+def plot_bar_df(df):
+    # Transpose the DataFrame to have rows as different bar series
+    df_transposed = df.transpose()
+
+    # Plot the bar chart
+    ax = df_transposed.plot(kind='bar', figsize=(10, 6), colormap='viridis')
+
+    # Customize the plot
+    ax.set_xlabel('Joint')
+    ax.set_ylabel('Angle (degrees)')
+    ax.set_title('Muscle work per joint')
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
+
+    # Adjust subplot layout to make room for x-axis tick labels
+    plt.subplots_adjust(bottom=0.2)
+
+    return plt.gcf()
+
+
+
+
+
 #%% ####################################################  Error prints  ##################################################################
 
 def play_animation():
@@ -2048,7 +2339,17 @@ def uni_vie_print():
     print("            University of Vienna             ")
     print("    Contact: basilio.goncalves@univie.ac.at  ")
     print("=============================================")
-                                                                                                            
+
+def ask_to_continue():
+    print('Ensure your settings are correct before continuing.')
+    answer = input("Press 'y' to continue or 'n' to exit: ")
+
+    if answer == 'y':
+        pass
+    elif answer == 'n':
+        sys.exit('Exiting...')
+
+
 
 #%% ######################################################### BOPS TESTING #################################################################
 def platypus_pic_path(imageType = 'happy'):

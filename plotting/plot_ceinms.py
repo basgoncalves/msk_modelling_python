@@ -13,7 +13,7 @@ def mmfn():
     fig = plt.gcf()
     fig.set_tight_layout(True)
 
-def plot_df(df, columns_to_plot='all',xlabel=' ',ylabel=' ', legend=['data1', 'data2'],save_path='', title=''):
+def plot_df(df, columns_to_plot='all',xlabel=' ',ylabel=' ', legend=['data1', 'data2'],save_path=''):
     if columns_to_plot == 'all':
         columns_to_plot = df.columns
     
@@ -52,11 +52,12 @@ def plot_df(df, columns_to_plot='all',xlabel=' ',ylabel=' ', legend=['data1', 'd
     
     return fig, axs
 
-def plot_two_df(df1,df2,axs):
-    
+def plot_two_df(df1,df2,axs, xlabel = ' ', ylabel=' '):
+    max_value = max(df1.max().max(), df2.max().max())
+    min_value = min(df1.min().min(), df2.min().min())
     for row, ax_row in enumerate(axs):
         for col, ax in enumerate(ax_row):
-            ncols = len(ax_row)
+            nrows, ncols = len(axs), len(ax_row)
 
             ax_count = row * ncols + col
 
@@ -64,7 +65,8 @@ def plot_two_df(df1,df2,axs):
             if ax_count >= len(df1.columns):
                 ax.remove()
                 continue
-
+            
+            # get heading and check if it is in df2
             heading = df1.columns[ax_count]
             if heading not in df2.columns:  
                 print(f'Heading not found: {heading}')
@@ -73,10 +75,28 @@ def plot_two_df(df1,df2,axs):
             # calculate RMS error
             error = np.sqrt(mean_squared_error(df1[heading],df2[heading]))
             error_text = f'RMS error: {error:.2f}'
+
             # Plot data
             ax.plot(df1[heading])
             ax.plot(df2[heading])
-            ax.set_title(f'{heading}')
+
+            # Edit axes and title
+            ax.set_ylim([min_value, max_value])
+            ax.set_title(f'{heading}')     
+
+            # # Remove x- and y-tick labels from all but the last row and first column
+            if row < nrows - 1:
+                ax.set_xticklabels([])
+            if col > 0:
+                ax.set_yticklabels([])      
+            
+            # Add x-labels and y-labels to the last row and first column
+            if row == nrows - 1:
+                ax.set_xlabel(xlabel)
+            if col == 0:
+                ax.set_ylabel(ylabel)
+
+            # add error text
             ax.text(0.95, 0.95, error_text, fontsize=10, color='black',
                     ha='right', va='top', transform=ax.transAxes)
 
@@ -137,23 +157,32 @@ def compare_moments(id_path, ceinms_path,save_folder):
     print(f'Saved to: {save_folder}')
 
 def compare_two_df(df1,df2, columns_to_compare='all',xlabel=' ',ylabel=' ', legend=['data1', 'data2'],save_path=''):
+    
+    if os.path.isfile(df1):
+        df1 = bp.import_sto_data(df1)
+
+    if os.path.isfile(df2):
+        df2 = bp.import_sto_data(df2)
+
+    if len(df1) != len(df2):
+        print('number of rows does not match between df1 and df2')
+        print('interpolating data')
+        df1 = bp.time_normalise_df(df1)
+        df2 = bp.time_normalise_df(df2)
+    
     if len(columns_to_compare) == 1 and columns_to_compare == 'all':
         columns_to_compare = df1.columns
     
     N = len(columns_to_compare)
-    if N  > 2:
-        ncols = math.ceil(math.sqrt(N))
-        nrows = math.ceil(N / ncols)
-    elif N  == 0:
+    if N  == 0:
         print('No columns to plot')
         print('could not save figure')
         fig = [] 
         axs = []
         return fig, axs 
     else:
-        ncols = N
-        nrows = 1
-    
+        ncols, nrows = bp.calculate_axes_number(N)
+
     # remove columns that are not in the variable columns_to_compare
     try:
         df1 = df1[columns_to_compare]
@@ -162,7 +191,6 @@ def compare_two_df(df1,df2, columns_to_compare='all',xlabel=' ',ylabel=' ', lege
         print(f'KeyError: {e}')
         print(f'Columns in df1: {df1.columns}')
         print(f'Columns in df2: {df2.columns}')
-        
     
     if (len(df1.columns) == 0 or len(df2.columns) == 0) or len(df1.columns) != len(df2.columns):
         print('number of columns does not match between df1 and df2')
@@ -170,19 +198,18 @@ def compare_two_df(df1,df2, columns_to_compare='all',xlabel=' ',ylabel=' ', lege
         axs = []
         return fig, axs
 
+    
     # Create a new figure and subplots
     fig, axs = plt.subplots(nrows, ncols, figsize=(15, 5))
     
-    plot_two_df(df1,df2,axs)
+    plot_two_df(df1,df2,axs, xlabel=xlabel, ylabel=ylabel)
 
     plt.legend(legend)
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
 
     fig.set_tight_layout(True)
 
     if save_path:
-        save_fig(fig, save_path)
+        bp.save_fig(fig, save_path)
     
     return fig, axs
 
@@ -259,11 +286,37 @@ def plot_muscle_work_per_leg(df): # plot muscle work as bar chart split by right
     
     return plt.gcf()
 
-def save_fig(fig, save_path):
-    if not os.path.exists(os.path.dirname(save_path)):
-            os.mkdir(os.path.dirname(save_path))
+def plot_muscle_work_two_trials(sto_path1,sto_path2): # plot muscle work as bar chart for two seperate trials
 
-    fig.savefig(save_path)
+    # load and time normalise data
+    df1 = bp.time_normalise_df(bp.import_sto_data(sto_path1))
+    df2 = bp.time_normalise_df(bp.import_sto_data(sto_path2))
+
+    # Transpose the DataFrames for easier plotting
+    df1 = df1.T.reset_index()
+    df2 = df2.T.reset_index()
+
+    # Plot the bar chart with different colors for '_r' and '_l'
+    plt.figure(figsize=(12, 6))
+    bar_width = 0.35
+    index = range(len(df1))
+
+    plt.bar(index, df1[0], width=bar_width, label='_r', color='blue', align='center')
+    plt.bar([i + bar_width for i in index], df2[0], width=bar_width, label='_l', color='orange', align='center')
+
+    plt.xticks([i + bar_width/2 for i in index], df1['index'], rotation=45, ha='right')
+
+    plt.xlabel('')
+    plt.ylabel('Muscle work (N.s)')
+    plt.title(' ')
+    plt.xticks([i + bar_width/2 for i in index], df1['index'])
+
+    plt.tight_layout()
+    
+    return plt.gcf()
+
+
+
 
 def muscles_to_plot():
     return []
