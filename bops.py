@@ -66,7 +66,6 @@ except:
     print('init path is: ', initPath)    
     print('=============================================================================================')
 
-
 # %% ######################################################  Classes  ###################################################################
 class subject_paths:
     def __init__(self, data_folder,subject_code='default',trial_name='trial1'):
@@ -140,6 +139,19 @@ class subject_paths:
 
 
 #%% ######################################################  General  #####################################################################
+def select_file():
+    root = tk.Tk()
+    root.withdraw()  # Hide the main window
+
+    file_path = filedialog.askopenfilename(title="Select a file")
+
+    if file_path:
+        pass
+    else:
+        raise ValueError('No file selected')    
+
+    return file_path
+
 def select_folder(prompt='Please select your folder', staring_path=''):
     if not staring_path: # if empty
         staring_path = os.getcwd()
@@ -418,23 +430,7 @@ def import_c3d_to_dict(c3dFilePath):
 
     return c3d_dict
 
-def import_sto_data(stoFilePath):
-    """ Reads OpenSim .sto files.
-    Parameters
-    ----------
-    filename: absolute path to the .sto file
-    Returns
-    -------
-    header: the header of the .sto
-    labels: the labels of the columns
-    data: an array of the data
-    
-    Credit: Dimitar Stanev
-    https://gist.github.com/mitkof6/03c887ccc867e1c8976694459a34edc3#file-opensim_sto_reader-py
-    
-    Added the conversion to pd.DataFrame(s)
-    """
-
+def import_sto_data(stoFilePath, headings_to_select='all'):
     if not os.path.exists(stoFilePath):
         print('file do not exists')
 
@@ -479,6 +475,18 @@ def import_sto_data(stoFilePath):
     
     # Create a Pandas DataFrame
     df = pd.DataFrame(data, columns=labels)
+
+    # Select specific columns if headings_to_select is provided
+    if headings_to_select and headings_to_select != 'all':
+        selected_headings = [heading for heading in headings_to_select if heading in df.columns]
+        
+        if not selected_headings == headings_to_select:
+            print('Some headings were not found in the .sto file')
+            different_strings = [item for item in headings_to_select + selected_headings 
+                                 if item not in headings_to_select or item not in selected_headings]
+            print(different_strings)
+
+        df = df[selected_headings]
 
     return df
 
@@ -741,7 +749,7 @@ def get_tag_xml(xml_file_path, tag_name):
 # figure functions
 def save_fig(fig, save_path):
     if not os.path.exists(os.path.dirname(save_path)):
-            os.mkdir(os.path.dirname(save_path))
+            os.makedirs(os.path.dirname(save_path))
 
     fig.savefig(save_path)
 
@@ -1020,7 +1028,7 @@ def sum_similar_columns(df):
         similar_columns = [col for col in df.columns if 
                            col == col_name or (col.startswith(muscle_name) and col[-1] == leg)]
     
-        summed_df[col_name] = pd.concat(df[col_name])
+        summed_df = pd.concat([df[col_name].copy() for col_name in df.columns], axis=1)
 
         # Check if the muscle name is already in the new DataFrame
         if not muscle_name in summed_df.columns and len(similar_columns) > 1:    
@@ -1033,6 +1041,11 @@ def sum_similar_columns(df):
 def calculate_integral(df):
     # Calculate the integral over time for all columns
     integral_df = pd.DataFrame({'time': [1]})
+
+    # create this to avoid fragmented df
+#     integral_df = pd.DataFrame({
+#     column: integrate.trapz(df[column], df['time']) for column in df.columns[1:]
+# })
 
     if not 'time' in df.columns:
         raise Exception('Input DataFrame must contain a column named "time"')
@@ -1162,7 +1175,9 @@ def blandAltman(method1=[],method2=[]):
     print('Upper limit of agreement:', upper_limit)
     print('Lower limit of agreement:', lower_limit)
 
-
+def sum3d_vector(df, columns_to_sum = ['x','y','z'], new_column_name = 'sum'):
+    df[new_column_name] = df[columns_to_sum].sum(axis=1)
+    return df
 
 #%% ############################################  Torsion Tool (to be complete)  ########################################################
 def torsion_tool(): # to complete...
@@ -1241,6 +1256,48 @@ def get_muscles_by_group_osim(xml_path, group_names): # olny tested for Catelli 
 
     return members_dict
 
+def increase_max_isometric_force(model_path, factor):
+    # Load the OpenSim model
+    model = osim.Model(model_path)
+
+    # Loop through muscles and update their maximum isometric force
+    for muscle in model.getMuscles():
+        current_max_force = muscle.getMaxIsometricForce()
+        new_max_force = current_max_force * factor
+        muscle.setMaxIsometricForce(new_max_force)
+
+    # Save the modified model
+    output_model_path = model_path.replace('.osim', f'_increased_force_{factor}.osim')
+    model.printToXML(output_model_path)
+
+    print(f'Model with increased forces saved to: {output_model_path}')
+
+def update_max_isometric_force_xml(xml_file, factor):
+    # Parse the XML file
+    tree = ET.parse(xml_file)
+    root = tree.getroot()
+
+    # Find all Millard2012EquilibriumMuscle elements
+    muscles = root.findall('.//Millard2012EquilibriumMuscle')
+
+    # Update max_isometric_force for each muscle
+    n = 0
+    for muscle in muscles:
+        max_force_element = muscle.find('./max_isometric_force')
+        if max_force_element is not None:
+            current_max_force = float(max_force_element.text)
+            new_max_force = current_max_force * factor
+            max_force_element.text = str(new_max_force)
+            n = 1
+    if n == 0:
+        print('No Millard2012EquilibriumMuscle elements found in the XML file.')
+           
+    # Save the modified XML file
+    output_xml_file = xml_file.replace('.xml', f'_updated.xml')
+    tree.write(output_xml_file)
+
+    print(f'Modified XML saved to: {output_xml_file}')
+    
 
 #%% ##############################################  OpenSim (to be complete)  ############################################################
 def scale_model(originalModelPath,targetModelPath,trcFilePath,setupScaleXML):
@@ -1411,6 +1468,56 @@ def runSO(modelpath, trialpath, actuators_file_path):
     # run
     analyzeTool_SO.run()
 
+def runJRA(modelpath, trialPath, setupFilePath):
+    os.chdir(trialPath)
+    results_directory = [trialPath]
+    coordinates_file = [trialPath, 'IK.mot']
+    _, trialName = os.path.split(trialPath)
+
+    # start model
+    osimModel = osim.Model(modelpath)
+
+    # Get mot data to determine time range
+    motData = osim.Storage(coordinates_file)
+
+    # Get initial and intial time
+    initial_time = motData.getFirstTime()
+    final_time = motData.getLastTime()
+
+    # start joint reaction analysis
+    jr = osim.JointReaction(setupFilePath)
+    jr.setName('joint reaction analysis')
+    jr.set_model(osimModel)
+
+    inFrame = osim.ArrayStr()
+    onBody = osim.ArrayStr()
+    jointNames = osim.ArrayStr()
+    inFrame.set(0, 'child')
+    onBody.set(0, 'child')
+    jointNames.set(0, 'all')
+
+    jr.setInFrame(inFrame)
+    jr.setOnBody(onBody)
+    jr.setJointNames(jointNames)
+
+    # Set other parameters as needed
+    jr.setStartTime(initial_time)
+    jr.setEndTime(final_time)
+    jr.setForcesFileName([results_directory, '_StaticOptimization_force.sto'])
+
+    # add to analysis tool
+    analyzeTool_JR = create_analysisTool(coordinates_file, modelpath, results_directory)
+    analyzeTool_JR.get().AnalysisSet.cloneAndAppend(jr)
+    osimModel.addAnalysis(jr)
+
+    # save setup file and run
+    analyzeTool_JR.print(['./setup_jra.xml'])
+    analyzeTool_JR = AnalyzeTool(['./setup_jra.xml'])
+    print('jra for', trialName)
+    analyzeTool_JR.run()
+
+
+
 # %% ##############################################  OpenSim operations (to be complete)  ############################################################
 def sum_muscle_work(model_path, sto_path, body_weight = 1):
     
@@ -1474,9 +1581,6 @@ def sum_muscle_work(model_path, sto_path, body_weight = 1):
     return muscle_work_summed
     pass
 
-
-
-
 #%% ##############################################  Data checks (to be complete) ############################################################
 def checkMuscleMomentArms(model_file_path, ik_file_path, leg = 'l', threshold = 0.005):
 # Adapted from Willi Koller: https://github.com/WilliKoller/OpenSimMatlabBasic/blob/main/checkMuscleMomentArms.m
@@ -1494,7 +1598,7 @@ def checkMuscleMomentArms(model_file_path, ik_file_path, leg = 'l', threshold = 
         return index, coord
 
 
-    raise Exception('This function is not yet working. Please use the Matlab version for now or fix line containing " time_discontinuity.append(time_vector[discontinuity_indices]) "')
+    # raise Exception('This function is not yet working. Please use the Matlab version for now or fix line containing " time_discontinuity.append(time_vector[discontinuity_indices]) "')
 
     # Load motions and model
     motion = osim.Storage(ik_file_path)
@@ -1624,12 +1728,8 @@ def checkMuscleMomentArms(model_file_path, ik_file_path, leg = 'l', threshold = 
                 plt.plot(discontinuity_indices, momArms[discontinuity_indices, i], 'rx')
                 discontinuity.append(i)
                 muscle_action.append(str(muscleNames[i] + ' ' + action + ' at frames: ' + str(discontinuity_indices)))
-                try:
-                    time_discontinuity.append(time_vector[discontinuity_indices])
-                except:
-                    print
-                    print(discontinuity_indices)
-                    exit()
+                time_discontinuity.append([time_vector[index] for index in discontinuity_indices])
+
 
         return discontinuity, muscle_action, time_discontinuity
 
@@ -1730,8 +1830,6 @@ def checkMuscleMomentArms(model_file_path, ik_file_path, leg = 'l', threshold = 
     print('Results saved in ' + save_folder + ' \n\n' )
 
     return momentArmsAreWrong,  discontinuity, muscle_action
-
-
 
 #%% ###############################################  GUI (to be complete)  #################################################################
 def simple_gui():
@@ -2126,8 +2224,9 @@ def calculate_axes_number(num_plots):
 def plot_line_df(df,sep_subplots = True, columns_to_plot='all',xlabel=' ',ylabel=' ', legend=['data1'],save_path='', title=''):
     
     # Check if the input is a file path
-    if os.path.isfile(df):
+    if type(df) == str and os.path.isfile(df):
         df = import_sto_data(df)
+        pass
     
     if columns_to_plot == 'all':
         columns_to_plot = df.columns
@@ -2168,9 +2267,8 @@ def plot_line_df(df,sep_subplots = True, columns_to_plot='all',xlabel=' ',ylabel
             axs.set_xlabel(xlabel)
             axs.set_ylabel(ylabel)
         
-        plt.legend(columns_to_plot)
         plt.title(title)
-
+        axs.legend(columns_to_plot,ncols=2)
     
     fig.set_tight_layout(True)
 
