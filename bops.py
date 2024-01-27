@@ -3,16 +3,26 @@
 # BOPS: a Matlab toolbox to batch musculoskeletal data processing for OpenSim, Computer Methods in Biomechanics and Biomedical Engineering
 # DOI: 10.1080/10255842.2020.1867978
 
-import ctypes
-import sys
-import os
 import subprocess
+import importlib
+import os
+import unittest
+
+import sys
 src_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),'src')
 sys.path.append(src_path)
-import msk_modelling_pkg_install
-# import all pakages needed
-import unittest
-import numpy as np
+
+# import package from bops directory
+def import_bops(package,module=''): 
+    p = importlib.__import__(package)
+    return p
+Packages = ['autopep8','bs4','c3d','docx','jupyter','numpy','opensim','pyc3dserver','requests','pandas','selenium','webdriver-manager','matplotlib',
+        'scipy','tk','tkfilebrowser','customtkinter','xmltodict','screeninfo'] 
+
+ctypes = import_bops('ctypes')
+np = import_bops('numpy')
+import_bops('msk_modelling_pkg_install')
+
 import pandas as pd
 import math
 import shutil
@@ -21,6 +31,7 @@ import pyc3dserver as c3d
 import scipy
 import scipy.signal as sig
 from scipy.spatial.transform import Rotation
+import scipy.integrate as integrate
 from pathlib import Path
 import warnings
 import json
@@ -36,8 +47,14 @@ import tkfilebrowser
 import customtkinter as ctk
 
 from PIL import ImageTk, Image
-from trc import TRCData
-import trc
+
+from sklearn.preprocessing import MinMaxScaler
+
+try:
+    from trc import TRCData
+    import trc
+except:
+    print('could not import trc package')
 try:
     import opensim as osim
 except:
@@ -48,6 +65,92 @@ except:
     initPath = os.path.join(pythonPath,'lib\site-packages\opensim\__init__.py')
     print('init path is: ', initPath)    
     print('=============================================================================================')
+
+# %% ######################################################  Classes  ###################################################################
+class subject_paths:
+    def __init__(self, data_folder,subject_code='default',trial_name='trial1'):
+
+        # main paths
+        self.main = data_folder
+        self.setup_folder = os.path.join(self.main,'Setups')
+        self.setup_ceinms = os.path.join(self.main,'Setups','ceinms')
+        self.simulations = os.path.join(self.main,'Simulations')
+        self.subject = os.path.join(self.simulations, subject_code)
+        self.trial = os.path.join(self.subject, trial_name)
+        self.results = os.path.join(self.main, 'results')
+
+        # raw data paths
+        self.c3d = os.path.join(self.subject, trial_name, 'c3dfile.c3d')
+        self.grf = os.path.join(self.subject, trial_name, 'grf.mot')
+        self.markers = os.path.join(self.subject, trial_name, 'marker_experimental.trc')
+        self.emg = os.path.join(self.subject, trial_name, 'EMG_filtered.sto')
+
+        # model paths
+        self.models = os.path.join(self.main, 'Scaled_models')
+        self.model_generic = os.path.join(self.models, 'generic_model.osim')
+        self.model_scaled = os.path.join(self.models, subject_code + '_scaled.osim')
+
+        # setup files
+        self.grf_xml = os.path.join(self.trial,'GRF.xml')
+        self.ik_setup = os.path.join(self.trial, 'setup_ik.xml')
+        self.id_setup = os.path.join(self.trial, 'setup_id.xml')
+        self.ma_setup = os.path.join(self.trial, 'setup_ma.xml')
+
+        # IK paths
+        self.ik_output = os.path.join(self.trial, 'IK.mot')
+        
+        # ID paths
+        self.id_output = os.path.join(self.trial, 'inverse_dynamics.sto')
+    
+        # MA paths 
+        self.ma_output_folder = os.path.join(self.trial, 'muscle_analysis')
+
+        # SO paths
+        self.so_output_forces = os.path.join(self.trial, '_StaticOptimization_force.sto')
+        self.so_output_activations = os.path.join(self.trial, '_StaticOptimization_activation.sto')
+        self.so_actuators = os.path.join(self.trial, 'actuators_so.xml')
+
+        # JRA paths
+        self.jra_output = os.path.join(self.trial, 'joint_reaction.sto')
+        self.jra_setup = os.path.join(self.trial, 'setup_jra.xml')
+
+        # CEINMS paths 
+        self.ceinms_src = r"C:\Git\msk_modelling_matlab\src\Ceinms\CEINMS_2"
+        if not os.path.isdir(self.ceinms_src):
+            raise Exception('CEINMS source folder not found: {}'.format(self.ceinms_src))
+
+        # subject files (model, excitation generator, calibration setup, trial xml)
+        self.uncalibrated_subject = os.path.join(self.subject,'ceinms_shared','ceinms_uncalibrated_subject.xml') 
+        self.calibrated_subject = os.path.join(self.subject,'ceinms_shared','ceinms_calibrated_subject.xml')
+        self.ceinms_exc_generator = os.path.join(self.subject,'ceinms_shared','ceinms_excitation_generator.xml')
+        self.ceinms_calibration_setup = os.path.join(self.subject,'ceinms_shared' ,'ceinms_calibration_setup.xml')
+        
+        # trial files (trial xml, ceinms_exe_setup, ceinms_exe_cfg)
+        self.ceinms_trial_exe = os.path.join(self.trial,'ceinms_trial.xml')
+        self.ceinms_trial_cal = os.path.join(self.trial,'ceinms_trial_cal.xml')
+        self.ceinms_exe_setup = os.path.join(self.trial, 'ceinms_exe_setup.xml')
+        self.ceinms_exe_cfg = os.path.join(self.trial, 'ceinms_exe_cfg.xml')
+
+        # results folder
+        self.ceinms_results = os.path.join(self.trial, 'ceinms_results')
+        self.ceinms_results_forces = os.path.join(self.ceinms_results,'MuscleForces.sto')
+        self.ceinms_results_activations = os.path.join(self.ceinms_results,'Activations.sto')
+
+
+
+#%% ######################################################  General  #####################################################################
+def select_file():
+    root = tk.Tk()
+    root.withdraw()  # Hide the main window
+
+    file_path = filedialog.askopenfilename(title="Select a file")
+
+    if file_path:
+        pass
+    else:
+        raise ValueError('No file selected')    
+
+    return file_path
 
 def select_folder(prompt='Please select your folder', staring_path=''):
     if not staring_path: # if empty
@@ -61,7 +164,7 @@ def select_folder_multiple (prompt='Please select multiple folders', staring_pat
     if not staring_path: # if empty
         staring_path = os.getcwd()
 
-    tkinter().withdraw()
+    tk().withdraw()
     folder_list = tkfilebrowser.askopendirnames(initialdir=staring_path,title=prompt)
     return folder_list
 
@@ -238,7 +341,7 @@ def create_project_settings(project_folder=''):
     project_settings['emg_filter']['order'] = [4]
 
     project_settings['emg_labels'] = ['all']
-    project_settings['simulations'] = os.path.join(project_folder,'simulations')    
+    project_settings['simulations'] = os.path.join(project_folder,'Simulations')    
     
     project_settings['setupFiles'] = dict()
     project_settings['setupFiles']['scale'] = os.path.join(project_folder, 'setup_Scale.xml')
@@ -247,10 +350,16 @@ def create_project_settings(project_folder=''):
     project_settings['setupFiles']['so'] = os.path.join(project_folder, 'setup_so.xml')
     project_settings['setupFiles']['jrf'] = os.path.join(project_folder, 'setup_jrf.xml')
 
+    # subject list 
+    project_settings['subject_list'] = [f for f in os.listdir(project_settings['simulations']) if os.path.isdir(os.path.join(project_settings['simulations'], f))]
+
+
     jsonpath = Path(project_folder) / ("settings.json")
     jsonpath.write_text(json.dumps(project_settings))
 
     print('project directory was set to: ' + project_folder)
+
+    return project_settings
 
 def create_trial_folder(c3dFilePath):
     trialName = os.path.splitext(c3dFilePath)[0]
@@ -261,7 +370,8 @@ def create_trial_folder(c3dFilePath):
         os.makedirs(trialFolder)
         
     return trialFolder 
-#########################################################  import data  ############################################################
+
+#%% ######################################################  import / save data  #########################################################
 def import_file(file_path):
     df = pd.DataFrame()
     if os.path.isfile(file_path):
@@ -320,28 +430,16 @@ def import_c3d_to_dict(c3dFilePath):
 
     return c3d_dict
 
-def import_sto_data(stoFilePath):
-    """ Reads OpenSim .sto files.
-    Parameters
-    ----------
-    filename: absolute path to the .sto file
-    Returns
-    -------
-    header: the header of the .sto
-    labels: the labels of the columns
-    data: an array of the data
-    
-    Credit: Dimitar Stanev
-    https://gist.github.com/mitkof6/03c887ccc867e1c8976694459a34edc3#file-opensim_sto_reader-py
-    
-    Added the conversion to pd.DataFrame(s)
-    """
-
+def import_sto_data(stoFilePath, headings_to_select='all'):
     if not os.path.exists(stoFilePath):
         print('file do not exists')
 
     file_id = open(stoFilePath, 'r')
 
+    if os.path.getsize(stoFilePath) == 0:
+        print(stoFilePath + ' is empty') 
+        return pd.DataFrame()
+    
     # read header
     next_line = file_id.readline()
     header = [next_line]
@@ -377,6 +475,18 @@ def import_sto_data(stoFilePath):
     
     # Create a Pandas DataFrame
     df = pd.DataFrame(data, columns=labels)
+
+    # Select specific columns if headings_to_select is provided
+    if headings_to_select and headings_to_select != 'all':
+        selected_headings = [heading for heading in headings_to_select if heading in df.columns]
+        
+        if not selected_headings == headings_to_select:
+            print('Some headings were not found in the .sto file')
+            different_strings = [item for item in headings_to_select + selected_headings 
+                                 if item not in headings_to_select or item not in selected_headings]
+            print(different_strings)
+
+        df = df[selected_headings]
 
     return df
 
@@ -510,40 +620,143 @@ def c3d_emg_export(c3dFilePath,emg_labels='all'):
     emg_filename = os.path.join(trialFolder,'emg.csv')
     analog_df.to_csv(emg_filename, index=False)
 
-def rotateAroundAxes(data, rotations, modelMarkers):
+def selec_analog_labels (c3dFilePath):
+    # Get the COM object of C3Dserver (https://pypi.org/project/pyc3dserver/)
+    itf = c3d.c3dserver(msg=False)
+    c3d.open_c3d(itf, c3dFilePath)
+    dict_analogs = c3d.get_dict_analogs(itf)
+    analog_labels = dict_analogs['LABELS']
 
-    if len(rotations) != len(rotations[0]*2) + 1:
-        raise ValueError("Correct format is order of axes followed by two marker specifying each axis")
+    print(analog_labels)
+    print(type(analog_labels))
 
-    for a, axis in enumerate(rotations[0]):
+def read_trc_file(trcFilePath):
+    pass
 
-        markerName1 = rotations[1+a*2]
-        markerName2 = rotations[1 + a*2 + 1]
-        marker1 = data["Labels"].index(markerName1)
-        marker2 = data["Labels"].index(markerName2)
-        axisIdx = ord(axis) - ord('x')
-        if (0<=axisIdx<=2) == False:
-            raise ValueError("Axes can only be x y or z")
+def writeTRC(c3dFilePath, trcFilePath):
 
-        origAxis = [0,0,0]
-        origAxis[axisIdx] = 1
-        if modelMarkers is not None:
-            origAxis = modelMarkers[markerName1] - modelMarkers[markerName2]
-            origAxis /= scipy.linalg.norm(origAxis)
-        rotateAxis = data["Data"][marker1] - data["Data"][marker2]
-        rotateAxis /= scipy.linalg.norm(rotateAxis, axis=1, keepdims=True)
+    print('writing trc file ...')
+    c3d_dict = import_c3d_to_dict (c3dFilePath)
 
-        for i, rotAxis in enumerate(rotateAxis):
-            angle = np.arccos(np.clip(np.dot(origAxis, rotAxis), -1.0, 1.0))
-            r = Rotation.from_euler('y', -angle)
-            data["Data"][:,i] = r.apply(data["Data"][:,i])
+    with open(trcFilePath, 'w') as file:
+        # from https://github.com/IISCI/c3d_2_trc/blob/master/extractMarkers.py
+        # Write header
+        file.write("PathFileType\t4\t(X/Y/Z)\toutput.trc\n")
+        file.write("DataRate\tCameraRate\tNumFrames\tNumMarkers\tUnits\tOrigDataRate\tOrigDataStartFrame\tOrigNumFrames\n")
+        file.write("%d\t%d\t%d\t%d\tmm\t%d\t%d\t%d\n" % (c3d_dict["DataRate"], c3d_dict["CameraRate"], c3d_dict["NumFrames"],
+                                                        c3d_dict["NumMarkers"], c3d_dict["OrigDataRate"],
+                                                        c3d_dict["OrigDataStartFrame"], c3d_dict["OrigNumFrames"]))
+
+        # Write labels
+        file.write("Frame#\tTime\t")
+        for i, label in enumerate(c3d_dict["Labels"]):
+            if i != 0:
+                file.write("\t")
+            file.write("\t\t%s" % (label))
+        file.write("\n")
+        file.write("\t")
+        for i in range(len(c3d_dict["Labels"]*3)):
+            file.write("\t%c%d" % (chr(ord('X')+(i%3)), math.ceil((i+3)/3)))
+        file.write("\n")
+
+        # Write data
+        for i in range(len(c3d_dict["Data"][0])):
+            file.write("%d\t%f" % (i, c3d_dict["TimeStamps"][i]))
+            for l in range(len(c3d_dict["Data"])):
+                file.write("\t%f\t%f\t%f" % tuple(c3d_dict["Data"][l][i]))
+            file.write("\n")
+
+        print('trc file saved')
+
+# sto functions
+
+def write_sto_file(dataframe, file_path): # not working yet
+    # Add header information
+    header = [
+        'CEINMS output',
+        f'datacolumns {len(dataframe.columns)}',
+        f'datarows {len(dataframe)}',
+        'endheader'
+    ]
+
+    # Create a DataFrame with the header information
+    header_df = pd.DataFrame([header], columns=['CEINMS output'])
+
+    # Concatenate the header DataFrame with the original DataFrame
+    output_df = pd.concat([header_df, dataframe], ignore_index=True)
+
+    # Write the resulting DataFrame to the specified file
+    output_df.to_csv(file_path, index=False, header=False)
 
 
-    return data
+# XML functions
+def readXML(xml_file_path):
+    import xml.etree.ElementTree as ET
 
-########################################################################################################################################
+    # Load XML file
+    xml_file_path = 'path_to_your_xml_file.xml'
+    tree = ET.parse(xml_file_path)
+    root = tree.getroot()
 
-########################################################  Operations  ###################################################################
+    # Print the root element
+    print("Root element:", root.tag)
+
+    # Iterate through elements
+    for element in root:
+        print("Element:", element.tag)
+
+    # Find specific elements
+    target_element = root.find('target_element_name')
+    if target_element is not None:
+        print("Found target element:", target_element.tag)
+        # Manipulate target_element as needed
+
+    # Modify existing element attributes or text
+    for element in root:
+        if element.tag == 'target_element_name':
+            element.set('attribute_name', 'new_attribute_value')
+            element.text = 'new_text_value'
+
+    # Add new elements
+    new_element = ET.Element('new_element')
+    new_element.text = 'new_element_text'
+    root.append(new_element)
+
+    return tree
+
+def writeXML(tree,xml_file_path):    
+    tree.write(xml_file_path)
+
+def get_tag_xml(xml_file_path, tag_name):
+    try:
+        # Load the XML file
+        tree = ET.parse(xml_file_path)
+        root = tree.getroot()
+
+        # Find the specified tag and return its value
+        tag = root.find(f'.//{tag_name}')
+        if tag is not None:
+            tag_value = tag.text
+            return tag_value
+        else:
+            return None  # Return None if the specified tag is not found
+
+    except Exception as e:
+        print(f"Error while processing the XML file: {e}")
+        return None
+
+
+# figure functions
+def save_fig(fig, save_path):
+    if not os.path.exists(os.path.dirname(save_path)):
+            os.makedirs(os.path.dirname(save_path))
+
+    fig.savefig(save_path)
+
+    print('figure saved to: ' + save_path)
+
+
+#%% #####################################################  Operations  ###################################################################
 def selectOsimVersion():
     osim_folders = [folder for folder in os.listdir('C:/') if 'OpenSim' in folder]
     installed_versions = [folder.replace('OpenSim ', '') for folder in osim_folders]
@@ -766,105 +979,327 @@ def filtering_force_plates(file_path='', cutoff_frequency=2, order=2, sampling_r
     else:
         print('file path does not exist!')
 
+def time_normalise_df(df, fs=''):
+
+    if not type(df) == pd.core.frame.DataFrame:
+        raise Exception('Input must be a pandas DataFrame')
+    
+    if not fs:
+        try:
+            fs = 1/(df['time'][1]-df['time'][0])
+        except  KeyError as e:
+            raise Exception('Input DataFrame must contain a column named "time"')
+    
+    normalised_df = pd.DataFrame(columns=df.columns)
+
+    for column in df.columns:
+        normalised_df[column] = np.zeros(101)
+
+        currentData = df[column]
+        currentData = currentData[~np.isnan(currentData)]
+        
+        timeTrial = np.arange(0, len(currentData)/fs, 1/fs)        
+        Tnorm = np.arange(0, timeTrial[-1], timeTrial[-1]/101)
+        if len(Tnorm) == 102:
+            Tnorm = Tnorm[:-1]
+        normalised_df[column] = np.interp(Tnorm, timeTrial, currentData)
+    
+    return normalised_df
+
+def normalise_df(df,value = 1):
+    normlaised_df = df.copy()
+    for column in normlaised_df.columns:
+        if column != 'time':
+            normlaised_df[column] = normlaised_df[column] / value
+
+    return normlaised_df
+
+def sum_similar_columns(df):
+    # Sum columns with the same name except for one digit
+    summed_df = pd.DataFrame()
+
+    for col_name in df.columns:
+        # Find the position of the last '_' in the column name
+        last_underscore_index = col_name.rfind('_')
+        leg = col_name[last_underscore_index + 1]
+        muscle_name = col_name[:last_underscore_index-1]
+
+        # Find all columns with similar names (e.g., 'glmax_r')
+        similar_columns = [col for col in df.columns if 
+                           col == col_name or (col.startswith(muscle_name) and col[-1] == leg)]
+    
+        summed_df = pd.concat([df[col_name].copy() for col_name in df.columns], axis=1)
+
+        # Check if the muscle name is already in the new DataFrame
+        if not muscle_name in summed_df.columns and len(similar_columns) > 1:    
+            # Sum the selected columns and add to the new DataFrame
+            summed_df[muscle_name] = df[similar_columns].sum(axis=1)
+        
+
+    return summed_df
+
+def calculate_integral(df):
+    # Calculate the integral over time for all columns
+    integral_df = pd.DataFrame({'time': [1]})
+
+    # create this to avoid fragmented df
+#     integral_df = pd.DataFrame({
+#     column: integrate.trapz(df[column], df['time']) for column in df.columns[1:]
+# })
+
+    if not 'time' in df.columns:
+        raise Exception('Input DataFrame must contain a column named "time"')
+
+    for column in df.columns[1:]:
+        integral_values = integrate.trapz(df[column], df['time'])
+        integral_df[column] = integral_values
+
+    integral_df = sum_similar_columns(integral_df)
+    return integral_df
+
+def rotateAroundAxes(data, rotations, modelMarkers):
+
+    if len(rotations) != len(rotations[0]*2) + 1:
+        raise ValueError("Correct format is order of axes followed by two marker specifying each axis")
+
+    for a, axis in enumerate(rotations[0]):
+
+        markerName1 = rotations[1+a*2]
+        markerName2 = rotations[1 + a*2 + 1]
+        marker1 = data["Labels"].index(markerName1)
+        marker2 = data["Labels"].index(markerName2)
+        axisIdx = ord(axis) - ord('x')
+        if (0<=axisIdx<=2) == False:
+            raise ValueError("Axes can only be x y or z")
+
+        origAxis = [0,0,0]
+        origAxis[axisIdx] = 1
+        if modelMarkers is not None:
+            origAxis = modelMarkers[markerName1] - modelMarkers[markerName2]
+            origAxis /= scipy.linalg.norm(origAxis)
+        rotateAxis = data["Data"][marker1] - data["Data"][marker2]
+        rotateAxis /= scipy.linalg.norm(rotateAxis, axis=1, keepdims=True)
+
+        for i, rotAxis in enumerate(rotateAxis):
+            angle = np.arccos(np.clip(np.dot(origAxis, rotAxis), -1.0, 1.0))
+            r = Rotation.from_euler('y', -angle)
+            data["Data"][:,i] = r.apply(data["Data"][:,i])
+
+
+    return data
+
+def calculate_jump_height_impulse(vert_grf,sample_rate):
+    
+    gravity = 9.81
+    # Check if the variable is a NumPy array
+    if isinstance(vert_grf, np.ndarray):
+        print("Variable is a NumPy array")
+    else:
+        print("Variable is not a NumPy array")
+    
+    time = np.arange(0, len(vert_grf)/sample_rate, 1/sample_rate)
+
+    # Select time interval of interest
+    plt.plot(vert_grf)
+    x = plt.ginput(n=1, show_clicks=True)
+    plt.close()
+
+    baseline = np.mean(vert_grf[:250])
+    mass = baseline/gravity
+        
+    #find zeros on vGRF
+    idx_zeros = vert_grf[vert_grf == 0]
+    flight_time_sec = len(idx_zeros/sample_rate)/1000
+        
+    # find the end of jump index = first zero in vert_grf
+    take_off_frame = np.where(vert_grf == 0)[0][0] 
+        
+    # find the start of jump index --> the start value is already in the file
+    start_of_jump_frame = int(np.round(x[0][0]))
+    
+        # Calculate impulse of vertical GRF    
+    vgrf_of_interest = vert_grf[start_of_jump_frame:take_off_frame]
+
+    # Create the time vector
+    time = np.arange(0, len(vgrf_of_interest)/sample_rate, 1/sample_rate)
+
+    vertical_impulse_bw = mass * gravity * time[-1]
+    vertical_impulse_grf = np.trapz(vgrf_of_interest, time)
+
+    # subtract impulse BW
+    vertical_impulse_net = vertical_impulse_grf - vertical_impulse_bw
+
+
+    take_off_velocity = vertical_impulse_net / mass
+
+    # Calculate jump height using impulse-momentum relationship (DOI: 10.1123/jab.27.3.207)
+    jump_height = (take_off_velocity / 2 * gravity)
+    jump_height = (take_off_velocity**2 / 2 * 9.81) /100   # devie by 100 to convert to m
+
+    # calculate jump height from flight time
+    jump_height_flight = 0.5 * 9.81 * (flight_time_sec / 2)**2   
+
+    print('take off velocity = ' , take_off_velocity, 'm/s')
+    print('cmj time = ' , time[-1], ' s')
+    print('impulse = ', vertical_impulse_net, 'N.s')
+    print('impulse jump height = ', jump_height, ' m')
+    print('flight time jump height = ', jump_height_flight, ' m')
+    
+    return jump_height, vertical_impulse_net
+
+def blandAltman(method1=[],method2=[]):
+    # Generate example data
+    if not method1:
+        method1 = np.array([1.2, 2.4, 3.1, 4.5, 5.2, 6.7, 7.3, 8.1, 9.5, 10.2])
+        method2 = np.array([1.1, 2.6, 3.3, 4.4, 5.3, 6.5, 7.4, 8.0, 9.4, 10.4])
+
+    # Calculate the mean difference and the limits of agreement
+    mean_diff = np.mean(method1 - method2)
+    std_diff = np.std(method1 - method2, ddof=1)
+    upper_limit = mean_diff + 1.96 * std_diff
+    lower_limit = mean_diff - 1.96 * std_diff
+
+    # Plot the Bland-Altman plot
+    plt.scatter((method1 + method2) / 2, method1 - method2)
+    plt.axhline(mean_diff, color='gray', linestyle='--')
+    plt.axhline(upper_limit, color='gray', linestyle='--')
+    plt.axhline(lower_limit, color='gray', linestyle='--')
+    plt.xlabel('Mean of two methods')
+    plt.ylabel('Difference between two methods')
+    plt.title('Bland-Altman plot')
+    plt.show()
+
+    # Print the results
+    print('Mean difference:', mean_diff)
+    print('Standard deviation of difference:', std_diff)
+    print('Upper limit of agreement:', upper_limit)
+    print('Lower limit of agreement:', lower_limit)
+
+def sum3d_vector(df, columns_to_sum = ['x','y','z'], new_column_name = 'sum'):
+    df[new_column_name] = df[columns_to_sum].sum(axis=1)
+    return df
+
+#%% ############################################  Torsion Tool (to be complete)  ########################################################
 def torsion_tool(): # to complete...
    pass
 
-def selec_analog_labels (c3dFilePath):
-    # Get the COM object of C3Dserver (https://pypi.org/project/pyc3dserver/)
-    itf = c3d.c3dserver(msg=False)
-    c3d.open_c3d(itf, c3dFilePath)
-    dict_analogs = c3d.get_dict_analogs(itf)
-    analog_labels = dict_analogs['LABELS']
 
-    print(analog_labels)
-    print(type(analog_labels))
+#%% #############################################  OpenSim setup (to be complete)  #######################################################
+def create_analysis_tool(coordinates_file, modelpath, results_directory, force_set_files=None):
+    # Get mot data to determine time range
+    motData = osim.Storage(coordinates_file)
 
-def read_trc_file(trcFilePath):
-    df = pd.DataFrame(trcFilePath)
-    return df
+    # Get initial and final time
+    initial_time = motData.getFirstTime()
+    final_time = motData.getLastTime()
 
-def writeTRC(c3dFilePath, trcFilePath):
+    # Set the model
+    model = osim.Model(modelpath)
 
-    print('writing trc file ...')
-    c3d_dict = import_c3d_to_dict (c3dFilePath)
+    # Create AnalyzeTool
+    analyzeTool = osim.AnalyzeTool()
+    analyzeTool.setModel(model)
+    analyzeTool.setModelFilename(model.getDocumentFileName())
 
-    with open(trcFilePath, 'w') as file:
-        # from https://github.com/IISCI/c3d_2_trc/blob/master/extractMarkers.py
-        # Write header
-        file.write("PathFileType\t4\t(X/Y/Z)\toutput.trc\n")
-        file.write("DataRate\tCameraRate\tNumFrames\tNumMarkers\tUnits\tOrigDataRate\tOrigDataStartFrame\tOrigNumFrames\n")
-        file.write("%d\t%d\t%d\t%d\tmm\t%d\t%d\t%d\n" % (c3d_dict["DataRate"], c3d_dict["CameraRate"], c3d_dict["NumFrames"],
-                                                        c3d_dict["NumMarkers"], c3d_dict["OrigDataRate"],
-                                                        c3d_dict["OrigDataStartFrame"], c3d_dict["OrigNumFrames"]))
+    analyzeTool.setReplaceForceSet(False)
+    analyzeTool.setResultsDir(results_directory)
+    analyzeTool.setOutputPrecision(8)
 
-        # Write labels
-        file.write("Frame#\tTime\t")
-        for i, label in enumerate(c3d_dict["Labels"]):
-            if i != 0:
-                file.write("\t")
-            file.write("\t\t%s" % (label))
-        file.write("\n")
-        file.write("\t")
-        for i in range(len(c3d_dict["Labels"]*3)):
-            file.write("\t%c%d" % (chr(ord('X')+(i%3)), math.ceil((i+3)/3)))
-        file.write("\n")
+    if force_set_files is not None:  # Set actuators file
+        forceSet = osim.ArrayStr()
+        forceSet.append(force_set_files)
+        analyzeTool.setForceSetFiles(forceSet)
 
-        # Write data
-        for i in range(len(c3d_dict["Data"][0])):
-            file.write("%d\t%f" % (i, c3d_dict["TimeStamps"][i]))
-            for l in range(len(c3d_dict["Data"])):
-                file.write("\t%f\t%f\t%f" % tuple(c3d_dict["Data"][l][i]))
-            file.write("\n")
+    # motData.print('.\states.sto')
+    # states = osim.Storage('.\states.sto')
+    # analyzeTool.setStatesStorage(states)
+    analyzeTool.setInitialTime(initial_time)
+    analyzeTool.setFinalTime(final_time)
 
-        print('trc file saved')
+    analyzeTool.setSolveForEquilibrium(False)
+    analyzeTool.setMaximumNumberOfSteps(20000)
+    analyzeTool.setMaxDT(1)
+    analyzeTool.setMinDT(1e-008)
+    analyzeTool.setErrorTolerance(1e-005)
 
-def readXML(xml_file_path):
-    import xml.etree.ElementTree as ET
+    analyzeTool.setExternalLoadsFileName('.\GRF.xml')
+    analyzeTool.setCoordinatesFileName(coordinates_file)
+    analyzeTool.setLowpassCutoffFrequency(6)
 
-    # Load XML file
-    xml_file_path = 'path_to_your_xml_file.xml'
-    tree = ET.parse(xml_file_path)
+    return analyzeTool
+
+def get_muscles_by_group_osim(xml_path, group_names): # olny tested for Catelli model Opensim 3.3
+    members_dict = {}
+
+    try:
+        with open(xml_path, 'r', encoding='utf-8') as file:
+            tree = ET.parse(xml_path)
+            root = tree.getroot()
+    except Exception as e:
+        print('Error parsing xml file: {}'.format(e))
+        return members_dict
+    
+    if group_names == 'all':
+        # Find all ObjectGroup names
+        group_names = [group.attrib['name'] for group in root.findall(".//ObjectGroup")]
+
+
+    members_dict['all_selected'] = []
+    for group_name in group_names:
+        members = []
+        for group in root.findall(".//ObjectGroup[@name='{}']".format(group_name)):
+            members_str = group.find('members').text
+            members.extend(members_str.split())
+        
+        members_dict[group_name] = members
+        members_dict['all_selected'] = members_dict['all_selected'] + members 
+
+    return members_dict
+
+def increase_max_isometric_force(model_path, factor):
+    # Load the OpenSim model
+    model = osim.Model(model_path)
+
+    # Loop through muscles and update their maximum isometric force
+    for muscle in model.getMuscles():
+        current_max_force = muscle.getMaxIsometricForce()
+        new_max_force = current_max_force * factor
+        muscle.setMaxIsometricForce(new_max_force)
+
+    # Save the modified model
+    output_model_path = model_path.replace('.osim', f'_increased_force_{factor}.osim')
+    model.printToXML(output_model_path)
+
+    print(f'Model with increased forces saved to: {output_model_path}')
+
+def update_max_isometric_force_xml(xml_file, factor):
+    # Parse the XML file
+    tree = ET.parse(xml_file)
     root = tree.getroot()
 
-    # Print the root element
-    print("Root element:", root.tag)
+    # Find all Millard2012EquilibriumMuscle elements
+    muscles = root.findall('.//Millard2012EquilibriumMuscle')
 
-    # Iterate through elements
-    for element in root:
-        print("Element:", element.tag)
+    # Update max_isometric_force for each muscle
+    n = 0
+    for muscle in muscles:
+        max_force_element = muscle.find('./max_isometric_force')
+        if max_force_element is not None:
+            current_max_force = float(max_force_element.text)
+            new_max_force = current_max_force * factor
+            max_force_element.text = str(new_max_force)
+            n = 1
+    if n == 0:
+        print('No Millard2012EquilibriumMuscle elements found in the XML file.')
+           
+    # Save the modified XML file
+    output_xml_file = xml_file.replace('.xml', f'_updated.xml')
+    tree.write(output_xml_file)
 
-    # Find specific elements
-    target_element = root.find('target_element_name')
-    if target_element is not None:
-        print("Found target element:", target_element.tag)
-        # Manipulate target_element as needed
+    print(f'Modified XML saved to: {output_xml_file}')
+    
 
-    # Modify existing element attributes or text
-    for element in root:
-        if element.tag == 'target_element_name':
-            element.set('attribute_name', 'new_attribute_value')
-            element.text = 'new_text_value'
-
-    # Add new elements
-    new_element = ET.Element('new_element')
-    new_element.text = 'new_element_text'
-    root.append(new_element)
-
-    return tree
-
-def writeXML(tree,xml_file_path):    
-    tree.write(xml_file_path)
-
-
-########################################################################################################################################
-
-
-###############################################  Torsion Tool (to be complete)  ########################################################
-
-
-########################################################################################################################################
-
-###############################################  OpenSim (to be complete)  ############################################################
+#%% ##############################################  OpenSim (to be complete)  ############################################################
 def scale_model(originalModelPath,targetModelPath,trcFilePath,setupScaleXML):
     osimModel = osim.Model(originalModelPath)                             
     state = osimModel.initSystem()
@@ -986,10 +1421,418 @@ def run_MA(osim_modelPath, ik_mot, grf_xml, resultsDir):
     # Run the muscle analysis calculation
     maTool.run()
 
-########################################################################################################################################
+def runSO(modelpath, trialpath, actuators_file_path):
+    os.chdir(trialpath)
 
-###############################################  GUI (to be complete)  #################################################################
-def  simple_gui():
+    # create directories
+    results_directory = os.path.relpath(trialpath, trialpath)
+    coordinates_file = os.path.join(trialpath, "IK.mot")
+    modelpath_relative = os.path.relpath(modelpath, trialpath)
+
+    # create a local copy of the actuator file path and update name
+    actuators_file_path = os.path.relpath(actuators_file_path, trialpath)
+
+    # start model
+    OsimModel = osim.Model(modelpath_relative)
+
+    # Get mot data to determine time range
+    motData = osim.Storage(coordinates_file)
+
+    # Get initial and intial time
+    initial_time = motData.getFirstTime()
+    final_time = motData.getLastTime()
+
+    # Static Optimization
+    so = osim.StaticOptimization()
+    so.setName('StaticOptimization')
+    so.setModel(OsimModel)
+
+    # Set other parameters as needed
+    so.setStartTime(initial_time)
+    so.setEndTime(final_time)
+    so.setMaxIterations(25)
+
+    analyzeTool_SO = create_analysis_tool(coordinates_file,modelpath_relative,results_directory)
+    analyzeTool_SO.getAnalysisSet().cloneAndAppend (so)
+    analyzeTool_SO.getForceSetFiles().append(actuators_file_path)
+    analyzeTool_SO.setReplaceForceSet(False)
+    OsimModel.addAnalysis(so)
+
+    analyzeTool_SO.printToXML(".\setup_so.xml")
+
+    analyzeTool_SO = osim.AnalyzeTool(".\setup_so.xml")
+
+    trial = os.path.basename(trialpath)
+    print(f"so for {trial}")
+
+    # run
+    analyzeTool_SO.run()
+
+def runJRA(modelpath, trialPath, setupFilePath):
+    os.chdir(trialPath)
+    results_directory = [trialPath]
+    coordinates_file = [trialPath, 'IK.mot']
+    _, trialName = os.path.split(trialPath)
+
+    # start model
+    osimModel = osim.Model(modelpath)
+
+    # Get mot data to determine time range
+    motData = osim.Storage(coordinates_file)
+
+    # Get initial and intial time
+    initial_time = motData.getFirstTime()
+    final_time = motData.getLastTime()
+
+    # start joint reaction analysis
+    jr = osim.JointReaction(setupFilePath)
+    jr.setName('joint reaction analysis')
+    jr.set_model(osimModel)
+
+    inFrame = osim.ArrayStr()
+    onBody = osim.ArrayStr()
+    jointNames = osim.ArrayStr()
+    inFrame.set(0, 'child')
+    onBody.set(0, 'child')
+    jointNames.set(0, 'all')
+
+    jr.setInFrame(inFrame)
+    jr.setOnBody(onBody)
+    jr.setJointNames(jointNames)
+
+    # Set other parameters as needed
+    jr.setStartTime(initial_time)
+    jr.setEndTime(final_time)
+    jr.setForcesFileName([results_directory, '_StaticOptimization_force.sto'])
+
+    # add to analysis tool
+    analyzeTool_JR = create_analysisTool(coordinates_file, modelpath, results_directory)
+    analyzeTool_JR.get().AnalysisSet.cloneAndAppend(jr)
+    osimModel.addAnalysis(jr)
+
+    # save setup file and run
+    analyzeTool_JR.print(['./setup_jra.xml'])
+    analyzeTool_JR = AnalyzeTool(['./setup_jra.xml'])
+    print('jra for', trialName)
+    analyzeTool_JR.run()
+
+
+
+# %% ##############################################  OpenSim operations (to be complete)  ############################################################
+def sum_muscle_work(model_path, sto_path, body_weight = 1):
+    
+    def sum_df_columns(df, groups = {}):
+        # Function to sum columns of a dataframe based on a dictionary of groups
+        # groups = {group_name: [column1, column2, column3]}
+        summed_df = pd.DataFrame()
+
+        if not groups:
+            groups = {'all': df.columns}
+
+        for group_name, group_columns in groups.items():
+            group_sum = df[group_columns].sum(axis=1)
+            summed_df[group_name] = group_sum
+
+        return summed_df
+
+    muscle_force = import_sto_data(sto_path)
+
+    muscle_work = calculate_integral(muscle_force)
+    muscle_work.to_csv(os.path.join(os.path.dirname(sto_path),'MuscleWork.csv'), index=False)
+    
+    # force curce normalise to weight and save as csv
+    muscle_force_normalised_to_weight = normalise_df(muscle_force,body_weight)
+    muscle_force_normalised_to_weight.to_csv(os.path.join(os.path.dirname(sto_path),'MuscleForces_normalised.csv'), index=False)
+
+    # muscle work normalised to weight and save as csv
+    muscle_work_normalised_to_weight = calculate_integral(muscle_force_normalised_to_weight)
+    muscle_work_normalised_to_weight.to_csv(os.path.join(os.path.dirname(sto_path),'MuscleWork_normalised.csv'), index=False)
+
+    muscles_r_hip_flex = get_muscles_by_group_osim(model_path,['hip_flex_r','hip_add_r','hip_inrot_r'])
+    muscles_r_hip_ext = get_muscles_by_group_osim(model_path,['hip_ext_r','hip_abd_r','hip_exrot_r'])
+    muscles_r_knee_flex = get_muscles_by_group_osim(model_path,['knee_flex_r'])
+    muscles_r_knee_ext = get_muscles_by_group_osim(model_path,['knee_ext_r'])
+    muscles_r_ankle_df = get_muscles_by_group_osim(model_path,['ankle_df_r'])
+    muscles_r_ankle_pf = get_muscles_by_group_osim(model_path,['ankle_pf_r'])
+
+    muscles_l_hip_flex = get_muscles_by_group_osim(model_path,['hip_flex_l','hip_add_l','hip_inrot_l'])
+    muscles_l_hip_ext = get_muscles_by_group_osim(model_path,['hip_ext_l','hip_abd_l','hip_exrot_l'])
+    muscles_l_knee_flex = get_muscles_by_group_osim(model_path,['knee_flex_l'])
+    muscles_l_knee_ext = get_muscles_by_group_osim(model_path,['knee_ext_l'])
+    muscles_l_ankle_df = get_muscles_by_group_osim(model_path,['ankle_df_l'])
+    muscles_l_ankle_pf = get_muscles_by_group_osim(model_path,['ankle_pf_l'])
+
+    groups = {  'RightHipFlex': muscles_r_hip_flex['all_selected'],
+                'RightHipExt': muscles_r_hip_ext['all_selected'],
+                'RightKneeFlex': muscles_r_knee_flex['all_selected'],
+                'RightKneeExt': muscles_r_knee_ext['all_selected'],
+                'RightAnkleDF': muscles_r_ankle_df['all_selected'],
+                'RightAnklePF': muscles_r_ankle_pf['all_selected'],
+                'LeftHipFlex': muscles_l_hip_flex['all_selected'],
+                'LeftHipExt': muscles_l_hip_ext['all_selected'],
+                'LeftKneeFlex': muscles_l_knee_flex['all_selected'],
+                'LeftKneeExt': muscles_l_knee_ext['all_selected'],
+                'LeftAnkleDF': muscles_l_ankle_df['all_selected'],
+                'LeftAnklePF': muscles_l_ankle_pf['all_selected']
+    }
+    # Perform grouping and summing for each group
+    muscle_work_summed = sum_df_columns(muscle_work_normalised_to_weight,groups)
+
+    return muscle_work_summed
+    pass
+
+#%% ##############################################  Data checks (to be complete) ############################################################
+def checkMuscleMomentArms(model_file_path, ik_file_path, leg = 'l', threshold = 0.005):
+# Adapted from Willi Koller: https://github.com/WilliKoller/OpenSimMatlabBasic/blob/main/checkMuscleMomentArms.m
+# Only checked if works for for the Rajagopal and Catelli models
+
+    def get_model_coord(model, coord_name):
+        try:
+            index = model.getCoordinateSet().getIndex(coord_name)
+            coord = model.updCoordinateSet().get(index)
+        except:
+            index = None
+            coord = None
+            print(f'Coordinate {coord_name} not found in model')
+        
+        return index, coord
+
+
+    # raise Exception('This function is not yet working. Please use the Matlab version for now or fix line containing " time_discontinuity.append(time_vector[discontinuity_indices]) "')
+
+    # Load motions and model
+    motion = osim.Storage(ik_file_path)
+    model = osim.Model(model_file_path)
+
+    # Initialize system and state
+    model.initSystem()
+    state = model.initSystem()
+
+    # coordinate names
+    flexIndexL, flexCoordL = get_model_coord(model, 'hip_flexion_' + leg)
+    rotIndexL, rotCoordL = get_model_coord(model, 'hip_rotation_' + leg)
+    addIndexL, addCoordL = get_model_coord(model, 'hip_adduction_' + leg)
+    flexIndexLknee, flexCoordLknee = get_model_coord(model, 'knee_angle_' + leg)
+    flexIndexLank, flexCoordLank = get_model_coord(model, 'ankle_angle_' + leg)
+
+    # get names of the hip muscles
+    numMuscles = model.getMuscles().getSize()
+    muscleIndices_hip = []
+    muscleNames_hip = []
+    for i in range(numMuscles):
+        tmp_muscleName = str(model.getMuscles().get(i).getName())
+        if ('add' in tmp_muscleName or 'gl' in tmp_muscleName or 'semi' in tmp_muscleName or 'bf' in tmp_muscleName or
+                'grac' in tmp_muscleName or 'piri' in tmp_muscleName or 'sart' in tmp_muscleName or 'tfl' in tmp_muscleName or
+                'iliacus' in tmp_muscleName or 'psoas' in tmp_muscleName or 'rect' in tmp_muscleName) and ('_' + leg in tmp_muscleName):
+            muscleIndices_hip.append(i)
+            muscleNames_hip.append(tmp_muscleName)
+
+    flexMomentArms = np.zeros((motion.getSize(), len(muscleIndices_hip)))
+    addMomentArms = np.zeros((motion.getSize(), len(muscleIndices_hip)))
+    rotMomentArms = np.zeros((motion.getSize(), len(muscleIndices_hip)))
+
+    # get names of the knee muscles
+    numMuscles = model.getMuscles().getSize()
+    muscleIndices_knee = []
+    muscleNames_knee = []
+    for i in range(numMuscles):
+        tmp_muscleName = str(model.getMuscles().get(i).getName())
+        if ('bf' in tmp_muscleName or 'gas' in tmp_muscleName or 'grac' in tmp_muscleName or 'sart' in tmp_muscleName or
+                'semim' in tmp_muscleName or 'semit' in tmp_muscleName or 'rec' in tmp_muscleName or 'vas' in tmp_muscleName) and ('_' + leg in tmp_muscleName):
+            muscleIndices_knee.append(i)
+            muscleNames_knee.append(tmp_muscleName)
+
+    kneeFlexMomentArms = np.zeros((motion.getSize(), len(muscleIndices_knee)))
+
+    # get names of the ankle muscles
+    numMuscles = model.getMuscles().getSize()
+    muscleIndices_ankle = []
+    muscleNames_ankle = []
+    for i in range(numMuscles):
+        tmp_muscleName = str(model.getMuscles().get(i).getName())
+        print(tmp_muscleName)
+        if ('edl' in tmp_muscleName or 'ehl' in tmp_muscleName or 'tibant' in tmp_muscleName or 'gas' in tmp_muscleName or
+                'fdl' in tmp_muscleName or 'fhl' in tmp_muscleName or 'perb' in tmp_muscleName or 'perl' in tmp_muscleName or
+                'sole' in tmp_muscleName or 'tibpos' in tmp_muscleName) and ('_' + leg in tmp_muscleName):
+            muscleIndices_ankle.append(i)
+            muscleNames_ankle.append(tmp_muscleName)
+
+    ankleFlexMomentArms = np.zeros((motion.getSize(), len(muscleIndices_ankle)))
+
+    # compute moment arms for each muscle and create time vector
+    time_vector = []
+    for i in range(1, motion.getSize()):
+        flexAngleL = motion.getStateVector(i-1).getData().get(flexIndexL) / 180 * np.pi
+        rotAngleL = motion.getStateVector(i-1).getData().get(rotIndexL) / 180 * np.pi
+        addAngleL = motion.getStateVector(i-1).getData().get(addIndexL) / 180 * np.pi
+        flexAngleLknee = motion.getStateVector(i-1).getData().get(flexIndexLknee) / 180 * np.pi
+        flexAngleLank = motion.getStateVector(i-1).getData().get(flexIndexLank) / 180 * np.pi
+
+        time_vector.append(motion.getStateVector(i-1).getTime())
+        # Update the state with the joint angle
+        coordSet = model.updCoordinateSet()
+        coordSet.get(flexIndexL).setValue(state, flexAngleL)
+        coordSet.get(rotIndexL).setValue(state, rotAngleL)
+        coordSet.get(addIndexL).setValue(state, addAngleL)
+        coordSet.get(flexIndexLknee).setValue(state, flexAngleLknee)
+        coordSet.get(flexIndexLank).setValue(state, flexAngleLank)
+
+        # Realize the state to compute dependent quantities
+        model.computeStateVariableDerivatives(state)
+        model.realizeVelocity(state)
+
+        # Compute the moment arm hip
+        for j in range(len(muscleIndices_hip)):
+            muscleIndex = muscleIndices_hip[j]
+            if muscleNames_hip[j][-1] == leg:
+                flexMomentArm = model.getMuscles().get(muscleIndex).computeMomentArm(state, flexCoordL)
+                flexMomentArms[i, j] = flexMomentArm
+
+                rotMomentArm = model.getMuscles().get(muscleIndex).computeMomentArm(state, rotCoordL)
+                rotMomentArms[i, j] = rotMomentArm
+
+                addMomentArm = model.getMuscles().get(muscleIndex).computeMomentArm(state, addCoordL)
+                addMomentArms[i, j] = addMomentArm
+
+        # Compute the moment arm knee
+        for j in range(len(muscleNames_knee)):
+            muscleIndex = muscleIndices_knee[j]
+            if muscleNames_knee[j][-1] == leg:
+                kneeFlexMomentArm = model.getMuscles().get(muscleIndex).computeMomentArm(state, flexCoordLknee)
+                kneeFlexMomentArms[i, j] = kneeFlexMomentArm
+
+        # Compute the moment arm ankle
+        for j in range(len(muscleNames_ankle)):
+            muscleIndex = muscleIndices_ankle[j]
+            if muscleNames_ankle[j][-1] == leg:
+                ankleFlexMomentArm = model.getMuscles().get(muscleIndex).computeMomentArm(state, flexCoordLank)
+                ankleFlexMomentArms[i, j] = ankleFlexMomentArm
+
+    # check discontinuities
+    discontinuity = []
+    muscle_action = []
+    time_discontinuity = []
+
+    fDistC = plt.figure('Discontinuity', figsize=(8, 8))
+    plt.title(ik_file_path)
+
+    save_folder = os.path.join(os.path.dirname(ik_file_path),'momentArmsCheck')
+
+    def find_discontinuities(momArms, threshold, muscleNames, action, discontinuity, muscle_action, time_discontinuity):
+        for i in range(momArms.shape[1]):
+            dy = np.diff(momArms[:, i])
+            discontinuity_indices = np.where(np.abs(dy) > threshold)[0]
+            if discontinuity_indices.size > 0:
+                print('Discontinuity detected at', muscleNames[i], 'at ', action, ' moment arm')
+                plt.plot(momArms[:, i])
+                plt.plot(discontinuity_indices, momArms[discontinuity_indices, i], 'rx')
+                discontinuity.append(i)
+                muscle_action.append(str(muscleNames[i] + ' ' + action + ' at frames: ' + str(discontinuity_indices)))
+                time_discontinuity.append([time_vector[index] for index in discontinuity_indices])
+
+
+        return discontinuity, muscle_action, time_discontinuity
+
+    # hip flexion
+    discontinuity, muscle_action, time_discontinuity = find_discontinuities(
+        flexMomentArms, threshold, muscleNames_hip, 'flexion', discontinuity, muscle_action, time_discontinuity)
+
+    # hip adduction
+    discontinuity, muscle_action, time_discontinuity = find_discontinuities(
+        addMomentArms, threshold, muscleNames_hip, 'adduction', discontinuity, muscle_action, time_discontinuity)
+    
+    # hip rotation
+    discontinuity, muscle_action, time_discontinuity = find_discontinuities(
+        rotMomentArms, threshold, muscleNames_hip, 'rotation', discontinuity, muscle_action, time_discontinuity)
+    
+    # knee flexion
+    discontinuity, muscle_action, time_discontinuity = find_discontinuities(
+        kneeFlexMomentArms, threshold, muscleNames_knee, 'flexion', discontinuity, muscle_action, time_discontinuity)
+    
+    # ankle flexion
+    discontinuity, muscle_action, time_discontinuity = find_discontinuities(
+        ankleFlexMomentArms, threshold, muscleNames_ankle, 'dorsiflexion', discontinuity, muscle_action, time_discontinuity)
+    
+    # plot discontinuities
+    if len(discontinuity) > 0:
+        plt.legend(muscle_action)
+        plt.ylabel('Muscle Moment Arms with discontinuities (m)')
+        plt.xlabel('Frame (after start time)')
+        save_fig(plt.gcf(), save_path=os.path.join(save_folder, 'discontinuities_' + leg + '.png'))
+        print('\n\nYou should alter the model - most probably you have to reduce the radius of corresponding wrap objects for the identified muscles\n\n\n')
+
+        # save txt file with discontinuities
+        with open(os.path.join(save_folder, 'discontinuities_' + leg + '.txt'), 'w') as f:
+            f.write(f"model file = {model_file_path}\n")
+            f.write(f"motion file = {ik_file_path}\n")
+            f.write(f"leg checked = {leg}\n")
+            
+            f.write("\n muscles with discontinuities \n", ) 
+            
+            for i in range(len(muscle_action)):
+                try:
+                    f.write("%s : time %s \n" % (muscle_action[i], time_discontinuity[i]))
+                except:
+                    print('no discontinuities detected')
+
+        momentArmsAreWrong = 1
+    else:
+        plt.close(fDistC)
+        print('No discontinuities detected')
+        momentArmsAreWrong = 0
+
+    # plot hip flexion
+    plt.figure('flexMomentArms_' + leg, figsize=(8, 8))
+    plt.plot(flexMomentArms)
+    plt.title('All muscle moment arms in motion ' + ik_file_path)
+    plt.legend(muscleNames_hip, loc='best')
+    plt.ylabel('Hip Flexion Moment Arm (m)')
+    plt.xlabel('Frame (after start time)')
+    save_fig(plt.gcf(), save_path=os.path.join(save_folder, 'hip_flex_MomentArms_' + leg + '.png'))
+
+    # hip adduction
+    plt.figure('addMomentArms_' + leg, figsize=(8, 8))
+    plt.plot(addMomentArms)
+    plt.title('All muscle moment arms in motion ' + ik_file_path)
+    plt.legend(muscleNames_hip, loc='best')
+    plt.ylabel('Hip Adduction Moment Arm (m)')
+    plt.xlabel('Frame (after start time)')
+    save_fig(plt.gcf(), save_path=os.path.join(save_folder, 'hip_add_MomentArms_' + leg + '.png'))
+
+    # hip rotation
+    plt.figure('rotMomentArms_' + leg, figsize=(8, 8))
+    plt.plot(rotMomentArms)
+    plt.title('All muscle moment arms in motion ' + ik_file_path)
+    plt.legend(muscleNames_hip, loc='best')
+    plt.ylabel('Hip Rotation Moment Arm (m)')
+    plt.xlabel('Frame (after start time)')
+    save_fig(plt.gcf(), save_path=os.path.join(save_folder, 'hip_rot_MomentArms_' + leg + '.png'))
+
+    # knee flexion
+    plt.figure('kneeFlexMomentArms_' + leg, figsize=(8, 8))
+    plt.plot(kneeFlexMomentArms)
+    plt.title('All muscle moment arms in motion ' + ik_file_path)
+    plt.legend(muscleNames_knee, loc='best')
+    plt.ylabel('Knee Flexion Moment Arm (m)')
+    plt.xlabel('Frame (after start time)')
+    save_fig(plt.gcf(), save_path=os.path.join(save_folder, 'knee_MomentArms_' + leg + '.png'))
+
+    # ankle flexion
+    plt.figure('ankleFlexMomentArms_' + leg, figsize=(8, 8))
+    plt.plot(ankleFlexMomentArms)
+    plt.title('All muscle moment arms in motion ' + ik_file_path)
+    plt.legend(muscleNames_ankle, loc='best')
+    plt.ylabel('Ankle Dorsiflexion Moment Arm (m)')
+    plt.xlabel('Frame (after start time)')
+    save_fig(plt.gcf(), save_path=os.path.join(save_folder, 'ankle_MomentArms_' + leg + '.png'))
+
+    print('Moment arms checked for ' + ik_file_path)
+    print('Results saved in ' + save_folder + ' \n\n' )
+
+    return momentArmsAreWrong,  discontinuity, muscle_action
+
+#%% ###############################################  GUI (to be complete)  #################################################################
+def simple_gui():
     ctk.set_appearance_mode('dark')
     ctk.set_default_color_theme('dark-blue')
 
@@ -1014,10 +1857,10 @@ def  simple_gui():
     button1.pack(pady=12,padx=10)
 
     label = ctk.CTkLabel(master=root, text="Write some text", width=120, height=25, corner_radius=8)
-    label.place(relx=0.5, rely=0.5, anchor=tkinter.CENTER)
+    label.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
 
     entry = ctk.CTkEntry(master=root, width=120, height=25,corner_radius=10)
-    entry.place(relx=0.5, rely=0.5, anchor=tkinter.CENTER)
+    entry.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
 
     text = entry.get()
     print(text)
@@ -1099,7 +1942,7 @@ def complex_gui():
             # create radiobutton frame
             self.radiobutton_frame = ctk.CTkFrame(self)
             self.radiobutton_frame.grid(row=0, column=3, padx=(20, 20), pady=(20, 0), sticky="nsew")
-            self.radio_var = tkinter.IntVar(value=0)
+            self.radio_var = tk.IntVar(value=0)
             self.label_radio_group = ctk.CTkLabel(master=self.radiobutton_frame, text="CTkRadioButton Group:")
             self.label_radio_group.grid(row=0, column=2, columnspan=1, padx=10, pady=10, sticky="")
             self.radio_button_1 = ctk.CTkRadioButton(master=self.radiobutton_frame, variable=self.radio_var, value=0)
@@ -1228,14 +2071,9 @@ def subjet_select_gui():
 
     root.mainloop()
 
-########################################################################################################################################
 
-
-
-########################################################  Plotting  ####################################################################
-
-
-# when creating plots bops will only create the 
+#%% ########################################################  Plotting  ####################################################################
+# when creating plots bops will only create the fig and axs. Use plt.show() to show the plot
 def create_sto_plot(stoFilePath=False):
     # Specify the path to the .sto file
     if not stoFilePath:
@@ -1373,10 +2211,95 @@ def show_image(image_path):
     # Run the Tkinter event loop
     window.mainloop()
 
-########################################################################################################################################
+def calculate_axes_number(num_plots):
+    if num_plots  > 2:
+        ncols = math.ceil(math.sqrt(num_plots))
+        nrows = math.ceil(num_plots / ncols)
+    else:
+        ncols = num_plots
+        nrows = 1
+
+    return ncols, nrows
+
+def plot_line_df(df,sep_subplots = True, columns_to_plot='all',xlabel=' ',ylabel=' ', legend=['data1'],save_path='', title=''):
+    
+    # Check if the input is a file path
+    if type(df) == str and os.path.isfile(df):
+        df = import_sto_data(df)
+        pass
+    
+    if columns_to_plot == 'all':
+        columns_to_plot = df.columns
+    
+    # Create a new figure and subplots
+    if sep_subplots:
+        ncols, nrows = calculate_axes_number(len(columns_to_plot))
+        fig, axs = plt.subplots(nrows, ncols, figsize=(15, 5))
+        
+        for row, ax_row in enumerate(axs):
+            for col, ax in enumerate(ax_row):
+                ax_count = row * ncols + col
+
+                heading = columns_to_plot[ax_count]    
+                if heading not in df.columns:
+                    print(f'Heading not found: {heading}')
+                    continue    
+                
+                # Plot data
+                ax.plot(df[heading])
+                ax.set_title(f'{heading}')
+                
+                if row == 1:
+                    ax.set_xlabel(xlabel)
+                if col == 0:
+                    ax.set_ylabel(ylabel)
+    
+        plt.legend(legend)
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.title(title)
+    
+    else:
+        fig, axs = plt.subplots(1, 1, figsize=(15, 5))
+        for column in columns_to_plot:
+            axs.plot(df[column])
+            axs.set_title(f'{column}')
+            axs.set_xlabel(xlabel)
+            axs.set_ylabel(ylabel)
+        
+        plt.title(title)
+        axs.legend(columns_to_plot,ncols=2)
+    
+    fig.set_tight_layout(True)
+
+    if save_path:
+        save_fig(fig,save_path)
+    
+    return fig, axs
+
+def plot_bar_df(df):
+    # Transpose the DataFrame to have rows as different bar series
+    df_transposed = df.transpose()
+
+    # Plot the bar chart
+    ax = df_transposed.plot(kind='bar', figsize=(10, 6), colormap='viridis')
+
+    # Customize the plot
+    ax.set_xlabel('Joint')
+    ax.set_ylabel('Angle (degrees)')
+    ax.set_title('Muscle work per joint')
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
+
+    # Adjust subplot layout to make room for x-axis tick labels
+    plt.subplots_adjust(bottom=0.2)
+
+    return plt.gcf()
 
 
-######################################################  Error prints  ##################################################################
+
+
+
+#%% ####################################################  Error prints  ##################################################################
 
 def play_animation():
     import turtle
@@ -1439,19 +2362,12 @@ def play_random_walk():
 
     plt.show()
 
-########################################################################################################################################
-
-
-
-
-######################################################  Error prints  ##################################################################
+#%% ####################################################  Error prints  ##################################################################
 def exampleFunction():
     pass
 
-########################################################################################################################################
 
-
-##################################################  CREATE BOPS SETTINGS ###############################################################
+#%% ################################################  CREATE BOPS SETTINGS ###############################################################
 def add_markers_to_settings():
     settings = get_bops_settings()
     for subject_folder in get_subject_folders():
@@ -1504,109 +2420,9 @@ def progress_bar():
     total_steps = 5
     with tqdm(total=total_steps, desc="Processing") as pbar:
         pbar.update(1)
-########################################################################################################################################
 
 
-
-
-
-
-############################################################## OPERATIONS ##############################################################
-def calculate_jump_height_impulse(vert_grf,sample_rate):
-    
-    gravity = 9.81
-    # Check if the variable is a NumPy array
-    if isinstance(vert_grf, np.ndarray):
-        print("Variable is a NumPy array")
-    else:
-        print("Variable is not a NumPy array")
-    
-    time = np.arange(0, len(vert_grf)/sample_rate, 1/sample_rate)
-
-    # Select time interval of interest
-    plt.plot(vert_grf)
-    x = plt.ginput(n=1, show_clicks=True)
-    plt.close()
-
-    baseline = np.mean(vert_grf[:250])
-    mass = baseline/gravity
-        
-    #find zeros on vGRF
-    idx_zeros = vert_grf[vert_grf == 0]
-    flight_time_sec = len(idx_zeros/sample_rate)/1000
-        
-    # find the end of jump index = first zero in vert_grf
-    take_off_frame = np.where(vert_grf == 0)[0][0] 
-        
-    # find the start of jump index --> the start value is already in the file
-    start_of_jump_frame = int(np.round(x[0][0]))
-    
-        # Calculate impulse of vertical GRF    
-    vgrf_of_interest = vert_grf[start_of_jump_frame:take_off_frame]
-
-    # Create the time vector
-    time = np.arange(0, len(vgrf_of_interest)/sample_rate, 1/sample_rate)
-
-    vertical_impulse_bw = mass * gravity * time[-1]
-    vertical_impulse_grf = np.trapz(vgrf_of_interest, time)
-
-    # subtract impulse BW
-    vertical_impulse_net = vertical_impulse_grf - vertical_impulse_bw
-
-
-    take_off_velocity = vertical_impulse_net / mass
-
-    # Calculate jump height using impulse-momentum relationship (DOI: 10.1123/jab.27.3.207)
-    jump_height = (take_off_velocity / 2 * gravity)
-    jump_height = (take_off_velocity**2 / 2 * 9.81) /100   # devie by 100 to convert to m
-
-    # calculate jump height from flight time
-    jump_height_flight = 0.5 * 9.81 * (flight_time_sec / 2)**2   
-
-    print('take off velocity = ' , take_off_velocity, 'm/s')
-    print('cmj time = ' , time[-1], ' s')
-    print('impulse = ', vertical_impulse_net, 'N.s')
-    print('impulse jump height = ', jump_height, ' m')
-    print('flight time jump height = ', jump_height_flight, ' m')
-    
-    return jump_height, vertical_impulse_net
-
-def blandAltman(method1=[],method2=[]):
-    # Generate example data
-    if not method1:
-        method1 = np.array([1.2, 2.4, 3.1, 4.5, 5.2, 6.7, 7.3, 8.1, 9.5, 10.2])
-        method2 = np.array([1.1, 2.6, 3.3, 4.4, 5.3, 6.5, 7.4, 8.0, 9.4, 10.4])
-
-    # Calculate the mean difference and the limits of agreement
-    mean_diff = np.mean(method1 - method2)
-    std_diff = np.std(method1 - method2, ddof=1)
-    upper_limit = mean_diff + 1.96 * std_diff
-    lower_limit = mean_diff - 1.96 * std_diff
-
-    # Plot the Bland-Altman plot
-    plt.scatter((method1 + method2) / 2, method1 - method2)
-    plt.axhline(mean_diff, color='gray', linestyle='--')
-    plt.axhline(upper_limit, color='gray', linestyle='--')
-    plt.axhline(lower_limit, color='gray', linestyle='--')
-    plt.xlabel('Mean of two methods')
-    plt.ylabel('Difference between two methods')
-    plt.title('Bland-Altman plot')
-    plt.show()
-
-    # Print the results
-    print('Mean difference:', mean_diff)
-    print('Standard deviation of difference:', std_diff)
-    print('Upper limit of agreement:', upper_limit)
-    print('Lower limit of agreement:', lower_limit)
-
-
-########################################################################################################################################
-
-
-
-
-
-################################################ UTILS
+#%% ############################################################ UTILS ####################################################################
 
 def clear_terminal():
     # Clear terminal command based on the operating system
@@ -1621,9 +2437,19 @@ def uni_vie_print():
     print("            University of Vienna             ")
     print("    Contact: basilio.goncalves@univie.ac.at  ")
     print("=============================================")
-                                                                                                            
 
-######################################################### BOPS TESTING #################################################################
+def ask_to_continue():
+    print('Ensure your settings are correct before continuing.')
+    answer = input("Press 'y' to continue or 'n' to exit: ")
+
+    if answer == 'y':
+        pass
+    elif answer == 'n':
+        sys.exit('Exiting...')
+
+
+
+#%% ######################################################### BOPS TESTING #################################################################
 def platypus_pic_path(imageType = 'happy'):
     dir_bops = get_dir_bops()
     if imageType == 'happy':
@@ -1726,12 +2552,8 @@ class test_bops(unittest.TestCase):
     #                 resultsDir = get_trial_list(session_path,full_dir = True)[idx]
     #                 run_IK(model_path, trc_file, resultsDir, marker_weights_path)
     
-   
-        
 
-
-
-  
+#%% ######################################################### BOPS MAIN ####################################################################
 if __name__ == '__main__':
     
     clear_terminal()
