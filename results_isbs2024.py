@@ -5,8 +5,9 @@ from sklearn.preprocessing import MinMaxScaler
 import bops as bp
 
 class steps:
-    def __init__(self, moment_errors = True, compare_forces_ceinms_so = True, activation_errors = True, muscle_work = True, compare_forces_torsion = True,
-                 muscle_work_torsion = True, ik_and_id = True, muscle_work_so = True):
+    def __init__(self, moment_errors = True, compare_forces_ceinms_so = True, activation_errors = True, muscle_work = True, 
+                 compare_forces_torsion = True, muscle_work_torsion = True, activation_torsion = True,
+                 ik_and_id = True, muscle_work_so = True):
         
         self.moment_errors= moment_errors
         self.compare_forces_ceinms_so = compare_forces_ceinms_so
@@ -16,10 +17,35 @@ class steps:
         self.muscle_work_torsion = muscle_work_torsion
         self.ik_and_id = ik_and_id
         self.muscle_work_so = muscle_work_so
+        self.activation_torsion = activation_torsion
 
     def to_dict(self):
         return self.__dict__
 
+
+def muscle_groups(paths):
+    model_path = paths.model_scaled
+    muscles = get_muscles_by_group_osim(model_path,'all')
+    groups = list(muscles.keys())
+    hip_r = [group for group in groups if group.startswith('hip') and group.endswith('r')]
+    muscles_hip_r = list(set([muscle for group in hip_r for muscle in muscles.get(group, [])]))
+    
+    hip_l = [muscle for muscle in muscles if muscle.startswith('hip') and muscle.endswith('l')]
+    muscles_hip_l = list(set([muscle for group in hip_l for muscle in muscles.get(group, [])]))
+
+    knee_r = [muscle for muscle in muscles if muscle.startswith('knee') and muscle.endswith('r')]
+    muscles_knee_r = list(set([muscle for group in knee_r for muscle in muscles.get(group, [])]))
+
+    knee_l = [muscle for muscle in muscles if muscle.startswith('knee') and muscle.endswith('l')]
+    muscles_knee_l = list(set([muscle for group in knee_l for muscle in muscles.get(group, [])]))
+
+    ankle_r = [muscle for muscle in muscles if muscle.startswith('ankle') and muscle.endswith('r')]
+    muscles_ankle_r = list(set([muscle for group in ankle_r for muscle in muscles.get(group, [])]))
+
+    ankle_l = [muscle for muscle in muscles if muscle.startswith('ankle') and muscle.endswith('l')]
+    muscles_ankle_l = list(set([muscle for group in ankle_l for muscle in muscles.get(group, [])]))
+
+    return muscles_hip_r, muscles_hip_l, muscles_knee_r, muscles_knee_l, muscles_ankle_r, muscles_ankle_l
 
 # %%
 project_folder=r'C:\Git\isbs2024\Data'
@@ -29,14 +55,14 @@ data_folder = cs.get_main_path()
 subject_list = project_settings['subject_list']
 # subject_list = ['Athlete_06_torsion','Athlete_14_torsion','Athlete_20_torsion','Athlete_22_torsion','Athlete_25_torsion','Athlete_26_torsion']
 # subject_list = ['Athlete_22_torsion','Athlete_25_torsion','Athlete_26_torsion']
-subject_list = ['Athlete_03','Athlete_03_torsion']
+subject_list = ['Athlete_22']
 trial_list = ['sq_70','sq_90']
 
 
 # option [moment_errors, compare_forces_ceinms, activation_errors, muscle_work]
 steps_to_plot = steps(moment_errors = False, compare_forces_ceinms_so = False, 
                       activation_errors = False, muscle_work = False, compare_forces_torsion = True,
-                      muscle_work_torsion= True, ik_and_id = False, muscle_work_so = True)
+                      ik_and_id = True, muscle_work_torsion= True, muscle_work_so = True, activation_torsion = False)
 
 
 cs.print_terminal_spaced(' ')
@@ -88,16 +114,8 @@ for subject_name in subject_list:
             pltc.compare_two_df(id_mom_normalised,ceinms_mom_normalised,columns_to_compare=columns_to_plot,
                         legend=['inverse dynamics', 'ceinms'],ylabel='Moment (Nm)',xlabel='Squat cycle (%)',save_path=save_path)
             
-            # plot muscle work between two legs
-            df = bp.import_sto_data(paths.ceinms_results_forces)
-            df_int = bp.calculate_integral(df)
-            df_int.to_csv(paths.ceinms_results_forces.replace('MuscleForces.sto','MuscleWork.csv'), index=False)
-            fig = pltc.plot_muscle_work_per_leg(df_int)
-            pltc.mmfn()
-
-            save_path = os.path.join(paths.results, 'muscle_work' ,f'{subject_name}_{trial_name}_muscle_work.png')
-            bp.save_fig(fig, save_path=save_path)
-        
+            cs.print_to_log_file(f'Moment errors',mode='simple')
+ 
         # plot muscle activations comparison between static_opt and ceinms    
         if steps_to_plot.activation_errors:
             act_ceinms = bp.time_normalise_df(bp.import_sto_data(paths.ceinms_results_activations))
@@ -131,6 +149,7 @@ for subject_name in subject_list:
                 pltc.compare_two_df(act_static_opt,act_ceinms,columns_to_compare=columns_to_plot,
                                 legend=['static opt', 'ceinms'],ylabel='Muscle force (N)',xlabel='Squat cycle (%)',save_path=save_path)
 
+            cs.print_to_log_file(f'Muscle activations ceinms-so',mode='simple')
         # plot muscle forces comparison between static_opt and ceinms    
         if steps_to_plot.compare_forces_ceinms_so:  
            
@@ -155,7 +174,8 @@ for subject_name in subject_list:
 
                 pltc.compare_two_df(forces_static_opt,forces_ceinms,columns_to_compare=columns_to_plot,
                                 legend=['static opt', 'ceinms'],ylabel='Muscle force (N)',xlabel='Squat cycle (%)',save_path=save_path)
-
+            
+            cs.print_to_log_file(f'Muscle forces ceinms-so ',mode='simple')
         # plot muscle work between two legs
         if steps_to_plot.muscle_work:
             df = bp.import_sto_data(paths.ceinms_results_forces)
@@ -163,6 +183,7 @@ for subject_name in subject_list:
 
             save_path = os.path.join(paths.results, 'muscle_work_per_leg' ,f'{subject_name}_{trial_name}.png')
             bp.save_fig(fig, save_path=save_path)
+            cs.print_to_log_file(f'Muscle work between legs',mode='simple')
 
         # plot muscle force comparison between generic and torsion
         if steps_to_plot.compare_forces_torsion and not subject_name.endswith('_torsion'):
@@ -170,32 +191,7 @@ for subject_name in subject_list:
             paths_torsion = cs.subject_paths(data_folder,subject_code=subject_torsion,trial_name=trial_name)
             
             # get muuscle names (list(set()) removes duplicates)
-            model_path = paths.model_scaled
-            muscles = get_muscles_by_group_osim(model_path,'all')
-            groups = list(muscles.keys())
-            hip_r = [group for group in groups if group.startswith('hip') and group.endswith('r')]
-            muscles_hip_r = list(set([muscle for group in hip_r for muscle in muscles.get(group, [])]))
-            
-            hip_l = [muscle for muscle in muscles if muscle.startswith('hip') and muscle.endswith('l')]
-            muscles_hip_l = list(set([muscle for group in hip_l for muscle in muscles.get(group, [])]))
-
-            knee_r = [muscle for muscle in muscles if muscle.startswith('knee') and muscle.endswith('r')]
-            muscles_knee_r = list(set([muscle for group in knee_r for muscle in muscles.get(group, [])]))
-
-            knee_l = [muscle for muscle in muscles if muscle.startswith('knee') and muscle.endswith('l')]
-            muscles_knee_l = list(set([muscle for group in knee_l for muscle in muscles.get(group, [])]))
-
-            ankle_r = [muscle for muscle in muscles if muscle.startswith('ankle') and muscle.endswith('r')]
-            muscles_ankle_r = list(set([muscle for group in ankle_r for muscle in muscles.get(group, [])]))
-
-            ankle_l = [muscle for muscle in muscles if muscle.startswith('ankle') and muscle.endswith('l')]
-            muscles_ankle_l = list(set([muscle for group in ankle_l for muscle in muscles.get(group, [])]))
-
-            # muscles_ext_r = list(set(muscles['hip_ext_r'] + muscles['hip_abd_r'] + muscles['hip_exrot_r'] + muscles['knee_ext_r'] + muscles['ankle_pf_r']))
-            # muscles_flex_r = list(set(muscles['hip_flex_r'] + muscles['hip_add_r'] + muscles['hip_inrot_r'] + muscles['knee_flex_r'] + muscles['ankle_df_r']))
-
-            # muscles_ext_l = list(set(muscles['hip_ext_l'] + muscles['hip_abd_l'] + muscles['hip_exrot_l'] + muscles['knee_ext_l'] + muscles['ankle_pf_l']))
-            # muscles_flex_l = list(set(muscles['hip_flex_l'] + muscles['hip_add_l'] + muscles['hip_inrot_l'] + muscles['knee_flex_l'] + muscles['ankle_df_l']))
+            muscles_hip_r, muscles_hip_l, muscles_knee_r, muscles_knee_l, muscles_ankle_r, muscles_ankle_l = muscle_groups(paths)
 
             save_path = os.path.join(paths.results, 'muscle_force_torsion',subject_name,f'{trial_name}.png')
             print(f'Plotting {subject_name} {trial_name} to {save_path}')
@@ -225,12 +221,51 @@ for subject_name in subject_list:
                                     columns_to_compare= muscles_ankle_l ,xlabel='time (s)',
                                 ylabel='Force (N)', legend=['generic', 'torsion'],save_path=save_path.replace('.png','_ankle_left.png'))
                 
+                cs.print_to_log_file(f'Muscle forces torsion',mode='simple')
             except Exception as e:
                 cs.print_to_log_file(f'Error plotting {subject_name} {trial_name} to {save_path}',mode='simple')
                 print(e)
-               
+                   
+        # plot muscle activations comparison between generic and torsion                   
+        if steps_to_plot.activation_torsion and not subject_name.endswith('_torsion'):
+            subject_torsion = subject_name + '_torsion'
+            paths_torsion = cs.subject_paths(data_folder,subject_code=subject_torsion,trial_name=trial_name)
             
-            
+            # get muuscle names (list(set()) removes duplicates)
+            muscles_hip_r, muscles_hip_l, muscles_knee_r, muscles_knee_l, muscles_ankle_r, muscles_ankle_l = muscle_groups(paths)
+
+            save_path = os.path.join(paths.results, 'muscle_activation_torsion',subject_name,f'{trial_name}.png')
+            print(f'Plotting {subject_name} {trial_name} to {save_path}')
+
+            try:
+                pltc.compare_two_df(paths.so_output_activations,paths_torsion.so_output_activations, 
+                                    columns_to_compare= muscles_hip_r ,xlabel='time (s)',
+                                ylabel='Force (N)', legend=['generic', 'torsion'],save_path=save_path.replace('.png','_hip_right.png'))
+
+                pltc.compare_two_df(paths.so_output_activations,paths_torsion.so_output_activations,
+                                    columns_to_compare= muscles_hip_l ,xlabel='time (s)',
+                                ylabel='Force (N)', legend=['generic', 'torsion'],save_path=save_path.replace('.png','_hip_left.png'))
+                
+                pltc.compare_two_df(paths.so_output_activations,paths_torsion.so_output_activations,
+                                    columns_to_compare= muscles_knee_r ,xlabel='time (s)',
+                                ylabel='Force (N)', legend=['generic', 'torsion'],save_path=save_path.replace('.png','_knee_right.png'))
+                
+                pltc.compare_two_df(paths.so_output_activations,paths_torsion.so_output_activations,
+                                    columns_to_compare= muscles_knee_l ,xlabel='time (s)',
+                                ylabel='Force (N)', legend=['generic', 'torsion'],save_path=save_path.replace('.png','_knee_left.png'))
+                
+                pltc.compare_two_df(paths.so_output_activations,paths_torsion.so_output_activations,
+                                    columns_to_compare= muscles_ankle_r ,xlabel='time (s)',
+                                ylabel='Force (N)', legend=['generic', 'torsion'],save_path=save_path.replace('.png','_ankle_right.png'))
+                
+                pltc.compare_two_df(paths.so_output_activations,paths_torsion.so_output_activations,
+                                    columns_to_compare= muscles_ankle_l ,xlabel='time (s)',
+                                ylabel='Force (N)', legend=['generic', 'torsion'],save_path=save_path.replace('.png','_ankle_left.png'))
+                
+                cs.print_to_log_file(f'Muscle activations torsion',mode='simple')
+            except Exception as e:
+                cs.print_to_log_file(f'Error plotting {subject_name} {trial_name} to {save_path}',mode='simple')
+                print(e)            
 
         # plot muscle work comparison between generic and torsion
         if steps_to_plot.muscle_work_torsion and not subject_name.endswith('_torsion'):
@@ -263,6 +298,8 @@ for subject_name in subject_list:
             plt.legend(['Generic', 'Torsion'])
             plt.ylabel('Muscle work (BW.s)')
             bp.save_fig(fig, save_path=os.path.join(paths.results, 'muscle_work_torsion' ,f'{subject_name}_{trial_name}.png'))
+            
+            cs.print_to_log_file(f'Muscle work torsion',mode='simple')
 
         # plot ik and id comparison between generic and torsion
         if steps_to_plot.ik_and_id and not subject_name.endswith('_torsion'):
@@ -275,6 +312,8 @@ for subject_name in subject_list:
             save_path = os.path.join(paths.results, 'ik' ,f'{subject_name}_{trial_name}.png')
             pltc.compare_two_df(ik_generic,ik_torsion, columns_to_compare= dofs ,xlabel='time (s)',
                                 ylabel='Angle (deg)', legend=['generic', 'torsion'],save_path=save_path)
+            
+            cs.print_to_log_file(f'id',mode='simple')
 
             # id
             id_generic = bp.time_normalise_df(bp.import_sto_data(paths.id_output))
@@ -285,4 +324,6 @@ for subject_name in subject_list:
             save_path = os.path.join(paths.results, 'id' ,f'{subject_name}_{trial_name}.png')
             pltc.compare_two_df(id_generic,id_torsion, columns_to_compare= dofs_moment ,xlabel='time (s)',
                                 ylabel='moment (Nm)', legend=['generic', 'torsion'],save_path=save_path)
+            
+            cs.print_to_log_file(f'id',mode='simple')
 # END

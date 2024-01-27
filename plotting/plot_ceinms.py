@@ -158,10 +158,10 @@ def compare_moments(id_path, ceinms_path,save_folder):
 
 def compare_two_df(df1,df2, columns_to_compare='all',xlabel=' ',ylabel=' ', legend=['data1', 'data2'],save_path=''):
     
-    if os.path.isfile(df1):
+    if type(df1) == str and os.path.isfile(df1):
         df1 = bp.import_sto_data(df1)
 
-    if os.path.isfile(df2):
+    if type(df2) == str and os.path.isfile(df2):
         df2 = bp.import_sto_data(df2)
 
     if len(df1) != len(df2):
@@ -188,9 +188,9 @@ def compare_two_df(df1,df2, columns_to_compare='all',xlabel=' ',ylabel=' ', lege
         df1 = df1[columns_to_compare]
         df2 = df2[columns_to_compare]
     except KeyError as e:
-        print(f'KeyError: {e}')
         print(f'Columns in df1: {df1.columns}')
         print(f'Columns in df2: {df2.columns}')
+        exit()
     
     if (len(df1.columns) == 0 or len(df2.columns) == 0) or len(df1.columns) != len(df2.columns):
         print('number of columns does not match between df1 and df2')

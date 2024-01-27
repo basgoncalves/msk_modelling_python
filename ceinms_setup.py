@@ -53,6 +53,9 @@ class subject_paths:
         self.ik_setup = os.path.join(self.trial, 'setup_ik.xml')
         self.id_setup = os.path.join(self.trial, 'setup_id.xml')
         self.ma_setup = os.path.join(self.trial, 'setup_ma.xml')
+        self.so_setup = os.path.join(self.trial, 'setup_so.xml')
+        self.jra_setup = os.path.join(self.trial, 'setup_jra.xml')
+
 
         # IK paths
         self.ik_output = os.path.join(self.trial, 'IK.mot')
@@ -69,9 +72,8 @@ class subject_paths:
         self.so_actuators = os.path.join(self.trial, 'actuators_so.xml')
 
         # JRA paths
-        self.jra_output = os.path.join(self.trial, 'joint_reaction.sto')
-        self.jra_setup = os.path.join(self.trial, 'setup_jra.xml')
-
+        self.jra_output = os.path.join(self.trial, '_joint reaction analysis_ReactionLoads.sto')
+        
         # CEINMS paths 
         self.ceinms_src = r"C:\Git\msk_modelling_matlab\src\Ceinms\CEINMS_2"
         if not os.path.isdir(self.ceinms_src):
@@ -369,14 +371,51 @@ def run_so(paths, rerun=False):
 
     if not os.path.isfile(paths.so_setup) or rerun:
         shutil.copy(os.path.join(paths.setup_folder,'setup_so.xml'), paths.so_setup)
+    
+    try:
+        print(paths.so_setup)
+        shutil.copy(os.path.join(paths.setup_folder,'setup_so.xml'), paths.so_setup)
+    except:
+        print_to_log_file('setup_so.xml not found. Continue... ',' ', ' ')
+        print_to_log_file(e, ' ', ' ')
+        exit()
 
     if os.path.exists(paths.so_output_forces) and not rerun:
         pass
     else:
-        print_to_log_file('static opt run ... ', ' ', 'start') # log file
         bp.runSO(paths.model_scaled, paths.trial, paths.so_actuators)
         print_to_log_file('done! ', ' ', ' ') # log file
 
+def run_jra(paths, rerun = False):
+   
+    print_to_log_file('jra run ... ', ' ', 'start') # log file
+
+    if not os.path.isfile(paths.jra_setup) or rerun:
+        shutil.copy(os.path.join(paths.setup_folder,'setup_jra.xml'), paths.jra_setup)
+        pass
+    
+    edit_xml_file(paths.jra_setup,'model_file',relpath(paths.model_scaled,paths.trial))
+
+    initial_time, last_time = get_initial_and_last_times(paths.ik_output)
+    edit_xml_file(paths.jra_setup,'initial_time',initial_time)
+    edit_xml_file(paths.jra_setup,'final_time',last_time)
+    edit_xml_file(paths.jra_setup,'start_time',initial_time)
+    edit_xml_file(paths.jra_setup,'end_time',last_time)
+    edit_xml_file(paths.jra_setup,'coordinates_file',relpath(paths.ik_output,paths.trial))
+    edit_xml_file(paths.jra_setup,'external_loads_file',relpath(paths.grf_xml,paths.trial))
+    edit_xml_file(paths.jra_setup,'results_directory',r'.\\')
+    edit_xml_file(paths.jra_setup,'forces_file',relpath(paths.so_output_forces,paths.trial))
+
+    if os.path.exists(paths.so_output_forces) and not rerun:
+        pass
+    else:
+        
+        jra = osim.AnalyzeTool(paths.jra_setup)
+        # model = osim.Model(paths.model_scaled)
+        # jra.setModel(model)
+        jra.run()
+        # print_to_log_file('done! ', ' ', ' ') # log file
+    
 # CEINMS functions
 def copy_template_files_ceinms(paths: type,replace = False):
     try:
@@ -502,19 +541,18 @@ if __name__ == '__main__':
     data_folder = get_main_path()
     project_settings = bp.create_project_settings(data_folder)
 
-    analyis_to_run = ['scale','ik','id','ma','so','ceinms_cal','ceinms_exe']
-    # analyis_to_run = analyis_to_run[3:-1]
+    analyis_to_run = ['scale','ik','id','ma','so','jra','ceinms_cal','ceinms_exe']
+    analyis_to_run = analyis_to_run[1:3] #+ analyis_to_run[4:6]
     
     # options to re-run the analysis ['scale','ik','id','ma','so','ceinms_cal','ceinms_templates','ceinms_exe']
-    re_run = ['scale','ik','id','ma','so','ceinms_cal','ceinms_templates','ceinms_exe'] 
-    re_run = re_run
+    re_run = ['scale','ik','id','ma','so','jra','ceinms_cal','ceinms_templates','ceinms_exe'] 
+    re_run = re_run[1:2] #+ re_run[4:6]
 
-    data_folder = get_main_path()
     subject_list = project_settings['subject_list']
     # subject_list = ['Athlete_03','Athlete_06','Athlete_14','Athlete_20','Athlete_22','Athlete_25','Athlete_26']
     # subject_list = ['Athlete_06_torsion','Athlete_14_torsion','Athlete_20_torsion','Athlete_22_torsion','Athlete_25_torsion','Athlete_26_torsion']
-    subject_list = subject_list[2:]
-    trial_list = ['sq_70','sq_90']
+    subject_list = subject_list[8:10]
+    trial_list = ['sq_70', 'sq_90']
     calibration_trials = ['sq_70']
     # trial_list = ['sq_90']
 
@@ -533,12 +571,21 @@ if __name__ == '__main__':
 
     bp.ask_to_continue()
 
+    print_to_log_file('\n \n \n New analysis started ...')
+    print_to_log_file('    subject list: ',str(subject_list), ' ')
+    print_to_log_file('    trial list: ',str(trial_list), ' ')
+    print_to_log_file('    calibration trials: ',str(calibration_trials), ' ')
+    print_to_log_file('    analysis to run (if input does not exist): ',str(analyis_to_run), ' ')
+    print_to_log_file('    re-run analysis: ',str(re_run), ' ')
+
+    
     for subject_name in subject_list:
         for trial_name in trial_list:
                        
             # create subject paths object with all the paths in it 
             paths = subject_paths(data_folder,subject_code=subject_name,trial_name=trial_name)
-                        
+
+            
             if not os.path.isdir(paths.trial):
                 print_to_log_file('Trial folder not found. Continue... ',' ', ' ')
                 continue
@@ -587,7 +634,7 @@ if __name__ == '__main__':
                     print_to_log_file('stop for error ...', ' ', ' ')
                     print_to_log_file(str(e), ' ', ' ')
 
-
+                
                 try: 
                     print_to_log_file('check muscle moment arms ... ', ' ', 'start') # log file
                     bp.checkMuscleMomentArms(paths.model_scaled, paths.ik_output, leg = 'l')
@@ -597,7 +644,7 @@ if __name__ == '__main__':
                     print_to_log_file('stop for error ...', ' ', ' ')
                     print_to_log_file(str(e), ' ', ' ')
             else:
-                print_to_log_file('IK already exists. Continue... ',' ', ' ')
+                print_to_log_file('IK skipped... ',' ', ' ')
             #######################################################################################################
             #######################################              ID              ##################################
             #######################################################################################################
@@ -627,7 +674,7 @@ if __name__ == '__main__':
                     print_to_log_file('stop for error ...' , ' ', ' ')
                     print_to_log_file(str(e), ' ', ' ')
             else:
-                print_to_log_file('ID already exists. Continue... ',' ', ' ')
+                print_to_log_file('ID skipped... ',' ', ' ')
 
             #######################################################################################################
             #######################################      MUSCLE ANALYSIS         ##################################
@@ -656,18 +703,19 @@ if __name__ == '__main__':
                         print_to_log_file('done! ',' ', ' ') # log file
                     else:
                         print('Muscle analysis already in the folder for ' + subject_name + ' ' + trial_name)
-                        print_to_log_file('Muscle analysis already exists. Continue... ',' ', ' ') # log file
+                        print_to_log_file('Muscle analysis skipped... ',' ', ' ') # log file
                 except Exception as e:
                     print_to_log_file('stop for error ...' , ' ', ' ') # log file
                     print_to_log_file(e)
             else:
-                print_to_log_file('Muscle analysis already exists. Continue... ',' ', ' ')
+                print_to_log_file('Muscle analysis skipped... ',' ', ' ')
 
             #######################################################################################################
             #######################################             SO               ##################################
             #######################################################################################################
             if ('so' in analyis_to_run and not os.path.isfile(paths.so_output_forces)) or 'so' in re_run:
                 try:
+                    print_to_log_file('static opt run ... ', ' ', 'start') # log file
                     if 'so' in re_run:
                         run_so(paths, rerun=True)
                     else:
@@ -676,7 +724,23 @@ if __name__ == '__main__':
                     print_to_log_file('stop for error ...' , ' ', ' ')
                     print_to_log_file(str(e), ' ', ' ')
             else:
-                print_to_log_file('SO already exists. Continue... ',' ', ' ')
+                print_to_log_file('SO skipped... ',' ', ' ')
+
+            #######################################################################################################
+            #######################################             JRA              ##################################
+            #######################################################################################################
+            if ('jra' in analyis_to_run and not os.path.isfile(paths.so_output_forces)) or 'jra' in re_run:
+                try:
+                   
+                    if 'jra' in re_run:
+                        run_jra(paths, rerun=True)
+                    else:
+                        run_jra(paths, rerun=False)
+                except Exception as e:
+                    print_to_log_file('stop for error ...' , ' ', ' ')
+                    print_to_log_file(str(e), ' ', ' ')
+            else:
+                print_to_log_file('JRA skipped... ',' ', ' ')
             
             #######################################################################################################
             #######################################           CEINMS             ##################################
@@ -720,7 +784,7 @@ if __name__ == '__main__':
                     print_to_log_file(error_text , ' ', ' ') # log file
                     print_to_log_file(str(e), ' ', ' ')
             else:
-                print_to_log_file('CEINMS calibration already exists. Continue... ',' ', ' ')
+                print_to_log_file('CEINMS calibration skipped... ',' ', ' ')
             # run CEINMS execution
             if ('ceinms_exe' in analyis_to_run and not os.path.isfile(paths.ceinms_results_forces)) or 'ceinms_exe' in re_run:
                 try:
@@ -731,7 +795,7 @@ if __name__ == '__main__':
                     print_to_log_file('stop for error ...' , ' ', ' ') # log file
                     print_to_log_file(str(e), ' ', ' ')
             else:
-                print_to_log_file('CEINMS execution already exists. Continue... ',' ', ' ')
+                print_to_log_file('CEINMS execution skipped... ',' ', ' ')
         # end trial loop
         
     # end subject loop
