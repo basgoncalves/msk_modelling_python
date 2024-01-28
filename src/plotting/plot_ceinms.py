@@ -170,7 +170,7 @@ def compare_two_df(df1,df2, columns_to_compare='all',xlabel=' ',ylabel=' ', lege
         df1 = bp.time_normalise_df(df1)
         df2 = bp.time_normalise_df(df2)
     
-    if len(columns_to_compare) == 1 and columns_to_compare == 'all':
+    if columns_to_compare == 'all':
         columns_to_compare = df1.columns
     
     N = len(columns_to_compare)
@@ -190,6 +190,7 @@ def compare_two_df(df1,df2, columns_to_compare='all',xlabel=' ',ylabel=' ', lege
     except KeyError as e:
         print(f'Columns in df1: {df1.columns}')
         print(f'Columns in df2: {df2.columns}')
+        print(f'Columns to compare: {columns_to_compare}')
         exit()
     
     if (len(df1.columns) == 0 or len(df2.columns) == 0) or len(df1.columns) != len(df2.columns):

@@ -83,7 +83,7 @@ def plot_intercative(df,save_path_html = None):
         print('Saved to: ', save_path_html)
 
 # Replace model markerset
-def replace_model_markerset(model_file_path = None, target_model = None, markerset_path = None):
+# def replace_model_markerset(model_file_path = None, target_model = None, markerset_path = None):
 
     if model_file_path is None:
         model_file_path = r"C:\Git\isbs2024\Data\Scaled_models\Athlete_22_torsion_scaled_GUI.osim"
@@ -94,7 +94,6 @@ def replace_model_markerset(model_file_path = None, target_model = None, markers
     
     rm.export_markerset_osim(model_file_path, markerset_path, [])
     rm.add_markerset_to_osim(target_model, target_model.replace('.osim','_new.osim'), markerset_path)
-
 
 # example_run_single_file(subject_name, trial_name)
 # plot_single_trial(subject_name, trial_name, analysis = 'jra')
@@ -107,14 +106,17 @@ def replace_model_markerset(model_file_path = None, target_model = None, markers
 # example_run_single_file()
 # update_max_isometric_force(subject_name = 'Athlete_22_torsion', trial_name = 'sq_90')
 
-df = bp.import_sto_data(r'C:\Git\isbs2024\Data\Simulations\Athlete_06\sq_90\EMG_filtered.sto')
-plot_intercative(df, save_path_html = r'C:\Git\isbs2024\Data\Simulations\Athlete_06\sq_90\results\emg_filtered.html')
+# df = bp.import_sto_data(r'C:\Git\isbs2024\Data\Simulations\Athlete_06\sq_90\EMG_filtered.sto')
+# plot_intercative(df, save_path_html = r'C:\Git\isbs2024\Data\Simulations\Athlete_06\sq_90\results\emg_filtered.html')
 
 # replace_model_markerset()
 
 # model = r"C:\Git\isbs2024\Data\Scaled_models\Athlete_22_torsion_scaled.osim"
 # ik_file = r"C:\Git\isbs2024\Data\Simulations\Athlete_22_torsion\sq_70\IK.mot"
 # bp.checkMuscleMomentArms(model_file_path=model, ik_file_path=ik_file, leg='l', threshold=0.005)
+
+
+
 
 
 print('Done')

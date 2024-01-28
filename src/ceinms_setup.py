@@ -546,7 +546,7 @@ if __name__ == '__main__':
     
     # options to re-run the analysis ['scale','ik','id','ma','so','ceinms_cal','ceinms_templates','ceinms_exe']
     re_run = ['scale','ik','id','ma','so','jra','ceinms_cal','ceinms_templates','ceinms_exe'] 
-    re_run = re_run[1:2] #+ re_run[4:6]
+    re_run = re_run[2:6] #+ re_run[4:6]
 
     subject_list = project_settings['subject_list']
     # subject_list = ['Athlete_03','Athlete_06','Athlete_14','Athlete_20','Athlete_22','Athlete_25','Athlete_26']

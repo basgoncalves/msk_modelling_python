@@ -6,6 +6,7 @@
 import subprocess
 import importlib
 import os
+import time
 import unittest
 
 import sys
@@ -1519,7 +1520,7 @@ def runJRA(modelpath, trialPath, setupFilePath):
 
 
 # %% ##############################################  OpenSim operations (to be complete)  ############################################################
-def sum_muscle_work(model_path, sto_path, body_weight = 1):
+def sum_muscle_work(model_path, muscle_force_sto, muscle_length_sto, body_weight = 1):
     
     def sum_df_columns(df, groups = {}):
         # Function to sum columns of a dataframe based on a dictionary of groups
@@ -1535,18 +1536,31 @@ def sum_muscle_work(model_path, sto_path, body_weight = 1):
 
         return summed_df
 
-    muscle_force = import_sto_data(sto_path)
+    if not os.path.isfile(muscle_force_sto):
+        print_terminal_spaced('File not found:', muscle_force_sto)
+        return
 
-    muscle_work = calculate_integral(muscle_force)
-    muscle_work.to_csv(os.path.join(os.path.dirname(sto_path),'MuscleWork.csv'), index=False)
+    if not os.path.isfile(model_path):
+        print_terminal_spaced('File not found:', model_path)
+        return
+    
+    if not os.path.isfile(muscle_length_sto):
+        print_terminal_spaced('File not found:', muscle_length_sto)
+        return
+    
+
+    # muscle_work 
+    muscle_work = calculate_muscle_work(muscle_length_sto,muscle_force_sto, save = False, save_path = None)
+    muscle_work.to_csv(os.path.join(os.path.dirname(muscle_force_sto),'MuscleWork.csv'), index=False)
     
     # force curce normalise to weight and save as csv
+    muscle_force = time_normalise_df(import_sto_data(muscle_force_sto))
     muscle_force_normalised_to_weight = normalise_df(muscle_force,body_weight)
-    muscle_force_normalised_to_weight.to_csv(os.path.join(os.path.dirname(sto_path),'MuscleForces_normalised.csv'), index=False)
+    muscle_force_normalised_to_weight.to_csv(os.path.join(os.path.dirname(muscle_force_sto),'MuscleForces_normalised.csv'), index=False)
 
     # muscle work normalised to weight and save as csv
-    muscle_work_normalised_to_weight = calculate_integral(muscle_force_normalised_to_weight)
-    muscle_work_normalised_to_weight.to_csv(os.path.join(os.path.dirname(sto_path),'MuscleWork_normalised.csv'), index=False)
+    muscle_work_normalised_to_weight = normalise_df(muscle_work,body_weight)
+    muscle_work_normalised_to_weight.to_csv(os.path.join(os.path.dirname(muscle_force_sto),'MuscleWork_normalised.csv'), index=False)
 
     muscles_r_hip_flex = get_muscles_by_group_osim(model_path,['hip_flex_r','hip_add_r','hip_inrot_r'])
     muscles_r_hip_ext = get_muscles_by_group_osim(model_path,['hip_ext_r','hip_abd_r','hip_exrot_r'])
@@ -1577,9 +1591,40 @@ def sum_muscle_work(model_path, sto_path, body_weight = 1):
     }
     # Perform grouping and summing for each group
     muscle_work_summed = sum_df_columns(muscle_work_normalised_to_weight,groups)
-
+    # sum the work per group 
+    muscle_work_summed= muscle_work_summed.sum(axis=0)
     return muscle_work_summed
-    pass
+
+def calculate_muscle_work(muscle_length_sto,muscle_force_sto, save = True, save_path = None):
+
+    try:
+        length = time_normalise_df(import_sto_data(muscle_length_sto))
+        force = time_normalise_df(import_sto_data(muscle_force_sto))
+    except:
+        print('Error importing files')
+        return
+    
+    work = pd.DataFrame()
+    
+    for muscle in length.columns:
+        if muscle == 'time':
+            work['time'] = length['time']
+        elif muscle in force.columns:
+            work_series = length[muscle] * force[muscle]
+            work[muscle] = work_series.sum(axis=0) 
+        else:
+            print('Muscle', muscle, 'not found in forces')
+    work = work.iloc[[0]]
+    if save and not save_path:
+        work.to_csv(os.path.join(os.path.dirname(muscle_force_sto),'results'),'muscle_work.csv')
+        print('Data saved to', os.path.join(os.path.dirname(muscle_force_sto),'results'),'muscle_work.csv')
+    elif save and save_path:
+        work.to_csv(save_path)
+        print('Data saved to', save_path)
+
+    return work
+
+
 
 #%% ##############################################  Data checks (to be complete) ############################################################
 def checkMuscleMomentArms(model_file_path, ik_file_path, leg = 'l', threshold = 0.005):
@@ -2285,9 +2330,9 @@ def plot_bar_df(df):
     ax = df_transposed.plot(kind='bar', figsize=(10, 6), colormap='viridis')
 
     # Customize the plot
-    ax.set_xlabel('Joint')
-    ax.set_ylabel('Angle (degrees)')
-    ax.set_title('Muscle work per joint')
+    ax.set_xlabel(' ')
+    ax.set_ylabel(' ')
+    ax.set_title(' ')
     ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
 
     # Adjust subplot layout to make room for x-axis tick labels
@@ -2446,6 +2491,14 @@ def ask_to_continue():
         pass
     elif answer == 'n':
         sys.exit('Exiting...')
+
+def print_terminal_spaced(text = " "):
+    print("=============================================")
+    print(" ")
+    print(" ")
+    print(" ")
+    print(text)
+    time.sleep(1.5)
 
 
 
