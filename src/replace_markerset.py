@@ -122,16 +122,49 @@ def add_markerset_to_osim(osim_path, new_opensim_path, markerset_path):
         cs.print_terminal_spaced('Error writing output file: {}'.format(e))
         exit()
 
+def reorder_markers(xml_path, order):
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+
+    # Create a dictionary to store marker elements by name
+    # markers_dict = {marker.find('name').text: marker for marker in root.findall('.//Marker')}
+
+    # Create a new MarkerSet element to replace the existing one
+    new_marker_set = ET.Element('MarkerSet')
+    # Create the 'objects' element
+    objects_element = ET.SubElement(new_marker_set, 'objects')    
+    groups_element = ET.SubElement(new_marker_set, 'groups')    
+
+    # Add Marker elements to the new MarkerSet in the specified order
+    for marker_name in order:
+        existing_marker = root.find('.//Marker[@name="' + marker_name + '"]')
+        if existing_marker:
+            objects_element.append(existing_marker)
+
+    # Replace the existing MarkerSet with the new one
+    existing_marker_set = root.find('.//MarkerSet')
+    existing_marker_set.clear()
+    existing_marker_set.extend(new_marker_set)
+
+    # Save the modified XML back to a file
+    tree.write(xml_path)
+
 
 if __name__ == '__main__':
-        
-    model_with_generic_markerset = r"C:\Git\isbs2024\Data\Scaled_models\Athlete_03_scaled.osim" 
-    alex_model_complex = r"C:\Git\isbs2024\Data\Scaled_models\Alex\Athlete_03_scaled.osim"
+    
+    # edit bellow
+    subject_name = 'Athlete_14' # id code
+    torsion_model = True # True or False
 
-    subject_name = 'Athlete_22'
+    # DO NOT CHANGE
+    model_with_generic_markerset = r"C:\Git\isbs2024\Data\Scaled_models\Athlete_03_scaled.osim" # DO NOT CHANGE
+    alex_model_complex = r"C:\Git\isbs2024\Data\Scaled_models\Alex\Athlete_03_scaled.osim" # DO NOT CHANGE
 
     original_osim_path = rf"C:\Git\isbs2024\Data\Scaled_models\Alex\{subject_name}_scaled.osim"
-    final_osim_path = rf"C:\Git\isbs2024\Data\Scaled_models\{subject_name}_torsion_scaled.osim"
+    if torsion_model:
+        final_osim_path = rf"C:\Git\isbs2024\Data\Scaled_models\{subject_name}_torsion_scaled.osim"
+    else:
+        final_osim_path = rf"C:\Git\isbs2024\Data\Scaled_models\{subject_name}_scaled.osim"
 
     default_markerset = model_with_generic_markerset.replace('.osim','_markerset.xml')
 
@@ -153,6 +186,15 @@ if __name__ == '__main__':
     cs.print_terminal_spaced('Please check the markers in opensim GUI against origina model and adjust if necessary')
     cs.print_to_log_file('\n\n Model adjusted for subject: {} \n'.format(subject_name))
 
+    # reodrer markers
+    orders_markers = ['GLAB','RFHD','LFHD','C7','T12','STRN', # upper body
+                'RACR','RUAOL','RUA2','RUA3','RCUBL','RCUBM','RLAOL','RLA2','RLA3','RWRU','RWRR', # right arm
+                'LACR','LUAOL','LUA2','LUA3','LCUBL','LCUBM','LLAOL','LLA2','LLA3','LWRU','LWRR', # left arm
+                'RASI', 'LASI', 'RPSI', 'LPSI', 'SACROL', 'SACR2', 'SACR3', # pelvis
+                'RTHOL', 'RTH2','RTH3','RKNEL', 'RKNEM', 'RSHAOL', 'RSHA2', 'RSHA3','RMALL', 'RMALM','RHEE','RM5','RTOE',# right leg
+                'LTHOL', 'LTH2','LTH3','LKNEL', 'LKNEM', 'LSHAOL', 'LSHA2', 'LSHA3','LMALL', 'LMALM','LHEE','LM5','LTOE' # left leg
+                ]                
+    
 
 
 

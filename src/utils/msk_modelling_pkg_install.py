@@ -21,7 +21,11 @@ def install_opensim(VERSION=4.3):
 
     osimIntallDirectory= r'C:\OpenSim VERSION\sdk\Python'.replace("VERSION", str(VERSION))
     os.chdir(osimIntallDirectory)
-    subprocess.run(['python', '.\setup_win_python38.py'], check=True) # Run setup script
+
+    if VERSION == 4.3:
+        subprocess.run(['python', '.\setup_win_python38.py'], check=True) # Run setup script
+    elif VERSION == 3.3:
+        subprocess.run(['python', '.\setup.py install'], check=True)
     output = subprocess.run(['python', '-m', 'pip', 'install', '.'], check=True) # Install the package
 
     print(output.stderr())
@@ -60,7 +64,7 @@ install_pipreqs()
 check_python_version(osimVersion)
 
 Packages = ['autopep8','bs4','c3d','docx','jupyter','numpy','opensim','pyc3dserver','requests','pandas','selenium','webdriver-manager','matplotlib',
-        'scipy','tk','tkfilebrowser','customtkinter','xmltodict','screeninfo']
+        'scipy','tk','tkfilebrowser','customtkinter','xmltodict','screeninfo','spm1d']
 
 for pkg in Packages:
     if any(pkg in s for s in installed_packages_list):
@@ -70,7 +74,7 @@ for pkg in Packages:
         try:
             subprocess.check_call([sys.executable, '-m', 'pip', 'install', pkg])
         except:
-            install_opensim(4.3)
+            install_opensim(3.3)
 
 if __name__ == '__main__':
     opensimVersion = input('What is your current opensim version: ')
