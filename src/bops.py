@@ -1257,7 +1257,7 @@ def get_muscles_by_group_osim(xml_path, group_names): # olny tested for Catelli 
 
     return members_dict
 
-def increase_max_isometric_force(model_path, factor):
+def increase_max_isometric_force(model_path, factor): # opensim API
     # Load the OpenSim model
     model = osim.Model(model_path)
 
@@ -1273,7 +1273,7 @@ def increase_max_isometric_force(model_path, factor):
 
     print(f'Model with increased forces saved to: {output_model_path}')
 
-def update_max_isometric_force_xml(xml_file, factor):
+def update_max_isometric_force_xml(xml_file, factor): # xml
     # Parse the XML file
     tree = ET.parse(xml_file)
     root = tree.getroot()
@@ -1299,6 +1299,103 @@ def update_max_isometric_force_xml(xml_file, factor):
 
     print(f'Modified XML saved to: {output_xml_file}')
     
+def reorder_markers(xml_path, order):
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+
+    # Create a dictionary to store marker elements by name
+    # markers_dict = {marker.find('name').text: marker for marker in root.findall('.//Marker')}
+
+    # Create a new MarkerSet element to replace the existing one
+    new_marker_set = ET.Element('MarkerSet')
+    # Create the 'objects' element
+    objects_element = ET.SubElement(new_marker_set, 'objects')    
+    groups_element = ET.SubElement(new_marker_set, 'groups')    
+
+    # Add Marker elements to the new MarkerSet in the specified order
+    for marker_name in order:
+        existing_marker = root.find('.//Marker[@name="' + marker_name + '"]')
+        if existing_marker:
+            objects_element.append(existing_marker)
+
+    # Replace the existing MarkerSet with the new one
+    existing_marker_set = root.find('.//MarkerSet')
+    existing_marker_set.clear()
+    existing_marker_set.extend(new_marker_set)
+
+    # Save the modified XML back to a file
+    tree.write(xml_path)
+
+def copy_marker_locations(model_path1,model_path2,marker_names='all',marker_common_frame='RASI'):
+    '''
+    This function copies the location of markers from model2 to model1. 
+    The location of the marker in model1 is changed to the location of the marker in model2 
+    in the frame of the common marker. 
+    The location of the marker in model1 is changed back to the original parent frame. 
+    The model with the changed marker locations is saved as a new model.
+    '''
+    # Load the OpenSim model
+    model1 = osim.Model(model_path1)
+    markerset1 = model1.get_MarkerSet()
+    state1 = model1.initSystem()
+
+    model2 = osim.Model(model_path2)
+    markerset2 = model2.get_MarkerSet()
+    state2 = model2.initSystem()
+    
+    # if marker_names == 'all' then use all markers in model1
+    if marker_names == 'all':
+        marker_names = [markerset1.get(i).getName() for i in range(markerset1.getSize())]
+
+    if marker_common_frame not in marker_names:
+        raise ValueError('The marker_common_frame must be included in marker_names')
+
+    # Loop through muscles and update their maximum isometric force
+    for marker_name in marker_names:
+
+        try:
+            if markerset1.contains(marker_name):
+                marker1 = dict()
+                marker2 = dict()
+                
+                # get marker objects
+                marker1['marker'] = markerset1.get(marker_name)
+                marker2['marker'] = markerset2.get(marker_name)
+
+                # get location of markers
+                marker1['location'] = list(marker1['marker'].get_location().to_numpy())           
+                marker2['location'] = list(marker2['marker'].get_location().to_numpy())
+
+                # get parent frame of markers            
+                marker1['parent_frame'] = marker1['marker'].getParentFrame()
+                marker2['parent_frame'] = marker2['marker'].getParentFrame()
+
+                # get pelvis frame from marker_common_frame marker
+                marker1['pelvis_frame'] = markerset1.get(marker_common_frame).getParentFrame()
+                marker2['pelvis_frame'] = markerset2.get(marker_common_frame).getParentFrame()
+                
+                # get location of marker 2 in pelvis frame
+                marker2['marker'].changeFramePreserveLocation(state2,marker2['pelvis_frame'])
+                marker2['location_in_pelvis'] = marker2['marker'].get_location()
+                
+                # change location of marker 1 to marker 2 in pelvis frame
+                marker1['marker'].changeFramePreserveLocation(state1,marker1['pelvis_frame'])
+                marker1['marker'].set_location(marker2['location_in_pelvis'])
+
+                # change marker 1 back to original parent frame
+                marker1['marker'].changeFramePreserveLocation(state1,marker1['parent_frame'])
+
+                print(f'Location of marker {marker_name} changed')
+        except Exception as e:
+            print(f'Error changing location of marker {marker_name}: {e}')
+
+    # Save the modified model
+    output_model_path = model_path1.replace('.osim', '_new.osim')
+    model1.printToXML(output_model_path)
+    print(f'Model with increased forces saved to: {output_model_path}')
+
+    # print(f'Model with increased forces saved to: {output_model_path}')
+
 
 #%% ##############################################  OpenSim (to be complete)  ############################################################
 def scale_model(originalModelPath,targetModelPath,trcFilePath,setupScaleXML):
@@ -2322,12 +2419,14 @@ def plot_line_df(df,sep_subplots = True, columns_to_plot='all',xlabel=' ',ylabel
     
     return fig, axs
 
-def plot_bar_df(df):
+def plot_bar_df(df,transpose = False):
+
     # Transpose the DataFrame to have rows as different bar series
-    df_transposed = df.transpose()
+    if transpose:
+        df = df.transpose()
 
     # Plot the bar chart
-    ax = df_transposed.plot(kind='bar', figsize=(10, 6), colormap='viridis')
+    ax = df.plot(kind='bar', figsize=(10, 6), colormap='viridis')
 
     # Customize the plot
     ax.set_xlabel(' ')
@@ -2574,6 +2673,11 @@ class test_bops(unittest.TestCase):
         print('getting testing data')
         self.assertTrue(get_testing_file_path('id'))
     
+    def test_opensim(self):
+        print('testing opensim ... ')
+        import opensim as osim
+        self.assertTrue(osim.__version__ == '4.2')
+
     ###### TESTS FAILING ######
     # def test_loop_through_folders(self):
     #     print('testing loop through folders ... ')

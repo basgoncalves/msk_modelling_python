@@ -376,8 +376,8 @@ def result_summary(subject_list, trial_list, data_folder):
 
             paths = cs.subject_paths(data_folder,subject_code=subject_name,trial_name=trial_name)
             try:
-                muscle_work_per_subject = pd.read_csv(os.path.join(paths.results, 'muscle_work_torsion' ,f'{subject_name}_{trial_name}.csv'))
-                joint_forces_per_subject = pd.read_csv(os.path.join(paths.results, 'jra', subject_name, f'{trial_name}_summary.csv'))
+                muscle_work_per_subject = pd.read_csv(os.path.join(paths.results, 'muscle_work_torsion' ,f'{subject_name}_{trial_name}.csv'),index_col=0)
+                joint_forces_per_subject = pd.read_csv(os.path.join(paths.results, 'jra', subject_name, f'{trial_name}_summary.csv'), index_col=0)
 
                 jra_time_series = pd.read_csv(os.path.join(paths.results, 'jra', subject_name, f'jra_generic_{trial_name}.csv'), index_col=0)
                 jra_time_series_torsion = pd.read_csv(os.path.join(paths.results, 'jra', subject_name, f'jra_torsion_{trial_name}.csv'), index_col=0)
@@ -399,8 +399,7 @@ def result_summary(subject_list, trial_list, data_folder):
                         jra[trial_name][col] = pd.concat([jra[trial_name][col], jra_time_series[col]], axis=1)
                         jra[trial_name][col + '_torsion'] = pd.concat([jra[trial_name][col + '_torsion'], jra_time_series[col]], axis=1)
                         jra[trial_name][col + '_difference'] = pd.concat([jra[trial_name][col + '_difference'], (jra_time_series[col] - jra_time_series_torsion[col])])
-
-                
+            
             except Exception as e:
                 bp.print_terminal_spaced(f'Error loading files for {subject_name} {trial_name}')
                 print(e)
@@ -412,26 +411,29 @@ def result_summary(subject_list, trial_list, data_folder):
             muscle_work_diff[subject_name] = diff
 
             resultant_rows = joint_forces_per_subject[joint_forces_per_subject['joint'].str.contains('_resultant')]
-            diff_jrl = (resultant_rows['max_generic'] - resultant_rows['max_torsion'])
+            diff_jrl = (resultant_rows['max_torsion']-resultant_rows['max_generic'])
             jrl_diff[subject_name] = diff_jrl
+            joints = resultant_rows['joint'].to_list()
               
     # transpose and remove unnamed columns
     muscle_work_diff_short = muscle_work_diff
-    muscle_work_diff_short = muscle_work_diff_short.transpose()
     unnamed_cols = muscle_work_diff_short.filter(regex='Unnamed').columns
     muscle_work_diff_short = muscle_work_diff_short.drop(unnamed_cols, axis=1)
 
-    jrl_diff = jrl_diff.transpose()
     jrl_diff = jrl_diff.drop(jrl_diff.filter(regex='Unnamed').columns, axis=1)
+    jrl_diff.to_csv(os.path.join(paths.results, 'jra' ,'summary_differences.csv'))
 
     # plot muscle work difference bar chart
     try:
-        fig = bp.plot_bar_df(muscle_work_diff_short)
+        fig_work = bp.plot_bar_df(muscle_work_diff_short)
         plt.ylabel(' J/BW difference from generic')
         plt.legend(perosnalised_label)
         plt.ylabel('Muscle work (J/BW)')
         plt.title('Muscle work difference between generic and torsion')
-        bp.save_fig(fig, save_path=os.path.join(paths.results, 'muscle_work_torsion' ,'summary_differences.png'))
+        plt.gca().spines['top'].set_visible(False)
+        plt.gca().spines['right'].set_visible(False)
+
+        bp.save_fig(fig_work, save_path=os.path.join(paths.results, 'muscle_work_torsion' ,'summary_differences.png'))
         
         muscle_work_diff.to_csv(os.path.join(paths.results, 'muscle_work_torsion' ,'summary_differences.csv'))
     except Exception as e:
@@ -443,13 +445,14 @@ def result_summary(subject_list, trial_list, data_folder):
         fig = bp.plot_bar_df(jrl_diff)
         plt.ylabel(' Difference from generic (BW)')
         plt.legend(perosnalised_label)
-        plt.gca().set_xticklabels(['Hip', 'Knee', 'Ankle'])
+        plt.gca().set_xticklabels(['right hip','right knee','right ankle','left hip','left knee','left ankle'], rotation=45)
         plt.title('Peak joint resultant forces difference between generic and torsion')
         bp.save_fig(fig, save_path=os.path.join(paths.results, 'jra' ,'summary_differences.png'))
         print(f'Plot saved in {os.path.join(paths.results, "jra" ,"summary_differences.png")}')
     except Exception as e:
         print('Failed to plot joint resultant forces difference bar chart')
         print(e)
+    
     # plot muscle work difference spider chart
     try:
         fig = plt.figure(figsize=(10, 6))
@@ -478,6 +481,58 @@ def result_summary(subject_list, trial_list, data_folder):
         print('Failed to plot muscle work difference spider chart \n')
         print(e)
     
+    # combine jra and muscle work difference
+    try:
+        # Create a new figure with a new set of Axes
+        fig = plt.figure(figsize=(15, 6))
+        ax = fig.add_subplot(121)
+        ax_work = muscle_work_diff_short.plot(kind='bar',ax=plt.gca(),colormap='viridis')
+        ax_work.set_title('A', loc='left',x=-0.01, y=1.05)
+        ax_work.set_xticklabels(ax.get_xticklabels(), rotation=45)
+        ax_work.set_ylabel(u'Δ muscle work differences [torsion - generic] (J/BW)')
+        ax_work.spines['top'].set_visible(False)
+        ax_work.spines['right'].set_visible(False)
+        ax_work.legend('')
+               
+        
+        # add subplot joint contact forces
+        ax = fig.add_subplot(122)
+        ax = jrl_diff.plot(kind='bar',ax=plt.gca(),colormap='viridis')
+        ax.set_title('B', loc='left',x=-0.01, y=1.05)
+        ax.set_ylabel(u'Δ peak joint contact forces [torsion - generic] (BW)')
+        ax.set_xticklabels(['right hip','right knee','right ankle','left hip','left knee','left ankle'], rotation=45)
+        ax.legend(perosnalised_label, loc='center', frameon=False,bbox_to_anchor=(0.75, 0.9))    
+
+        plt.subplots_adjust(left=0.12, right=0.9, top=0.8, bottom=0.15)
+
+        plt.gca().spines['top'].set_visible(False)
+        plt.gca().spines['right'].set_visible(False)
+        
+        # save figure
+        save_path = os.path.join(paths.results, 'summary_muscle_work_jra_differences.png')
+        bp.save_fig(fig, save_path=save_path)   
+    except Exception as e:
+        print('Failed to combine jra and muscle work difference')
+        print(e)
+
+
+    # sumary table for joint reaction forces
+    try:
+        diff = pd.read_csv(os.path.join(paths.results, 'jra' ,'summary_differences.csv'), index_col=0)
+        
+        print('summary table for joint reaction forces')
+        for col in diff.columns:
+            print(col)
+            print('hips {0} {1}'.format(diff[col].iloc[0],diff[col].iloc[3]))
+            print('knees {0} {1}'.format(diff[col].iloc[1],diff[col].iloc[4]))
+            print('ankles {0} {1}'.format(diff[col].iloc[2],diff[col].iloc[5]))
+
+        pass
+    except Exception as e:
+        print('Failed to create summary table for joint reaction forces')
+        print(e)
+
+    exit()
     # plot summary joint reaction forces time series
     try:
         print_terminal_spaced('Plotting summary joint reaction forces time not finished yet. Exiting...')
