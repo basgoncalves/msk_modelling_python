@@ -470,6 +470,81 @@ def copy_template_files_ceinms(paths: type,replace = False):
     else:
         print('files already in the folder')
 
+def convert_osim_to_ceinms_model(osim_model,ceinms_uncal_model_xml):
+    
+    def add_mtu_to_ceinms_xml(tree,muscle_name='default_mtu',c1=-0.5,c2=-0.5,shape_factor=0.1,optimal_fibre_length=0.1031,pennation_angle=0.11478092,tendon_slack_length=0.035450291324676,max_isometric_force=625.819672131148,strength_coefficient=1):
+
+        root = tree.getroot()    
+
+        # Create a new "mtu" element
+        new_mtu = ET.Element('mtu')
+
+        # Check if an "mtu" with the same name already exists
+        existing_mtu = root.find(f'.//mtu[name="{muscle_name}"]')
+
+        if existing_mtu is not None:
+            # Delete the existing "mtu" element
+            root.find('.//mtuSet').remove(existing_mtu)
+        
+        # Create a new "mtu" element
+        new_mtu = ET.Element('mtu')
+
+        # Add sub-elements to the "mtu" element
+        ET.SubElement(new_mtu, 'name').text = str(muscle_name)
+        ET.SubElement(new_mtu, 'c1').text = str(c1)
+        ET.SubElement(new_mtu, 'c2').text = str(c2)
+        ET.SubElement(new_mtu, 'shapeFactor').text = str(shape_factor)
+        ET.SubElement(new_mtu, 'optimalFibreLength').text = str(optimal_fibre_length)
+        ET.SubElement(new_mtu, 'pennationAngle').text = str(pennation_angle)
+        ET.SubElement(new_mtu, 'tendonSlackLength').text = str(tendon_slack_length)
+        ET.SubElement(new_mtu, 'maxIsometricForce').text = str(max_isometric_force)
+        ET.SubElement(new_mtu, 'strengthCoefficient').text = str(strength_coefficient)
+
+        # Find the parent element to append the new "mtu" element
+        mtu_set = root.find('.//mtuSet')
+        mtu_set.append(new_mtu)
+
+        return tree
+
+    # load the osim model
+    try:
+        model = osim.Model(osim_model)
+        muscles = model.getMuscles()
+    except Exception as e:
+        print_terminal_spaced('Error opening input file: {}'.format(e))
+        exit()        
+
+    # load the XML data
+    try:
+        tree = ET.parse(ceinms_uncal_model_xml)
+    except Exception as e:
+        print_terminal_spaced('Error opening ceinms xml file: {}'.format(e))
+        exit()
+
+    # Add the muscle information to the XML
+    for muscle in muscles:
+        muscle_name = muscle.getName()
+        state = model.initSystem()
+        try:
+            tree = add_mtu_to_ceinms_xml(tree,muscle_name = muscle_name,
+                                c1=-0.5, c2=-0.5, shape_factor=0.1,
+                                optimal_fibre_length = muscle.getOptimalFiberLength(),
+                                pennation_angle = muscle.getPennationAngle(state),
+                                tendon_slack_length = muscle.getTendonSlackLength(),
+                                max_isometric_force = muscle.getMaxIsometricForce(),
+                                strength_coefficient=1)
+            
+            print(f'Added muscle {muscle_name} to XML')
+
+        except Exception as e:
+            print(f'Error adding muscle {muscle_name} to XML: {e}')
+
+
+        
+    
+    # Save the modified XML back to a file
+    tree.write(ceinms_uncal_model_xml.replace('.xml','_new.xml'))
+
 def remove_missing_emgs_from_excitation_generator(input_file_path, sto_file):
     labels = get_emg_labels(sto_file).split()
     # Load the XML file
@@ -542,16 +617,16 @@ if __name__ == '__main__':
     project_settings = bp.create_project_settings(data_folder)
 
     analyis_to_run = ['scale','ik','id','ma','so','jra','ceinms_cal','ceinms_exe']
-    analyis_to_run = analyis_to_run[1:3] #+ analyis_to_run[4:6]
+    analyis_to_run = analyis_to_run[1:2] #+ analyis_to_run[4:6]
     
     # options to re-run the analysis ['scale','ik','id','ma','so','ceinms_cal','ceinms_templates','ceinms_exe']
     re_run = ['scale','ik','id','ma','so','jra','ceinms_cal','ceinms_templates','ceinms_exe'] 
-    re_run = re_run[2:6] #+ re_run[4:6]
+    re_run = re_run[1:2] #+ re_run[4:6]
 
     subject_list = project_settings['subject_list']
     # subject_list = ['Athlete_03','Athlete_06','Athlete_14','Athlete_20','Athlete_22','Athlete_25','Athlete_26']
     # subject_list = ['Athlete_06_torsion','Athlete_14_torsion','Athlete_20_torsion','Athlete_22_torsion','Athlete_25_torsion','Athlete_26_torsion']
-    subject_list = subject_list[8:10]
+    subject_list = subject_list[4:7]
     trial_list = ['sq_70', 'sq_90']
     calibration_trials = ['sq_70']
     # trial_list = ['sq_90']
@@ -607,7 +682,7 @@ if __name__ == '__main__':
             initial_time, last_time = get_initial_and_last_times(paths.ik_output)
 
             #######################################################################################################
-            #######################################              IK              ##################################
+            ###########################       IK ?includes moment arm check)        ###############################
             #######################################################################################################
             if ('ik' in analyis_to_run and not os.path.isfile(paths.ik_output)) or 'ik' in re_run:
                               
