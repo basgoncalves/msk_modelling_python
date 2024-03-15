@@ -626,7 +626,7 @@ if __name__ == '__main__':
     subject_list = project_settings['subject_list']
     # subject_list = ['Athlete_03','Athlete_06','Athlete_14','Athlete_20','Athlete_22','Athlete_25','Athlete_26']
     # subject_list = ['Athlete_06_torsion','Athlete_14_torsion','Athlete_20_torsion','Athlete_22_torsion','Athlete_25_torsion','Athlete_26_torsion']
-    subject_list = subject_list[4:7]
+    subject_list = subject_list[4:6]
     trial_list = ['sq_70', 'sq_90']
     calibration_trials = ['sq_70']
     # trial_list = ['sq_90']

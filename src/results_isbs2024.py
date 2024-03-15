@@ -376,6 +376,7 @@ def result_summary(subject_list, trial_list, data_folder):
 
             paths = cs.subject_paths(data_folder,subject_code=subject_name,trial_name=trial_name)
             try:
+                muscle_forces_per_subject = pd.read_csv(os.path.join(paths.so_output_forces),index_col=0)
                 muscle_work_per_subject = pd.read_csv(os.path.join(paths.results, 'muscle_work_torsion' ,f'{subject_name}_{trial_name}.csv'),index_col=0)
                 joint_forces_per_subject = pd.read_csv(os.path.join(paths.results, 'jra', subject_name, f'{trial_name}_summary.csv'), index_col=0)
 

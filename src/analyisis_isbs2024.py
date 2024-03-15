@@ -195,8 +195,9 @@ if __name__ == "__main__":
     # bp.checkMuscleMomentArms(model_file_path=model, ik_file_path=ik_file, leg='l', threshold=0.005)
 
     # current process:
-    model_path = r"C:\Git\isbs2024\Data\Scaled_models\Athlete_14_scaled - Copy.osim"
-    model_path2 = r"C:\Git\isbs2024\Data\Scaled_models\Alex\Athlete_14_scaled.osim"
+    subject_name = 'Athlete_14' # id code
+    model_path = f'C:\Git\isbs2024\Data\Scaled_models\{subject_name}_scaled - Copy.osim'
+    model_path2 = f'C:\Git\isbs2024\Data\Scaled_models\Alex\{subject_name}_scaled.osim'
     marker_names = ['GLAB','RFHD','LFHD','C7','T12','STRN', # upper body
                 'RACR','RUAOL','RUA2','RUA3','RCUBL','RCUBM','RLAOL','RLA2','RLA3','RWRU','RWRR', # right arm
                 'LACR','LUAOL','LUA2','LUA3','LCUBL','LCUBM','LLAOL','LLA2','LLA3','LWRU','LWRR', # left arm
@@ -211,8 +212,8 @@ if __name__ == "__main__":
                 'LTHOL', 'LTH2','LTH3','LKNEL', 'LKNEM', 'LSHAOL', 'LSHA2', 'LSHA3','LMALL', 'LMALM','LHEE','LM5','LTOE' # left leg
                 ]  
 
-    bp.copy_marker_locations(model_path,model_path2,marker_names,marker_common_frame='RASI')
-    bp.reorder_markers(model_path, orders_markers)   
+    bp.osimSetup.copy_marker_locations(model_path,model_path2,marker_names,marker_common_frame='RASI')
+    bp.osimSetup.reorder_markers(model_path, orders_markers)   
 
     #%% Marta's data
 
