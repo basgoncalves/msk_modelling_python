@@ -64,7 +64,7 @@ install_pipreqs()
 check_python_version(osimVersion)
 
 Packages = ['autopep8','bs4','c3d','docx','jupyter','numpy','opensim','pyc3dserver','requests','pandas','selenium','webdriver-manager','matplotlib',
-        'scipy','tk','tkfilebrowser','customtkinter','xmltodict','screeninfo','spm1d']
+        'scipy','tk','tkfilebrowser','customtkinter','xmltodict','screeninfo','spm1d','tqdm']
 
 for pkg in Packages:
     if any(pkg in s for s in installed_packages_list):
