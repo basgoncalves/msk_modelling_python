@@ -2593,8 +2593,8 @@ def get_testing_file_path(file_type = 'c3d'):
     bops_dir = get_dir_bops()
     dir_simulations =  os.path.join(bops_dir, 'ExampleData\simulations')
     if not os.path.exists(dir_simulations):
-        raise_exception(dir_simulations + ' does not exist. ', hard=False)  
-        exit()
+        raise_exception(dir_simulations + ' does not exist. ', hard=False)
+        return None
 
     file_path = []
     for subject_folder in get_subject_folders(dir_simulations):
