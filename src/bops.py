@@ -340,6 +340,14 @@ def select_new_project_folder():
 
     return project_folder
 
+def create_new_project_folder(basedir = ''):
+    if not basedir:
+        basedir = select_folder('Select ')
+
+    project_folder = select_folder('Please select project directory')
+    project_json = os.path.join(project_folder,'settings.json')
+    create_project_settings(project_folder)
+
 def create_project_settings(project_folder=''):
 
     if not project_folder or not os.path.isdir(project_folder):                                       
@@ -1445,6 +1453,8 @@ class osimSetup:
             mass += model.osim_object.getBodySet().get(i).getMass()
         print(f'The total mass of the model is: {mass} kg')
         return mass
+
+
 
 #%% ##############################################  OpenSim (to be complete)  ############################################################
 def scale_model(originalModelPath,targetModelPath,trcFilePath,setupScaleXML):
@@ -2582,6 +2592,10 @@ def add_markers_to_settings():
 def get_testing_file_path(file_type = 'c3d'):
     bops_dir = get_dir_bops()
     dir_simulations =  os.path.join(bops_dir, 'ExampleData\simulations')
+    if not os.path.exists(dir_simulations):
+        raise_exception(dir_simulations + ' does not exist. ', hard=False)  
+        exit()
+
     file_path = []
     for subject_folder in get_subject_folders(dir_simulations):
         for session in get_subject_sessions(subject_folder):
@@ -2650,6 +2664,14 @@ def print_terminal_spaced(text = " "):
     print(" ")
     print(text)
     time.sleep(1.5)
+
+def raise_exception(error_text = "Error, please check code. ", err = " ", hard = True):
+    print(error_text + err)
+    if hard:
+        raise Exception (error_text)
+    else:
+        print('Continuing...')
+    
 
 
 
