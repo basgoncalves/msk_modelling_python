@@ -6,5 +6,6 @@ matplotlib
 tkinter
 sqlite3
 mpl_toolkits
-ctypes,
+ctypes
 Pillow
+numpy-stl == 3.1.1

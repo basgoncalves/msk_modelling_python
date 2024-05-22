@@ -340,13 +340,28 @@ def select_new_project_folder():
 
     return project_folder
 
-def create_new_project_folder(basedir = ''):
-    if not basedir:
-        basedir = select_folder('Select ')
+def create_new_project_folder(basedir = ''): # to complete
 
-    project_folder = select_folder('Please select project directory')
-    project_json = os.path.join(project_folder,'settings.json')
-    create_project_settings(project_folder)
+    if not basedir:
+        basedir = select_folder('Select folder to create new project folder')
+
+    os.mkdir(os.path.join(basedir,'simulations'))
+    os.mkdir(os.path.join(basedir,'setupFiles'))
+    os.mkdir(os.path.join(basedir,'results'))
+    os.mkdir(os.path.join(basedir,'models'))
+
+    print_warning('function not complete')
+    exit()
+
+    project_settings = create_project_settings(basedir)
+
+    for setting in project_settings:
+        if is_potential_path(setting):
+            print('folder is path: ' + setting)
+            os.makedirs(setting)
+            print(setting)
+
+    return project_settings
 
 def create_project_settings(project_folder=''):
 
@@ -361,7 +376,7 @@ def create_project_settings(project_folder=''):
     project_settings['emg_filter']['order'] = [4]
 
     project_settings['emg_labels'] = ['all']
-    project_settings['simulations'] = os.path.join(project_folder,'Simulations')    
+    project_settings['simulations'] = os.path.join(project_folder,'simulations')    
     
     project_settings['setupFiles'] = dict()
     project_settings['setupFiles']['scale'] = os.path.join(project_folder, 'setup_Scale.xml')
@@ -371,7 +386,12 @@ def create_project_settings(project_folder=''):
     project_settings['setupFiles']['jrf'] = os.path.join(project_folder, 'setup_jrf.xml')
 
     # subject list 
-    project_settings['subject_list'] = [f for f in os.listdir(project_settings['simulations']) if os.path.isdir(os.path.join(project_settings['simulations'], f))]
+    try:
+        project_settings['subject_list'] = [f for f in os.listdir(project_settings['simulations']) if os.path.isdir(os.path.join(project_settings['simulations'], f))]
+    except:
+        project_settings['subject_list'] = []
+        print_warning(message = 'No subjects in the current project folder')
+
 
 
     jsonpath = Path(project_folder) / ("settings.json")
@@ -2657,6 +2677,21 @@ def ask_to_continue():
         print('Invalid input. Please try again (n/y).')
         ask_to_continue()
 
+def is_potential_path(folderpath):
+
+    if type(folderpath) != str:
+        return False
+
+    potential = True
+    while potential == True:
+        folderpath, tail = os.path.split(folderpath)
+        if not folderpath:  # Reached root directory
+            return False
+        if os.path.exists(folderpath):
+            return True
+        if tail=='':
+            return False
+
 def print_terminal_spaced(text = " "):
     print("=============================================")
     print(" ")
@@ -2672,7 +2707,9 @@ def raise_exception(error_text = "Error, please check code. ", err = " ", hard =
     else:
         print('Continuing...')
     
-
+def print_warning(message = 'Error in code. '):
+  from colorama import Fore, Style
+  print(Fore.YELLOW + "WARNING: " + message + Style.RESET_ALL)
 
 
 #%% ######################################################### BOPS TESTING #################################################################
