@@ -1,5 +1,0 @@
-add_subdirectory(BatchEvaluator)
-add_subdirectory(DataTable)
-add_subdirectory(Optimizers)
-add_subdirectory(OptimizationSystem)
-add_subdirectory(Curve)
