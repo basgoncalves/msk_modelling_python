@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection  
 
 class Plane:
   def __init__(self, a, b, c, d):
@@ -41,17 +42,6 @@ class Plane:
     distance = numerator / denominator
 
     return distance >= 0
-
-  def create_figure(self):
-    try:
-      # Attempt to get the current figure
-      fig = plt.gcf()
-      ax = fig.get_axes()
-    except (AttributeError, ValueError):
-      fig = plt.figure(figsize=(plt.rcParams['figure.figsize'][0] * 1.5, plt.rcParams['figure.figsize'][1] * 1.5))
-      ax = fig.add_subplot(111, projection='3d')
-
-    return ax
   
   def plot_plane(self,x_lim=[-0.1,0.1], y_lim=[-0.1,0.1],tolerance=1e-6,color='lightgray',alpha=0.7):
 
@@ -60,48 +50,7 @@ class Plane:
     c = self.c
     d = self.d
 
-    if type(x_lim)!=list or type(y_lim)!=list:
-      raise Warning("x_lim and y_lim must be a list with two values.")  
-    elif len(x_lim) != 2 or len(y_lim) != 2:
-      raise Warning("x_lim and y_lim must contain two values each.")
-
-    if x_lim[0] == 0 and x_lim[1] == 0:
-      print("x_lim values cannot be both zero. Setting them to 1%% of max (a,b,c,d)")
-      max_val = max(abs(a),abs(b),abs(c),abs(d))
-      x_lim = [-0.01*max_val,0.01*max_val]
-
-    if y_lim[0] == 0 and y_lim[1] == 0:
-      print("y_lim values cannot be both zero. Setting them to 1%% of max (a,b,c,d)")
-      max_val = max(abs(a),abs(b),abs(c),abs(d))
-      y_lim = [-0.01*max_val,0.01*max_val]
-
-    # initiate the plot if needed
-    ax = self.create_figure()
-
-    # Calculate grid points within the limits
-    xx, yy = np.meshgrid(np.linspace(x_lim[0], x_lim[1], 40),
-                        np.linspace(y_lim[0], y_lim[1], 40))
-
-    # Calculate z values for the grid points using the plane equation
-    # z = (-d - a * xx - b * yy) / c
-    mask = np.abs(c) > tolerance  # Mask for points where c is not close to zero
-    z = np.zeros_like(xx)
-    z[mask] = (d - a * xx[mask] - b * yy[mask]) / c
-
-    # Plot the plane using the generated grid
-    x_1d = xx.ravel()
-    y_1d = yy.ravel()
-    z_1d = z.ravel()
-
-    ax.plot_trisurf(x_1d, y_1d, z_1d, color=color, alpha=0.7)
-
-    # Set labels and title
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
-    ax.set_zlabel("Z")
-    ax.set_title("Plane")
-
-    return ax
+    plot_plane(a, b, c, d,x_lim=[-0.1,0.1], y_lim=[-0.1,0.1],tolerance=1e-18,color='lightgray',alpha=0.7)
 
 
 def load_stl_vertices(filename):
@@ -125,6 +74,10 @@ def load_stl_vertices(filename):
       coordinates = [float(x) for x in line.split()[1:]]
       vertices.append(np.array(coordinates))
 
+  # Split vertices into groups of 3 (triangles)
+  vertices = [vertices[i:i + 3] for i in range(0, len(vertices), 3)]
+
+
   return vertices
 
 def plot_3D_points(points,col='red'):
@@ -146,7 +99,7 @@ def plot_3D_points(points,col='red'):
   ax.set_zlabel("Z")
   ax.set_title("3D Points")
 
-def plot_plane(a, b, c, d,x_lim=[-0.1,0.1], y_lim=[-0.1,0.1],tolerance=1e-6,color='lightgray',alpha=0.7):
+def plot_plane(a, b, c, d,x_lim=[-0.1,0.1], y_lim=[-0.1,0.1],tolerance=1e-18,color='lightgray',alpha=0.7):
   """
   Plots a plane defined by the equation ax + by + cz + d = 0.
 
@@ -170,23 +123,23 @@ def plot_plane(a, b, c, d,x_lim=[-0.1,0.1], y_lim=[-0.1,0.1],tolerance=1e-6,colo
 
   # initiate the plot if needed
   ax = create_figure()
+  x = np.linspace(-1,1,10)
+  y = np.linspace(-1,1,10)
 
-  # Calculate grid points within the limits
-  xx, yy = np.meshgrid(np.linspace(x_lim[0], x_lim[1], 40),
-                       np.linspace(y_lim[0], y_lim[1], 40))
+  # Create a meshgrid
+  X,Y = np.meshgrid(x,y)
 
-  # Calculate z values for the grid points using the plane equation
-  # z = (-d - a * xx - b * yy) / c
-  mask = np.abs(c) > tolerance  # Mask for points where c is not close to zero
-  z = np.zeros_like(xx)
-  z[mask] = (d - a * xx[mask] - b * yy[mask]) / c
+  # Mask for points where c is not close to zero
+  mask = np.abs(c) > tolerance  
+  Z = np.zeros_like(X)
+  # Calculate the corresponding z values
+  Z[mask] = (d - a * X[mask] - b * Y[mask]) / c
 
-  # Plot the plane using the generated grid
-  x_1d = xx.ravel()
-  y_1d = yy.ravel()
-  z_1d = z.ravel()
 
-  ax.plot_trisurf(x_1d, y_1d, z_1d, color=color, alpha=0.7)
+  # fig = plt.figure(figsize=(plt.rcParams['figure.figsize'][0] * 1.5, plt.rcParams['figure.figsize'][1] * 1.5))
+  # ax = fig.add_subplot(111, projection='3d')
+
+  surf = ax.plot_surface(X, Y, Z)
 
   # Set labels and title
   ax.set_xlabel("X")
@@ -196,91 +149,6 @@ def plot_plane(a, b, c, d,x_lim=[-0.1,0.1], y_lim=[-0.1,0.1],tolerance=1e-6,colo
 
   return ax
 
-def plot_normal_vector_to_plane(normal_vector, point):
-  """
-  Plots a normal vector to a plane at a given point.
-
-  Args:
-      normal_vector: A NumPy array representing the normal vector.
-      point: A NumPy array representing the point where the normal vector originates.
-  """
-  # Plot the normal vector
-  ax.quiver(point[0], point[1], point[2],
-            normal_vector[0], normal_vector[1], normal_vector[2],
-            color='blue', length=10.0, arrow_length_ratio=0.1)
-
-  # Set labels and title
-  ax.set_xlabel("X")
-  ax.set_ylabel("Y")
-  ax.set_zlabel("Z")
-  ax.set_title("Normal Vector to Plane")
-
-def calculate_plane_function(v1, v2, v3, ratio=0.01):
-  # Calculate the normal vector of the plane
-  normal_vector = np.cross(v2 - v1, v3 - v1)
-
-  # Calculate the coefficients of the plane equation
-  a, b, c = normal_vector
-
-  # Calculate the d coefficient of the plane equation
-  d = -np.dot(normal_vector, v1)
-
-  x_lim = [min(v1[0], v2[0], v3[0]) - ratio*min(v1[0], v2[0], v3[0]), max(v1[0], v2[0], v3[0]) + ratio*max(v1[0], v2[0], v3[0])]
-  y_lim = [min(v1[1], v2[1], v3[1]) - ratio*min(v1[1], v2[1], v3[1]), max(v1[1], v2[1], v3[1]) + ratio*max(v1[1], v2[1], v3[1])]
-
-  return a, b, c, d, x_lim, y_lim
-
-def calculate_plane_center(v1, v2, v3):
-  # Calculate the center by averaging the coordinates of the three points
-  center = (v1 + v2 + v3) / 3
-
-  return center
-
-def calculate_normal_vector(v1, v2, v3):
-  # Calculate two edge vectors along the plane
-  edge1 = v2 - v1
-  edge2 = v3 - v1
-
-  # Calculate the normal vector as the cross product of the edge vectors
-  normal = np.cross(edge1, edge2)
-
-  # Normalize the normal vector (optional)
-  normal = normal / np.linalg.norm(normal)
-
-  return normal
-
-def get_perpendicular_plane_coefficients_method1(normal_vector):
-   # Plane passes through the origin, so d = 0
-  coefficients = np.concatenate((normal_vector, [0]))
-
-  return coefficients
-
-def get_perpendicular_plane(plane1_normal, point_on_plane2):
-  """
-  Finds the equation of a plane perpendicular to another plane.
-
-  Args:
-      plane1_normal: A NumPy array representing the normal vector of the first plane.
-      point_on_plane2: A NumPy array representing a point on the second plane.
-
-  Returns:
-      A list containing:
-          - A NumPy array representing the normal vector of the perpendicular plane.
-          - A float representing the constant d in the plane equation.
-  """
-
-  # Ensure plane1_normal is a unit vector
-  plane1_normal = plane1_normal / np.linalg.norm(plane1_normal)
-
-  # The normal vector of the perpendicular plane is the same as the normal vector of plane1
-  normal_perpendicular = plane1_normal
-
-  # Use the point_on_plane2 and normal vector to get the constant d in the equation
-  d = -np.dot(normal_perpendicular, point_on_plane2)
-
-  return normal_perpendicular, d
-
-def get_perpendicular_plane_from_equation(plane1_equation):
   """
   Finds the equation of a plane perpendicular to another plane given its equation.
 
@@ -306,6 +174,23 @@ def get_perpendicular_plane_from_equation(plane1_equation):
   normal_perpendicular, d_perpendicular = get_perpendicular_plane(plane1_normal, point_on_plane1)
 
   return normal_perpendicular, d_perpendicular
+
+def plot_triangle(x,y,z,facecolor='#800000',alpha=0.5):
+    
+    custom=plt.subplot(111,projection='3d')
+
+    custom.scatter(x,y,z)
+
+    # 1. create vertices from points
+    verts = [list(zip(x, y, z))]
+    # 2. create 3d polygons and specify parameters
+    srf = Poly3DCollection(verts, alpha=alpha, facecolor=facecolor)
+    # 3. add polygon to the figure (current axes)
+    plt.gca().add_collection3d(srf)
+
+    custom.set_xlabel('X')
+    custom.set_ylabel('Y')
+    custom.set_zlabel('Z')
 
 
 def plot_plane_and_points(v1,v2,v3):
@@ -389,48 +274,39 @@ def generate_points_on_plane(equation_coeffs):
   return points
 
 def create_figure():
-  if 'ax' in globals():
-    print('using existing figure')
-    return None
-  else:
-    print('creating new figure')
+  """
+  Creates a new 3D figure if none exists, otherwise reuses the existing one.
+
+  Returns:
+      A matplotlib.pyplot.Axes3D object representing the figure's main axes.
+  """
+
+  try:
+    # Attempt to get the current figure
+    fig = plt.gcf()
+    ax = fig.gca()  # Get the current axes (might be 2D or 3D)
+
+    # Check if the current axes is a 3D axes object
+    if not isinstance(ax, Axes3D):
+      # If not 3D, create a new figure and 3D axes
+      plt.close(fig)  # Close the existing figure (might be 2D)
+      fig = plt.figure(figsize=(plt.rcParams['figure.figsize'][0] * 1.5, plt.rcParams['figure.figsize'][1] * 1.5))
+      ax = fig.add_subplot(111, projection='3d')
+      print('created new figure')
+    else:
+      # Reuse existing figure and axes (assuming it's 3D)
+      print('reusing existing figure')
+
+  except (AttributeError, ValueError):
+    # If no figure exists, create a new one
     fig = plt.figure(figsize=(plt.rcParams['figure.figsize'][0] * 1.5, plt.rcParams['figure.figsize'][1] * 1.5))
     ax = fig.add_subplot(111, projection='3d')
-    return ax
+    print('created new figure')
+
+  return ax
+
 
 if __name__ == "__main__": 
-
-  def generate_random_plane_points():
-    """
-    Generates a random plane equation and three points on that plane.
-
-    Returns:
-        A tuple containing:
-            - A list of coefficients (a, b, c, d) for the random plane.
-            - A list of three NumPy arrays representing the defined points.
-    """
-
-    # Generate random coefficients for the plane equation
-    a, b, c, d = np.random.rand(4)
-
-    # Ensure at least one coefficient (a, b, or c) is non-zero to define a proper plane
-    if abs(a) + abs(b) + abs(c) < 1e-6:
-      a = 1.0  # Assign a small non-zero value to a if all coefficients are close to zero
-
-    # Three points on the plane using different approaches:
-
-    # Point 1: Origin (0, 0, 0) always lies on the plane
-    point1 = np.array([0, 0, 0])
-
-    # Point 2: Random offset from origin
-    offset = np.random.rand(3)
-    point2 = point1 + offset
-
-    # Point 3 using a random direction vector
-    direction = np.random.rand(3) - 0.5  # Offset to avoid zero values
-    point3 = point1 + direction
-
-    return [a, b, c, d], [point1, point2, point3]
 
   # Generate coefficients and points for a random plane
   # coefficients, points = generate_random_plane_points()
@@ -441,8 +317,8 @@ if __name__ == "__main__":
 
   ax = create_figure()
   plot_plane(coefficients[0], coefficients[1], coefficients[2], coefficients[3],[-1,1],[-1,1])
-  # points =  generate_points_on_plane(coefficients)
-  
+
+  exit()
 
   def find_z(coef, x, y):
     return (coef[3]-x*coef[0]-y*coef[1])/coef[2]
@@ -452,6 +328,7 @@ if __name__ == "__main__":
               np.array([0,1,find_z(coefficients, 0, 1)]),
               np.array([1,0,find_z(coefficients, 1, 0)])]
     return points
+  
   points = generate_points_on_plane(coefficients)
   
   print("Points on the plane:", points)
@@ -464,6 +341,7 @@ if __name__ == "__main__":
   normal_vector = calculate_normal_vector(points[0], points[1], points[2])
   plane2, d = get_perpendicular_plane_from_equation(coefficients)
   print(plane2)
+  exit()
   plot_plane(plane2[0], plane2[1], plane2[2], d ,x_lim, y_lim,color='green')
   exit()  
   points2 =  generate_points_on_plane(plane2)
