@@ -77,8 +77,15 @@ def load_stl_vertices(filename):
   # Split vertices into groups of 3 (triangles)
   vertices = [vertices[i:i + 3] for i in range(0, len(vertices), 3)]
 
+  # calculate the centers of each triangle
+  centres = []
+  for i,d in enumerate(vertices):
+      mean_point = np.mean(np.array(d), axis=0)
+      centres.append(mean_point)
+  centres = np.array(centres)
 
-  return vertices
+
+  return vertices, centres
 
 def plot_3D_points(points,col='red'):
   """
@@ -175,11 +182,21 @@ def plot_plane(a, b, c, d,x_lim=[-0.1,0.1], y_lim=[-0.1,0.1],tolerance=1e-18,col
 
   return normal_perpendicular, d_perpendicular
 
-def plot_triangle(x,y,z,facecolor='#800000',alpha=0.5):
-    
-    custom=plt.subplot(111,projection='3d')
+def plot_triangle(pointArray,facecolor='#800000',alpha=0.05,pointsize=0.5):
+    """
+    Plots a triangle in 3D space. The triangle is defined by three points.
+    pointArray: A 2D NumPy array with shape (3, 3) representing the triangle vertices.
+    """
+    if not isinstance(pointArray, np.ndarray) or pointArray.shape != (3, 3):
+      raise ValueError("Input must be a 2D NumPy array with shape (3, 3)")
 
-    custom.scatter(x,y,z)
+    x = pointArray[:, 0]
+    y = pointArray[:, 1]
+    z = pointArray[:, 2]
+
+    # plot the points
+    custom=plt.subplot(111,projection='3d')
+    custom.scatter(x,y,z, s=pointsize, color='black')
 
     # 1. create vertices from points
     verts = [list(zip(x, y, z))]
@@ -191,7 +208,6 @@ def plot_triangle(x,y,z,facecolor='#800000',alpha=0.5):
     custom.set_xlabel('X')
     custom.set_ylabel('Y')
     custom.set_zlabel('Z')
-
 
 def plot_plane_and_points(v1,v2,v3):
   a, b, c, d, x_lim, y_lim = calculate_plane_function(v1, v2, v3, ratio=1)
@@ -304,6 +320,38 @@ def create_figure():
     print('created new figure')
 
   return ax
+
+def calculate_triangle_area_3d(point1, point2, point3):
+    vector1 = np.array(point2) - np.array(point1)
+    vector2 = np.array(point3) - np.array(point1)
+    cross_product = np.cross(vector1, vector2)
+    area = 0.5 * np.linalg.norm(cross_product)
+    return area
+
+def calculate_distances(point, matrix):
+  """
+  Calculates distances between a point and all points in a 3D point matrix.
+
+  Args:
+      point: A NumPy array representing a single 3D point (x, y, z).
+      matrix: A NumPy array with dimensions (60000, 3) representing 60000 3D points.
+
+  Returns:
+      A NumPy array containing distances between the point and each point in the matrix.
+  """
+
+  # Reshape point to a column vector for broadcasting
+  point_reshaped = point.reshape(-1)
+
+  # Calculate squared differences efficiently using broadcasting
+  squared_diffs = np.sum((matrix - point_reshaped) ** 2, axis=1)
+
+  # Calculate distances using the square root (optional for Euclidean distance)
+  distances = np.sqrt(squared_diffs)
+
+  return distances
+
+
 
 
 if __name__ == "__main__": 
