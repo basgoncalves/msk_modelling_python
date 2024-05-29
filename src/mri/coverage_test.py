@@ -43,103 +43,133 @@ def plot_stl_mesh(vertices, facecolor='gray', alpha=0.7):
     pv.plot_triangle(np.array(vertices[i]),facecolor=facecolor,alpha=alpha)
 
 
-# Example usage
-initial_time = time.time()  
-stl_file1 = r'C:\Users\Bas\ucloud\MRI_segmentation_BG\FAIS_acetabular_stresses\013\Meshlab\femoral_head_r.stl'
-stl_file2 = r'C:\Users\Bas\ucloud\MRI_segmentation_BG\FAIS_acetabular_stresses\013\Meshlab\acetabulum_r.stl'
+if __name__ == "__main__":
 
-maindir = os.path.dirname(stl_file1)
-filename = os.path.basename(stl_file1)
+  maindir = r'C:\Users\Bas\ucloud\MRI_segmentation_BG\acetabular_coverage'
+  subjects = [entry for entry in os.listdir(maindir) if os.path.isdir(os.path.join(maindir, entry))]
+  print(f" Checking subjects: {subjects}")
+  legs = ['l', 'r']
+  thresholds = [25] # distance threshold in mm
 
-vertices1, centres1, normal_vectors1 = pv.load_stl_vertices(stl_file1)
-vertices2, centres2, normal_vectors2 = pv.load_stl_vertices(stl_file2)
+  for subject in subjects:
+    for leg in legs:
+      
+      initial_time = time.time()  # start time to measure the total time of the process
+      
+      stl_file_femur = os.path.join(maindir, subject, 'Meshlab', ['femural_head_',leg, '.stl'])
+      stl_file_acetabulum = os.path.join(maindir, subject, 'Meshlab', ['acetabulum_',leg, '.stl'])
 
-nframes = len(centres1)
+      if os.path.exists(stl_file_femur) and os.path.exists(stl_file_acetabulum):
+        print(f"\nSubject: {subject}, Leg: {leg}")
+      else:
+        print(f"Files not found for {subject} {leg}")
+        continue
 
-print(centres1[:nframes])
+      filename = os.path.basename(stl_file_femur)
 
-print('number faces = ', len(centres1))
-print('data loaded in:', time.time() - initial_time)
-thresholds = [8]#,9,10,11,12,13,14,15]
-for threshold in thresholds:
-  print(f"\nThreshold: {threshold}")
-  covered_area = 0
-  total_femur_area = 0
-  for i,_ in enumerate(centres1[:nframes]):  
-    show_loading_bar(i + 1, len(centres1[:nframes]))
-    point = centres1[i]  
-    face1 = np.array([vertices1[i][0], vertices1[i][1], vertices1[i][2]])
-    
+      vertices_femur, centres_femur, normal_vectors_femur = pv.load_stl_vertices(stl_file_femur)
+      vertices_ace, centres_ace, normal_vectors_ace = pv.load_stl_vertices(stl_file_acetabulum)
 
-    # distance to acetabulum based on threshold
-    distances = pv.calculate_distances(point, centres2)
-    distances_below_threshold = (distances <= threshold).astype(int)  
-    valid_indices = np.where((distances <= threshold) & (distances > 0))[0]
+      nframes = len(centres_femur)
+      print('number faces = ', len(centres_femur))
+      print('data loaded in:', time.time() - initial_time)
 
-    angle_between_faces = []
-    for index in valid_indices:
-      face2 = np.array([vertices2[index][0], vertices2[index][1], vertices2[index][2]])
-      angle_between_faces.append(pv.angle_between_two_faces(face1,face2)) 
-    angle_between_faces = np.array(angle_between_faces)
+      for threshold in thresholds:
+        print(f"\nThreshold: {threshold}")
+        covered_area = 0
+        total_femur_area = 0
+        for i,_ in enumerate(centres_femur[:nframes]):  
+          show_loading_bar(i + 1, len(centres_femur[:nframes]))
+          centre_face_femur = centres_femur[i]  
+          face_femur = np.array([vertices_femur[i][0], vertices_femur[i][1], vertices_femur[i][2]])
+          normal_vector_femur = calculate_normal_vector(face_femur[0], face_femur[1], face_femur[2])
 
-    # total area
-    total_femur_area += pv.calculate_triangle_area_3d(vertices1[i][0], vertices1[i][1], vertices1[i][2]) 
+          # distance to acetabulum based on threshold
+          distances = pv.calculate_distances(centre_face_femur, centres_ace)
+          distances_below_threshold = (distances <= threshold).astype(int)  
+          valid_indices = np.where((distances <= threshold) & (distances > 0))[0]
 
-    # check if triangle is covered
-    if np.sum(distances_below_threshold) > 0 and np.any(angle_between_faces < 45):
-      ax = pv.plot_triangle(np.array(vertices1[i]),facecolor='r',alpha=1)
-      covered_area += pv.calculate_triangle_area_3d(vertices1[i][0], vertices1[i][1], vertices1[i][2])
-    else:
-      ax = pv.plot_triangle(np.array(vertices1[i]),facecolor='gray',alpha=0.7)
+          # calculate angle between the current face and the acetabulum faces 
+          # that are below the threshold
+          angle_between_faces = []
+          normal_femur_intercepts_acetabulum_face = False
+          for index in valid_indices:
+            
+            centre_face_femur = centres_femur[i]
+            face_ace = np.array([vertices_ace[index][0], vertices_ace[index][1], vertices_ace[index][2]])
+            angle_between_faces.append(pv.angle_between_two_faces(face_femur,face_ace))
 
-  # plot the acetabulum
-  plot_stl_mesh(vertices2, facecolor='#8a9990', alpha=0.4) 
+            # using the Moeller-Trumbore algorithm to check if the normal vector of the acetabulum 
+            normal_intercept = moeller_trumbore_intersect(centre_face_femur, normal_vector_femur, 
+                face_ace[0], face_ace[1], face_ace[2])
+            # check if the negative vector also intercepts the triangle (in care the vecotor is going outwards)
+            neg_normal_intercept = moeller_trumbore_intersect(centre_face_femur, -normal_vector_femur, 
+                face_ace[0], face_ace[1], face_ace[2])
+            
+            if normal_intercept or neg_normal_intercept:
+              normal_femur_intercepts_acetabulum_face = True
+              break
+          
+          angle_between_faces = np.array(angle_between_faces)
 
-  covered_area = round(covered_area,1)
-  total_femur_area = round(total_femur_area,1)
-  normalized_area = round(covered_area / total_femur_area *100,1)
-  total_time = round(time.time() - initial_time,1)
-  print("\n covered area:", covered_area)
-  print("total femur area:", total_femur_area)
-  print("normalized covered area:", normalized_area,'%')
-  print("total time:", total_time,'s')
+          # total area
+          total_femur_area += pv.calculate_triangle_area_3d(vertices_femur[i][0], vertices_femur[i][1], vertices_femur[i][2]) 
 
-  # add text to the plot (coverage and threshold)
-  ax = pv.plt.gca()
-  ax.text2D(0.05, 0.05, f'Coverage: {normalized_area}', transform=ax.transAxes)
+          # check if triangle is covered AND the angle between the faces is less than 45 degrees
+          if np.sum(distances_below_threshold) > 0 and normal_femur_intercepts_acetabulum_face:
+            ax = pv.plot_triangle(np.array(vertices_femur[i]),facecolor='r',alpha=1)
+            covered_area += pv.calculate_triangle_area_3d(vertices_femur[i][0], vertices_femur[i][1], vertices_femur[i][2])
+          else:
+            ax = pv.plot_triangle(np.array(vertices_femur[i]),facecolor='gray',alpha=0.7)
 
-  # create a new folder for the current threshold
-  new_folder = stl_file1.replace('.stl', f'_threshold_{threshold}')
-  if os.path.exists(new_folder):
-    print("Folder already exists")
-  else:
-    os.mkdir(new_folder)
+        # plot the acetabulum
+        plot_stl_mesh(vertices_ace, facecolor='#8a9990', alpha=0.4) 
 
-  # save fig from different angles
-  # Define desired viewpoints (adjust angles for your preference)
-  viewpoints = [(0,0), (90,90), (10, 20), (45, 30), (-20, 60)]  # Elevation (elev), Azimuth (azim)
+        covered_area = round(covered_area,1)
+        total_femur_area = round(total_femur_area,1)
+        normalized_area = round(covered_area / total_femur_area *100,1)
+        total_time = round(time.time() - initial_time,1)
+        print("\n covered area:", covered_area)
+        print("total femur area:", total_femur_area)
+        print("normalized covered area:", normalized_area,'%')
+        print("total time:", total_time,'s')
 
-  # Loop through viewpoints and save images
-  print("Saving images in different rotations...")
-  for i, (elev, azim) in enumerate(viewpoints):
-    print(f"Viewpoint {i+1}/{len(viewpoints)}: Elevation={elev}, Azimuth={azim}")
-    ax.view_init(elev=elev, azim=azim)  # Set viewpoint for each image
-    figname = os.path.join(new_folder, f'{filename}_{elev}_{azim}.png')
-    fig = pv.plt.gcf()  
-    fig.savefig(figname, bbox_inches='tight') 
+        # add text to the plot (coverage and threshold)
+        ax = pv.plt.gca()
+        ax.text2D(0.05, 0.05, f'Coverage: {normalized_area}', transform=ax.transAxes)
 
-  pv.plt.close(fig)
+        # create a new folder for the current threshold
+        new_folder = stl_file_femur.replace('.stl', f'_threshold_{threshold}')
+        if os.path.exists(new_folder):
+          print("Folder already exists")
+        else:
+          os.mkdir(new_folder)
 
-  # Save results to a text file
-  filename = os.path.basename(stl_file1).replace('.stl','')
-  txtfile = os.path.join(new_folder, f'{filename}.txt')
-  with open(txtfile, 'w') as file:
-    file.write(f"Coverage based on a threshold of {threshold} \n")
-    file.write(f"Area Covered: {covered_area} \n")
-    file.write(f"Total Femur Area: {total_femur_area}\n")
-    file.write(f"Normalized Area Covered: {normalized_area}% \n")
-    file.write(f"Total Time: {total_time}s\n")
+        # save fig from different angles
+        # Define desired viewpoints (adjust angles for your preference)
+        viewpoints = [(0,0), (90,90), (10, 20), (45, 30), (-20, 60)]  # Elevation (elev), Azimuth (azim)
 
-pv.compare_normalized_coverages(maindir)
-figname = os.path.join(maindir, f'coverage_per_threshold.png')
-pv.plt.savefig(figname)
+        # Loop through viewpoints and save images
+        print("Saving images in different rotations...")
+        for i, (elev, azim) in enumerate(viewpoints):
+          print(f"Viewpoint {i+1}/{len(viewpoints)}: Elevation={elev}, Azimuth={azim}")
+          ax.view_init(elev=elev, azim=azim)  # Set viewpoint for each image
+          figname = os.path.join(new_folder, f'{filename}_{elev}_{azim}.png')
+          fig = pv.plt.gcf()  
+          fig.savefig(figname, bbox_inches='tight') 
+
+        pv.plt.close(fig)
+
+        # Save results to a text file
+        filename = os.path.basename(stl_file_femur).replace('.stl','')
+        txtfile = os.path.join(new_folder, f'{filename}.txt')
+        with open(txtfile, 'w') as file:
+          file.write(f"Coverage based on a threshold of {threshold} \n")
+          file.write(f"Area Covered: {covered_area} \n")
+          file.write(f"Total Femur Area: {total_femur_area}\n")
+          file.write(f"Normalized Area Covered: {normalized_area}% \n")
+          file.write(f"Total Time: {total_time}s\n")
+
+      pv.compare_normalized_coverages(maindir)
+      figname = os.path.join(maindir, f'coverage_per_threshold.png')
+      pv.plt.savefig(figname)

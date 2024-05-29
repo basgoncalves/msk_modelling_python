@@ -477,8 +477,51 @@ def plot_triangle(pointArray,facecolor='#800000',alpha=0.05,pointsize=0.5):
 
     return ax
 
+def line_point(t):
+    return plane_centre1 + t * normal_vector_femur
 
+def moeller_trumbore_intersect(ray_origin, ray_direction, triangle_v1, triangle_v2, triangle_v3):
+  """
+  Checks for intersection between a ray and a triangle using the Möller-Trumbore algorithm.
 
+  Args:
+      ray_origin: Origin of the ray (numpy array of shape (3,)).
+      ray_direction: Direction of the ray (normalized, numpy array of shape (3,)).
+      triangle_v1, triangle_v2, triangle_v3: Vertices of the triangle (numpy arrays of shape (3,)).
+
+  Returns:
+      True if there's an intersection, False otherwise.
+  """
+
+  # Edge vectors
+  edge1 = triangle_v2 - triangle_v1
+  edge2 = triangle_v3 - triangle_v1
+
+  # Calculate p, q, and t
+  pvec = np.cross(ray_direction, edge2)
+  det = np.dot(edge1, pvec)
+  if abs(det) < 1e-6:
+      return False
+
+  tvec = ray_origin - triangle_v1
+  u = np.dot(tvec, pvec) / det
+  if u < 0 or u > 1:
+      return False
+
+  qvec = np.cross(tvec, edge1)
+  v = np.dot(ray_direction, qvec) / det
+  if v < 0 or u + v > 1:
+      return False
+
+  t = np.dot(edge2, qvec) / det
+
+  return t > 0  # Check for positive t (intersection behind the ray origin is ignored)
+
+  # Example usage (assuming you have ray_origin, ray_direction, and triangle vertices defined)
+  if moeller_trumbore_intersect(ray_origin, ray_direction, vertex1, vertex2, vertex3):
+    print("Intersection detected!")
+  else:
+    print("No intersection found.")
 
 #%% Main
 if __name__ == "__main__":
@@ -491,37 +534,40 @@ if __name__ == "__main__":
   vertex1 = np.array([-9.774294e+01, -1.658581e+01, 2.546803e+01])
   vertex2 = np.array([-9.774294e+01, -1.859728e+01, 2.756273e+01])
   vertex3 = np.array([-1.005839e+02, -1.658581e+01, 2.756273e+01])
-  face1 = np.array([vertex1, vertex2, vertex3])
-  origin1 = calculate_centre_of_triangle(vertex1, vertex2, vertex3)
+  face_femur = np.array([vertex1, vertex2, vertex3])
   plane_centre1 = calculate_centre_of_triangle(vertex1, vertex2, vertex3)
-  normal_vector1 = -calculate_normal_vector(face1[0], face1[1], face1[2])
-
+  normal_vector_femur = -calculate_normal_vector(face_femur[0], face_femur[1], face_femur[2]) # negative to point outwards
+  
   # Plane 2 (modify the vertices to test different scenarios)
-  vertex1b = vertex1 + 2
-  vertex2b = vertex2 + 5
-  vertex3b = vertex3 + 5
-  face2 = np.array([vertex1b, vertex2b, vertex3b])
+  vertex1b = vertex1 + 0.5
+  vertex2b = vertex2 + 0.5
+  vertex3b = vertex3 + 0.5
+  face_ace = np.array([vertex1b, vertex2b, vertex3b])
   plane_centre2 = calculate_centre_of_triangle(vertex1b, vertex2b, vertex3b)
-  normal_vector2 = calculate_normal_vector(face2[0], face2[1], face2[2])
+  normal_vector2 = calculate_normal_vector(face_ace[0], face_ace[1], face_ace[2])
+  A,B,C,D = calculate_plane_coefficients(normal_vector2, plane_centre1)
 
-  intercept = intersects_plane_segment(normal_vector1, vertex1, vertex2, vertex3)
-  angle_between_faces = angle_between_two_faces(face1,face2)
+  intercept_moeller = moeller_trumbore_intersect(plane_centre2, normal_vector2, vertex1, vertex2, vertex3)
+  angle_between_faces = angle_between_two_faces(face_femur,face_ace)
   distance_planes = distance_points_3d(plane_centre1,plane_centre2)
 
   # if visualise_vectors is true, plot the vectors and planes
   if visualise_vectors:  
-    plot_vector(normal_vector1,origin1,color='blue',label='Normal Vector 1')
-    plot_triangle(face1, facecolor='gray', alpha=0.5)
-    plot_triangle(face2, facecolor='red', alpha=0.5)
+    plot_vector(normal_vector_femur,plane_centre1,color='blue',label='Normal Vector 1')
+    plot_triangle(face_femur, facecolor='gray', alpha=0.5)
+    plot_triangle(face_ace, facecolor='red', alpha=0.5)
   
 
-  print("Normal Vector 1:", normal_vector1)
+  print("Normal Vector 1:", normal_vector_femur)
   print("Angle between faces:", angle_between_faces)
   print("Distance between planes:", distance_planes)
+  print("Intercepts:", intercept_moeller)
   if angle_between_faces < 45 and distance_planes < theresold:
-    print("Vector intercepts")
+    print("Planes at an angle less than 45 degrees (" , angle_between_faces ,") and within threshold distance (", theresold ,")")
+    print("Normal vector 1 intercepts plane 2")
   else:
-    print("Vectors do not intercept")
+    print("Planes at an angle greater than 45 degrees (" , angle_between_faces ,") or not within threshold distance (", theresold ,")")
+    print("Normal vector 1 does not intercept plane 2")
 
   plt.show()
 
