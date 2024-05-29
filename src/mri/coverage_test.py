@@ -55,7 +55,7 @@ if __name__ == "__main__":
     for leg in legs:
       
       initial_time = time.time()  # start time to measure the total time of the process
-      
+
       stl_file_femur = os.path.join(maindir, subject, 'Meshlab', ['femural_head_',leg, '.stl'])
       stl_file_acetabulum = os.path.join(maindir, subject, 'Meshlab', ['acetabulum_',leg, '.stl'])
 
@@ -169,7 +169,3 @@ if __name__ == "__main__":
           file.write(f"Total Femur Area: {total_femur_area}\n")
           file.write(f"Normalized Area Covered: {normalized_area}% \n")
           file.write(f"Total Time: {total_time}s\n")
-
-      pv.compare_normalized_coverages(maindir)
-      figname = os.path.join(maindir, f'coverage_per_threshold.png')
-      pv.plt.savefig(figname)
