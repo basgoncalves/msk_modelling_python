@@ -56,13 +56,14 @@ if __name__ == "__main__":
       
       initial_time = time.time()  # start time to measure the total time of the process
 
-      stl_file_femur = os.path.join(maindir, subject, 'Meshlab', ['femural_head_',leg, '.stl'])
-      stl_file_acetabulum = os.path.join(maindir, subject, 'Meshlab', ['acetabulum_',leg, '.stl'])
+      stl_file_femur = os.path.join(maindir, subject, 'Meshlab', str('femoral_head_' + leg + '.stl'))
+      stl_file_acetabulum = os.path.join(maindir, subject, 'Meshlab', str('acetabulum_' + leg + '.stl'))
 
       if os.path.exists(stl_file_femur) and os.path.exists(stl_file_acetabulum):
         print(f"\nSubject: {subject}, Leg: {leg}")
       else:
         print(f"Files not found for {subject} {leg}")
+        print(f"Files: {stl_file_femur}, {stl_file_acetabulum}")
         continue
 
       filename = os.path.basename(stl_file_femur)

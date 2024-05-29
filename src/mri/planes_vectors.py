@@ -297,7 +297,7 @@ def calculate_perpendicular_vector(v1, v2):
 
 #%% Ploting
 
-def create_figure():
+def update_figure():
   """
   Creates a new 3D figure if none exists, otherwise reuses the existing one.
 
@@ -333,7 +333,7 @@ def plot_vector(v1,origin,color='red',label='Vector 1'):
     # Calculate the end points for the vector
     v1_point = origin + v1
 
-    ax = create_figure()
+    ax = update_figure()
     ax.quiver(origin[0], origin[1], origin[2], v1[0], v1[1], v1[2], color=color, label=label)
     ax.scatter(v1_point[0], v1_point[1], v1_point[2], color='k')
     ax.set_xlabel('X')
@@ -390,7 +390,7 @@ def plot_3D_points(points,col='red'):
       points: A list of NumPy arrays representing the 3D points (x, y, z).
   """
   
-  ax = create_figure()
+  ax = update_figure()
   # Plot each point
   for point in points:
     ax.scatter(point[0], point[1], point[2], color=col, marker='o', s=5)
@@ -424,7 +424,7 @@ def plot_plane(a, b, c, d,x_lim=[-0.1,0.1], y_lim=[-0.1,0.1],tolerance=1e-18,col
     y_lim = [-0.01*max_val,0.01*max_val]
 
   # initiate the plot if needed
-  ax = create_figure()
+  ax = update_figure()
   x = np.linspace(-1,1,10)
   y = np.linspace(-1,1,10)
 
@@ -437,7 +437,7 @@ def plot_plane(a, b, c, d,x_lim=[-0.1,0.1], y_lim=[-0.1,0.1],tolerance=1e-18,col
   # Calculate the corresponding z values
   Z[mask] = (d - a * X[mask] - b * Y[mask]) / c
 
-  ax = create_figure()
+  ax = update_figure()
   surf = ax.plot_surface(X, Y, Z)
 
   # Set labels and title
@@ -530,6 +530,7 @@ if __name__ == "__main__":
   visualise_vectors = True
   theresold = 0.7
 
+  #%% Example 1 - Calculate the normal vector to a plane
   # Plane 1 (modify the vertices to test different scenarios)
   vertex1 = np.array([-9.774294e+01, -1.658581e+01, 2.546803e+01])
   vertex2 = np.array([-9.774294e+01, -1.859728e+01, 2.756273e+01])
@@ -540,8 +541,8 @@ if __name__ == "__main__":
   
   # Plane 2 (modify the vertices to test different scenarios)
   vertex1b = vertex1 + 0.5
-  vertex2b = vertex2 + 0.5
-  vertex3b = vertex3 + 0.5
+  vertex2b = vertex2 + 1
+  vertex3b = vertex3 + 3
   face_ace = np.array([vertex1b, vertex2b, vertex3b])
   plane_centre2 = calculate_centre_of_triangle(vertex1b, vertex2b, vertex3b)
   normal_vector2 = calculate_normal_vector(face_ace[0], face_ace[1], face_ace[2])
@@ -561,15 +562,25 @@ if __name__ == "__main__":
   print("Normal Vector 1:", normal_vector_femur)
   print("Angle between faces:", angle_between_faces)
   print("Distance between planes:", distance_planes)
-  print("Intercepts:", intercept_moeller)
+  print("Intercepts via moeller_trumbore method:", intercept_moeller)
+
+  ax = update_figure() 
+  
+  if intercept_moeller:
+    ax.set_title('normal vector 1 intercepts plane 2')
+  else:
+    ax.set_title('normal vector 1 does not intercept plane 2')
+
+  # print the ouput of a second method using the normal vector and the angle between the faces
   if angle_between_faces < 45 and distance_planes < theresold:
     print("Planes at an angle less than 45 degrees (" , angle_between_faces ,") and within threshold distance (", theresold ,")")
-    print("Normal vector 1 intercepts plane 2")
+    print("Normal vector 1 intercepts plane 2 (old method)")
   else:
     print("Planes at an angle greater than 45 degrees (" , angle_between_faces ,") or not within threshold distance (", theresold ,")")
-    print("Normal vector 1 does not intercept plane 2")
+    print("Normal vector 1 does not intercept plane 2 (old method 2)")
 
   plt.show()
 
   exit()
   
+# %%
