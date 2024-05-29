@@ -2,7 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection  
-
+import os
+import pandas as pd
 class Plane:
   def __init__(self, a, b, c, d):
     self.a = a
@@ -65,6 +66,7 @@ def load_stl_vertices(filename):
   """
 
   vertices = []
+  normal_vectors = []
   with open(filename, 'r') as f:
     lines = f.readlines()
 
@@ -73,6 +75,10 @@ def load_stl_vertices(filename):
       # Extract coordinates (assuming scientific notation)
       coordinates = [float(x) for x in line.split()[1:]]
       vertices.append(np.array(coordinates))
+    
+    if line.startswith("  facet normal"):
+      coordinates = [float(x) for x in line.split()[1:]]
+      normal_vectors.append(np.array(coordinates))
 
   # Split vertices into groups of 3 (triangles)
   vertices = [vertices[i:i + 3] for i in range(0, len(vertices), 3)]
@@ -85,7 +91,7 @@ def load_stl_vertices(filename):
   centres = np.array(centres)
 
 
-  return vertices, centres
+  return vertices, centres, normal_vectors
 
 def plot_3D_points(points,col='red'):
   """
@@ -203,21 +209,13 @@ def plot_triangle(pointArray,facecolor='#800000',alpha=0.05,pointsize=0.5):
     # 2. create 3d polygons and specify parameters
     srf = Poly3DCollection(verts, alpha=alpha, facecolor=facecolor)
     # 3. add polygon to the figure (current axes)
-    plt.gca().add_collection3d(srf)
+    ax = plt.gca().add_collection3d(srf)
 
     custom.set_xlabel('X')
     custom.set_ylabel('Y')
     custom.set_zlabel('Z')
 
-def plot_plane_and_points(v1,v2,v3):
-  a, b, c, d, x_lim, y_lim = calculate_plane_function(v1, v2, v3, ratio=1)
-  plot_3D_points([v1, v2, v3])
-  plot_plane(a, b, c, d,x_lim, y_lim)
-  centre = calculate_plane_center(v1, v2, v3)
-  normal_vector = calculate_normal_vector(v1, v2, v3)
-  plot_normal_vector_to_plane(normal_vector, centre)
-
-  return a, b, c, d, centre, normal_vector, x_lim, y_lim
+    return ax
 
 def does_vector_intersect_plane(point, direction, a, b, c, d, normal, x_lim, y_lim):
     """
@@ -351,6 +349,61 @@ def calculate_distances(point, matrix):
 
   return distances
 
+def calculate_centre_of_triangle(point1, point2, point3):
+  vertices = np.array([[point1, point2, point3]])
+  centres = []
+  for i,d in enumerate(vertices):
+      mean_point = np.mean(np.array(d), axis=0)
+      centres.append(mean_point)
+  return centres[0]
+
+def compare_normalized_coverages(folder_path):
+  normalized_coverage_values = []
+  threshold = []
+  
+  for root, dirs, files in os.walk(folder_path):
+    for dir_name in dirs:
+      if "_l_threshold" in dir_name:
+        coverage_file_path = os.path.join(root, dir_name, "femoral_head_l.txt")
+        if os.path.isfile(coverage_file_path):
+          try:
+            with open(coverage_file_path, 'r') as file:
+              for line in file:
+                if "Normalized Area Covered:" in line:
+                  value = line.split(": ")[1].strip().replace("%", "")
+                  normalized_coverage_values.append(value)
+                  threshold.append(dir_name.split("_")[4])
+          except:
+            print(f"Error reading file: {coverage_file_path}")
+            continue
+  
+  coverage = pd.DataFrame({
+    'Normalized Coverage Values': normalized_coverage_values,
+    'Threshold': threshold})
+
+  coverage['Threshold'] = pd.to_numeric(coverage['Threshold'])
+  coverage['Normalized Coverage Values'] = pd.to_numeric(coverage['Normalized Coverage Values'])
+  coverage = coverage.sort_values('Threshold')
+
+  return coverage
+
+def distance_points_3d(p1, p2):
+  """
+  Calculates the absolute distance between two 3D points.
+
+  Args:
+      p1: A 3D NumPy array representing the first point (x1, y1, z1).
+      p2: A 3D NumPy array representing the second point (x2, y2, z2).
+
+  Returns:
+      The absolute distance between the two points.
+  """
+
+  difference = p2 - p1
+  squared_magnitude = np.sum(difference**2)
+  distance = np.sqrt(squared_magnitude) # Take the square root to get the absolute distance
+
+  return distance
 
 
 
@@ -367,89 +420,3 @@ if __name__ == "__main__":
   plot_plane(coefficients[0], coefficients[1], coefficients[2], coefficients[3],[-1,1],[-1,1])
 
   exit()
-
-  def find_z(coef, x, y):
-    return (coef[3]-x*coef[0]-y*coef[1])/coef[2]
-  
-  def generate_points_on_plane(coefficients):
-    points = [np.array([0,0,find_z(coefficients, 0, 0)]),
-              np.array([0,1,find_z(coefficients, 0, 1)]),
-              np.array([1,0,find_z(coefficients, 1, 0)])]
-    return points
-  
-  points = generate_points_on_plane(coefficients)
-  
-  print("Points on the plane:", points)
-  plot_3D_points(points)
-
-  # second plane 
-  x_lim = [-2,2]
-  y_lim = [-2,2]
-  centre = calculate_plane_center(points[0], points[1], points[2])
-  normal_vector = calculate_normal_vector(points[0], points[1], points[2])
-  plane2, d = get_perpendicular_plane_from_equation(coefficients)
-  print(plane2)
-  exit()
-  plot_plane(plane2[0], plane2[1], plane2[2], d ,x_lim, y_lim,color='green')
-  exit()  
-  points2 =  generate_points_on_plane(plane2)
-  plot_3D_points(points2,col='black')
-  normal_vector2 = calculate_normal_vector(points2[0], points2[1], points2[2])
-
-  intersects_plane2 = does_vector_intersect_plane(centre, normal_vector, plane2[0], plane2[1], plane2[2], plane2[3], normal_vector2,x_lim, y_lim)
-
-
-  plt.show()
-
-  exit()
-
-  ax = create_figure()
-  x_lim = [-2,2]
-  y_lim = [-2,2]
-  plane1 = [1, 0, 0, 0]
-  plot_plane(plane1[0], plane1[1], plane1[2], plane1[3],x_lim, y_lim)
-  points =  generate_points_on_plane(plane1)
-  plot_3D_points(points)
-  plt.show()
-  exit()
-
-  centre = calculate_plane_center(points[0], points[1], points[2])
-  normal_vector = calculate_normal_vector(points[0], points[1], points[2])
-
-  plane2 = get_perpendicular_plane_coefficients_method1(normal_vector)
-  plot_plane(plane2[0], plane2[1], plane2[2], plane2[3],x_lim, y_lim)
-  points2 =  generate_points_on_plane(plane2)
-  plot_3D_points(points2)
-
-  normal_vector2 = calculate_normal_vector(points2[0], points2[1], points2[2])
-
-  intersects_plane2 = does_vector_intersect_plane(centre, normal_vector, plane2[0], plane2[1], plane2[2], plane2[3], normal_vector2,x_lim, y_lim)
-
-  plt.show()
-  exit()
-
-  # face 1
-  v1 = np.array([-1.039459e+02, -2.215638e+01, -1.938544e+01])
-  v2 = np.array([-1.043997e+02, -2.193705e+01, -1.934748e+01])
-  v3 = np.array([-1.040420e+02, -2.218708e+01, -1.981359e+01])
-  a, b, c, d, centre, normal_vector, x_lim, y_lim = plot_plane_and_points(v1,v2,v3)
-
-  # face 2
-  v1 = np.array([-2.039459e+02, -3.215638e+01, -4.938544e+01])
-  v2 = np.array([-2.043997e+02, -3.193705e+01, -0.934748e+01])
-  v3 = np.array([-2.040420e+02, -3.218708e+01, -2.981359e+01])
-  a2, b2, c2, d2, centre2, normal_vector2, x_lim2, y_lim2 = plot_plane_and_points(v1,v2,v3)
-
-
-
-
-
-  # Example usage
-  point = np.array([-1.0, 2.0, 3.0])
-  direction = np.array([1.0, 1.0, 1.0])
-  a1, b1, c1, d1 = 1.0, 1.0, 1.0, 0.0  # Plane 1 equation (x+y+z=0)
-  a2, b2, c2, d2 = 0.0, 1.0, 0.0, 1.0  # Plane 2 equation (y=1)
-  normal2 = np.array([0.0, 1.0, 0.0])  # Normal vector of plane 2
-
-  intersects_plane2 = does_vector_intersect_plane(centre, normal_vector, a2, b2, c2, d2, normal_vector2,x_lim2, y_lim2)
-  plt.show()
