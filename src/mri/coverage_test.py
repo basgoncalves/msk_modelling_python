@@ -48,10 +48,10 @@ if __name__ == "__main__":
   maindir = r'C:\Users\Bas\ucloud\MRI_segmentation_BG\acetabular_coverage'
   subjects = [entry for entry in os.listdir(maindir) if os.path.isdir(os.path.join(maindir, entry))]
   print(f" Checking subjects: {subjects}")
-  legs = ['l', 'r']
+  legs = ['r','l']
   thresholds = [25] # distance threshold in mm
 
-  for subject in subjects:
+  for subject in subjects[6:7]:
     for leg in legs:
       
       initial_time = time.time()  # start time to measure the total time of the process
