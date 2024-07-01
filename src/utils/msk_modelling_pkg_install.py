@@ -22,13 +22,18 @@ def install_opensim(VERSION=4.3):
     osimIntallDirectory= r'C:\OpenSim VERSION\sdk\Python'.replace("VERSION", str(VERSION))
     os.chdir(osimIntallDirectory)
 
-    if VERSION == 4.3:
-        subprocess.run(['python', '.\setup_win_python38.py'], check=True) # Run setup script
-    elif VERSION == 3.3:
-        subprocess.run(['python', '.\setup.py install'], check=True)
-    output = subprocess.run(['python', '-m', 'pip', 'install', '.'], check=True) # Install the package
+    try:
+        if VERSION == 4.3:
+            subprocess.run(['python', '.\setup_win_python38.py'], check=True) # Run setup script
+        elif VERSION == 3.3:
+            subprocess.run(['python', '.\setup.py install'], check=True)
+        
+        output = subprocess.run(['python', '-m', 'pip', 'install', '.'], check=True) # Install the package
 
-    print(output.stderr())
+        print(output.stderr())
+    except subprocess.CalledProcessError as e:
+        print(e)
+        print('Error: Could not install OpenSim Python API')
 
     sys.executable
     # run in terminal 
@@ -63,8 +68,9 @@ install_pipreqs()
 
 check_python_version(osimVersion)
 
-Packages = ['autopep8','bs4','c3d','docx','jupyter','numpy','opensim','pyc3dserver','requests','pandas','selenium','webdriver-manager','matplotlib',
-        'scipy','tk','tkfilebrowser','customtkinter','xmltodict','screeninfo','spm1d','tqdm']
+Packages = ['autopep8','bs4','c3d','docx','jupyter','numpy','opensim','pyc3dserver','requests',
+            'pandas','selenium','webdriver-manager','matplotlib',
+            'scipy','tk','tkfilebrowser','customtkinter','xmltodict','screeninfo','spm1d','tqdm']
 
 for pkg in Packages:
     if any(pkg in s for s in installed_packages_list):

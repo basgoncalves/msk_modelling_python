@@ -21,14 +21,14 @@ def plot_single_trial(subject_name = 'Athlete_03', trial_name = 'sq_90', analysi
 
     if analysis == 'static_optimization_forces':
         sto_path = paths.so_output_forces
-        muscles_r = get_muscles_by_group_osim(model_path,['right_leg'])
+        muscles_r = bp.osimSetup.get_muscles_by_group_osim(model_path,['right_leg'])
         columns_to_plot = muscles_r['all_selected']
         title = os.path.basename(sto_path) + ' right leg'
         save_path = os.path.join(paths.trial,'results' , title + '.png')
 
     if analysis == 'static_optimization_activations':
         sto_path = paths.so_output_activations
-        muscles_r = get_muscles_by_group_osim(model_path,['right_leg'])
+        muscles_r = bp.osimSetup.get_muscles_by_group_osim(model_path,['right_leg'])
         columns_to_plot = muscles_r['all_selected']
         title = os.path.basename(sto_path) + ' right leg'
         save_path = os.path.join(paths.trial,'results' , title + '.png')

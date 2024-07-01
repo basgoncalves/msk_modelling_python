@@ -28,7 +28,7 @@ import pandas as pd
 import math
 import shutil
 from xml.etree import ElementTree as ET
-import pyc3dserver as c3d
+
 import scipy
 import scipy.signal as sig
 from scipy.spatial.transform import Rotation
@@ -49,7 +49,6 @@ import customtkinter as ctk
 
 from PIL import ImageTk, Image
 
-from sklearn.preprocessing import MinMaxScaler
 
 try:
     from trc import TRCData
@@ -1456,11 +1455,6 @@ class osimSetup:
             model1.printToXML(output_model_path)
             print(f'Model saved to: {output_model_path}')
 
-        
-
-
-
-    
     # Operations    
     def sum_body_mass(model_path):
         '''
@@ -1476,7 +1470,7 @@ class osimSetup:
 
 
 
-#%% ##############################################  OpenSim (to be complete)  ############################################################
+#%% ##############################################  OpenSim run (to be complete)  ############################################################
 def scale_model(originalModelPath,targetModelPath,trcFilePath,setupScaleXML):
     osimModel = osim.Model(originalModelPath)                             
     state = osimModel.initSystem()

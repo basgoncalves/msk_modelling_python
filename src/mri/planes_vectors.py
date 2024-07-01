@@ -253,6 +253,8 @@ def angle_between_two_faces(face1,face2):
   vertex2 = np.array([-97, -18, 27])
   vertex3 = np.array([-100, -16, 27])
   face1 = np.array([vertex1, vertex2, vertex3])
+
+  see https://onlinemschool.com/math/assistance/vector/angl/
   """
   # Calculate the normal vector to the plane defined by the face
   normal_vector1 = calculate_normal_vector(face1[0], face1[1], face1[2])
