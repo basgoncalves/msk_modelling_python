@@ -13,18 +13,11 @@ import sys
 src_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),'utils')
 sys.path.append(src_path)
 
-# import package from bops directory
-def import_bops(package,module=''): 
-    p = importlib.__import__(package)
-    return p
-Packages = ['autopep8','bs4','c3d','docx','jupyter','numpy','opensim','pyc3dserver','requests','pandas','selenium','webdriver-manager','matplotlib',
-        'scipy','tk','tkfilebrowser','customtkinter','xmltodict','screeninfo'] 
+from utils import msk_modelling_pkg_install
 
-ctypes = import_bops('ctypes')
-np = import_bops('numpy')
-import_bops('msk_modelling_pkg_install')
-
+import numpy as np
 import pandas as pd
+import ctypes
 import math
 import shutil
 from xml.etree import ElementTree as ET
@@ -48,13 +41,8 @@ import tkfilebrowser
 import customtkinter as ctk
 
 from PIL import ImageTk, Image
+from trc import TRCData
 
-
-try:
-    from trc import TRCData
-    import trc
-except:
-    print('could not import trc package')
 try:
     import opensim as osim
 except:
@@ -1228,6 +1216,11 @@ def torsion_tool(): # to complete...
 class osimSetup:
     def __init__(self):
         pass
+    
+    def print_osim_info():
+        print('Osim module version: ' + osim.__version__)
+        print('Osim module path: ' + osim.__file__)
+        
 
     def create_analysis_tool(coordinates_file, modelpath, results_directory, force_set_files=None):
         # Get mot data to determine time range
@@ -1494,8 +1487,8 @@ def run_IK(osim_modelPath, trc_file, resultsDir):
     state = osimModel.initSystem()
 
     # Define the time range for the analysis
-    initialTime = trc.getIndependentColumn()
-    finalTime = trc.getLastTime()
+    initialTime = TRCData.getIndependentColumn()
+    finalTime = TRCData.getLastTime()
 
     # Create the inverse kinematics tool
     ikTool = osim.InverseKinematicsTool()
@@ -1623,7 +1616,7 @@ def runSO(modelpath, trialpath, actuators_file_path):
     so.setEndTime(final_time)
     so.setMaxIterations(25)
 
-    analyzeTool_SO = create_analysis_tool(coordinates_file,modelpath_relative,results_directory)
+    analyzeTool_SO = osimSetup.create_analysis_tool(coordinates_file,modelpath_relative,results_directory)
     analyzeTool_SO.getAnalysisSet().cloneAndAppend (so)
     analyzeTool_SO.getForceSetFiles().append(actuators_file_path)
     analyzeTool_SO.setReplaceForceSet(False)
@@ -1732,19 +1725,19 @@ def sum_muscle_work(model_path, muscle_force_sto, muscle_length_sto, body_weight
     muscle_work_normalised_to_weight = normalise_df(muscle_work,body_weight)
     muscle_work_normalised_to_weight.to_csv(os.path.join(os.path.dirname(muscle_force_sto),'MuscleWork_normalised.csv'), index=False)
 
-    muscles_r_hip_flex = get_muscles_by_group_osim(model_path,['hip_flex_r','hip_add_r','hip_inrot_r'])
-    muscles_r_hip_ext = get_muscles_by_group_osim(model_path,['hip_ext_r','hip_abd_r','hip_exrot_r'])
-    muscles_r_knee_flex = get_muscles_by_group_osim(model_path,['knee_flex_r'])
-    muscles_r_knee_ext = get_muscles_by_group_osim(model_path,['knee_ext_r'])
-    muscles_r_ankle_df = get_muscles_by_group_osim(model_path,['ankle_df_r'])
-    muscles_r_ankle_pf = get_muscles_by_group_osim(model_path,['ankle_pf_r'])
+    muscles_r_hip_flex = osimSetup.get_muscles_by_group_osim(model_path,['hip_flex_r','hip_add_r','hip_inrot_r'])
+    muscles_r_hip_ext = osimSetup.get_muscles_by_group_osim(model_path,['hip_ext_r','hip_abd_r','hip_exrot_r'])
+    muscles_r_knee_flex = osimSetup.get_muscles_by_group_osim(model_path,['knee_flex_r'])
+    muscles_r_knee_ext = osimSetup.get_muscles_by_group_osim(model_path,['knee_ext_r'])
+    muscles_r_ankle_df = osimSetup.get_muscles_by_group_osim(model_path,['ankle_df_r'])
+    muscles_r_ankle_pf = osimSetup.get_muscles_by_group_osim(model_path,['ankle_pf_r'])
 
-    muscles_l_hip_flex = get_muscles_by_group_osim(model_path,['hip_flex_l','hip_add_l','hip_inrot_l'])
-    muscles_l_hip_ext = get_muscles_by_group_osim(model_path,['hip_ext_l','hip_abd_l','hip_exrot_l'])
-    muscles_l_knee_flex = get_muscles_by_group_osim(model_path,['knee_flex_l'])
-    muscles_l_knee_ext = get_muscles_by_group_osim(model_path,['knee_ext_l'])
-    muscles_l_ankle_df = get_muscles_by_group_osim(model_path,['ankle_df_l'])
-    muscles_l_ankle_pf = get_muscles_by_group_osim(model_path,['ankle_pf_l'])
+    muscles_l_hip_flex = osimSetup.get_muscles_by_group_osim(model_path,['hip_flex_l','hip_add_l','hip_inrot_l'])
+    muscles_l_hip_ext = osimSetup.get_muscles_by_group_osim(model_path,['hip_ext_l','hip_abd_l','hip_exrot_l'])
+    muscles_l_knee_flex = osimSetup.get_muscles_by_group_osim(model_path,['knee_flex_l'])
+    muscles_l_knee_ext = osimSetup.get_muscles_by_group_osim(model_path,['knee_ext_l'])
+    muscles_l_ankle_df = osimSetup.get_muscles_by_group_osim(model_path,['ankle_df_l'])
+    muscles_l_ankle_pf = osimSetup.get_muscles_by_group_osim(model_path,['ankle_pf_l'])
 
     groups = {  'RightHipFlex': muscles_r_hip_flex['all_selected'],
                 'RightHipExt': muscles_r_hip_ext['all_selected'],
