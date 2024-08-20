@@ -42,43 +42,46 @@ def plot_stl_mesh(vertices, facecolor='gray', alpha=0.7):
   for i in range(len(vertices)):
     pv.plot_triangle(np.array(vertices[i]),facecolor=facecolor,alpha=alpha)
 
-
-if __name__ == "__main__":
-
-  maindir = r'C:\Users\Bas\ucloud\MRI_segmentation_BG\acetabular_coverage'
-  subjects = [entry for entry in os.listdir(maindir) if os.path.isdir(os.path.join(maindir, entry))]
-  print(f" Checking subjects: {subjects}")
-  legs = ['r','l']
-  thresholds = [25] # distance threshold in mm
-
-  for subject in subjects[6:7]:
-    for leg in legs:
-      
-      initial_time = time.time()  # start time to measure the total time of the process
-
-      stl_file_femur = os.path.join(maindir, subject, 'Meshlab', str('femoral_head_' + leg + '.stl'))
-      stl_file_acetabulum = os.path.join(maindir, subject, 'Meshlab', str('acetabulum_' + leg + '.stl'))
-
-      if os.path.exists(stl_file_femur) and os.path.exists(stl_file_acetabulum):
-        print(f"\nSubject: {subject}, Leg: {leg}")
-      else:
-        print(f"Files not found for {subject} {leg}")
-        print(f"Files: {stl_file_femur}, {stl_file_acetabulum}")
+def calculate_coverage_batch(maindir, legs, thresholds, subjects_to_run):
+    """
+    Calculate the acetabular coverage for a batch of subjects.
+    """
+    subjects = [entry for entry in os.listdir(maindir) if os.path.isdir(os.path.join(maindir, entry))]
+    
+    df = pd.DataFrame({"Subject": subjects})
+    df.index.name = "Index"
+    print(df)
+        
+    for subject in subjects:
+      if subject not in subjects_to_run:
         continue
+      for leg in legs:
+        
+        initial_time = time.time()  # start time to measure the total time of the process
 
-      filename = os.path.basename(stl_file_femur)
+        stl_file_femur = os.path.join(maindir, subject, 'Meshlab_BG', str('femoral_head_' + leg + '.stl'))
+        stl_file_acetabulum = os.path.join(maindir, subject, 'Meshlab_BG', str('acetabulum_' + leg + '.stl'))
 
-      vertices_femur, centres_femur, normal_vectors_femur = pv.load_stl_vertices(stl_file_femur)
-      vertices_ace, centres_ace, normal_vectors_ace = pv.load_stl_vertices(stl_file_acetabulum)
+        if os.path.exists(stl_file_femur) and os.path.exists(stl_file_acetabulum):
+          print(f"\nSubject: {subject}, Leg: {leg}")
+        else:
+          print(f"Files not found for {subject} {leg}")
+          print(f"Files: {stl_file_femur}, {stl_file_acetabulum}")
+          continue
 
-      nframes = len(centres_femur)
-      print('number faces = ', len(centres_femur))
-      print('data loaded in:', time.time() - initial_time)
+        filename = os.path.basename(stl_file_femur)
 
-      for threshold in thresholds:
-        print(f"\nThreshold: {threshold}")
-        covered_area = 0
-        total_femur_area = 0
+        vertices_femur, centres_femur, normal_vectors_femur = pv.load_stl_vertices(stl_file_femur)
+        vertices_ace, centres_ace, normal_vectors_ace = pv.load_stl_vertices(stl_file_acetabulum)
+
+        nframes = len(centres_femur)
+        print('number faces = ', len(centres_femur))
+        print('data loaded in:', time.time() - initial_time)
+
+        for threshold in thresholds:
+          print(f"\nThreshold: {threshold}")
+          covered_area = 0
+          total_femur_area = 0
         for i,_ in enumerate(centres_femur[:nframes]):  
           show_loading_bar(i + 1, len(centres_femur[:nframes]))
           centre_face_femur = centres_femur[i]  
@@ -170,3 +173,13 @@ if __name__ == "__main__":
           file.write(f"Total Femur Area: {total_femur_area}\n")
           file.write(f"Normalized Area Covered: {normalized_area}% \n")
           file.write(f"Total Time: {total_time}s\n")
+
+
+if __name__ == "__main__":
+  
+  maindir = r'C:\Users\Bas\ucloud\MRI_segmentation_BG\acetabular_coverage'
+  legs = ['r','l']
+  thresholds = [25] # distance threshold in mm
+  subjects_to_run = ['048']  # select the subjects to run
+
+  calculate_coverage_batch(maindir, legs, thresholds, subjects_to_run)
