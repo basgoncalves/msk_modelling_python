@@ -11,6 +11,7 @@ def example_run_single_file(subject_name = 'Athlete_03', trial_name = 'sq_90'):
 
     cs.print_to_log_file('Running pipeline for ',subject_name + ' ' + trial_name, mode='start') # log file
     
+    cs.run_so(paths, rerun=True)
     cs.run_jra(paths, rerun = True)
     cs.print_to_log_file('done! ', ' ', ' ') # log file
 
@@ -53,10 +54,10 @@ def plot_single_trial(subject_name = 'Athlete_03', trial_name = 'sq_90', analysi
         else:
             model_path = paths.model_scaled
 
-        weight = float(get_tag_xml(model_path.replace('.osim', '_scale_setup.xml'), 'mass'))  * 9.81
+        weight = float(bp.get_tag_xml(model_path.replace('.osim', '_scale_setup.xml'), 'mass'))  * 9.81
         sto_path = bp.normalise_df(bp.import_sto_data(sto_path),weight)
 
-    fig  = plot_line_df(sto_path, sep_subplots = False, columns_to_plot=columns_to_plot,
+    fig  = bp.plot_line_df(sto_path, sep_subplots = False, columns_to_plot=columns_to_plot,
                     xlabel='Frames',ylabel='Force(BW)', legend='',save_path=save_path, title=title)
 
     plt.show()
@@ -169,21 +170,23 @@ def copy_marker_locations(osim_path1,osim_path2, marker_names='all'):
 
 if __name__ == "__main__":
     
-    #%% ECSS2024 data
+    #%% ISBS2024 data
     # example_run_single_file(subject_name, trial_name)
     # plot_single_trial(subject_name, trial_name, analysis = 'jra')
 
-    ## CHECK MUSCLE MOMENT ARMS
-    # model_file_path = r"C:\Git\isbs2024\Data\Scaled_models\Athlete_06_torsion_scaled.osim"
-    # ik_file_path = r"C:\Git\isbs2024\Data\Simulations\Athlete_06_torsion\sq_90\IK.mot"
-    # checkMuscleMomentArms(model_file_path, ik_file_path, leg = 'l', threshold = 0.005)
+    # CHECK MUSCLE MOMENT ARMS
+    # model_file_path = r"C:\Git\isbs2024\Data\Scaled_models\Athlete_14_torsion_scaled.osim"
+    # ik_file_path = r"C:\Git\isbs2024\Data\Simulations\Athlete_14_torsion\sq_70\IK.mot"
+    # bp.checkMuscleMomentArms(model_file_path, ik_file_path, leg = 'l', threshold = 0.005)
+    # exit()
 
     ## PLOT SINGLE TRIAL ANALYSIS
     # plot_single_trial(subject_name = 'Athlete_06', trial_name = 'sq_70', analysis = 'static_optimization_activations')
     # example_run_single_file()
         
     # osim_model = bp.select_file()
-    # bp.increase_max_isometric_force(osim_model, 10)
+    # bp.osimSetup.increase_max_isometric_force(osim_model, 10)
+    # exit()
 
     # df = bp.import_sto_data(r'C:\Git\isbs2024\Data\Simulations\Athlete_06\sq_90\EMG_filtered.sto')
     # plot_intercative(df, save_path_html = r'C:\Git\isbs2024\Data\Simulations\Athlete_06\sq_90\results\emg_filtered.html')
@@ -196,7 +199,15 @@ if __name__ == "__main__":
 
     # current process:
     subject_name = 'Athlete_14' # id code
-    model_path = f'C:\Git\isbs2024\Data\Scaled_models\{subject_name}_scaled - Copy.osim'
+    condition = 'normal' # normal or torsion
+    trial_name = 'sq_90' # trial name
+    paths = cs.subject_paths(cs.get_main_path(), subject_name, trial_name)
+    if condition == 'torsion':
+        model_path = paths.model_scaled.replace('_scaled.osim','_torsion_scaled.osim')
+        paths = cs.subject_paths(cs.get_main_path(), subject_name + '_torsion', trial_name)
+    else:
+        model_path = paths.model_scaled
+    
     model_path2 = f'C:\Git\isbs2024\Data\Scaled_models\Alex\{subject_name}_scaled.osim'
     marker_names = ['GLAB','RFHD','LFHD','C7','T12','STRN', # upper body
                 'RACR','RUAOL','RUA2','RUA3','RCUBL','RCUBM','RLAOL','RLA2','RLA3','RWRU','RWRR', # right arm
@@ -212,9 +223,19 @@ if __name__ == "__main__":
                 'LTHOL', 'LTH2','LTH3','LKNEL', 'LKNEM', 'LSHAOL', 'LSHA2', 'LSHA3','LMALL', 'LMALM','LHEE','LM5','LTOE' # left leg
                 ]  
 
-    bp.osimSetup.copy_marker_locations(model_path,model_path2,marker_names,marker_common_frame='RASI')
-    bp.osimSetup.reorder_markers(model_path, orders_markers)   
-
+    # bp.osimSetup.copy_marker_locations(model_path,model_path2,marker_names,marker_common_frame='RASI')
+    # bp.osimSetup.reorder_markers(model_path, orders_markers)  
+    # exit() 
+    print('Running pipeline for ',subject_name + ' ' + trial_name)
+    print('Model path: ', model_path)
+    print('IK output: ', paths.ik_output)
+    
+    cs.run_inverse_kinematics(model_path, paths.markers,paths.ik_output)
+    if condition == 'torsion':
+        example_run_single_file(subject_name = subject_name + '_torsion', trial_name = trial_name)
+    else:
+        example_run_single_file(subject_name = subject_name, trial_name = trial_name)
+    
     #%% Marta's data
 
     # increase max isometric force
@@ -249,7 +270,7 @@ if __name__ == "__main__":
 
 
 
-
+    #%%
     print('Done')
 
 # END

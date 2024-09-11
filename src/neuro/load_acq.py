@@ -4,11 +4,15 @@ import matplotlib.pyplot as plt
 import os
 import pandas as pd
 import numpy as np
+from tkinter import filedialog
 
-def load_acq(file_path):
-    if not os.path.exists(file_path):
-        print('File not found')
-        exit(1)
+def load_acq(file_path = ''):
+    if not file_path:
+        file_path = filedialog.askopenfilename(title='Select acquisition file', filetypes=[('Acquisition files', '*.acq'), ('All files', '*.*')])
+        
+        if not os.path.exists(file_path):
+            print('File not found')
+            exit(1)
 
     data = bioread.read_file(file_path)
     emg_data = data.channels[0].data
