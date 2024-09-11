@@ -1,6 +1,10 @@
 import tkinter as tk
 import os
-from coverage_test import calculate_coverage_batch, show_loading_bar, calculate_normal_vector
+# from bops.msk_modelling_python.src.mri.coverage import calculate_coverage_batch, show_loading_bar, calculate_normal_vector
+# import test_print_xlsx as print_xlsx
+
+from bops.msk_model.src import hello as h
+
 def coverage_test(maindir, legs, thresholds, subjects_to_run):
     calculate_coverage_batch(maindir, legs, thresholds, subjects_to_run)
 
@@ -48,7 +52,7 @@ def create_gui():
     button1 = tk.Button(root, text="Coverage Test", command=coverage_test)
     button1.pack()
 
-    button2 = tk.Button(root, text="Function 1", command=function1)
+    button2 = tk.Button(root, text="Function 1", command=print_xlsx.add_coverages_to_xlsx())
     button2.pack()
 
     button3 = tk.Button(root, text="Function 2", command=function2)

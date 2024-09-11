@@ -1,3 +1,4 @@
+import os
 import trimesh
 import numpy as np
 import trimesh
@@ -61,11 +62,12 @@ def calculate_covered_area(points, center, radius):
     # Assuming uniform distribution of points on the sphere
     covered_ratio = num_covered_points / total_points
     sphere_area = 4 * np.pi * radius**2
+    covered_area = np.round(covered_ratio * sphere_area,1)
 
-    return covered_ratio * sphere_area
+    return covered_area
 
-if __name__ == '__main__':
-    points, centroid, initial_radius = calculate_centroid()
+def fit_sphere_and_plot(mesh_path):
+    points, centroid, initial_radius = calculate_centroid(mesh_path)
         
     # Initial guess for center and radius
     initial_guess = np.append(centroid, initial_radius)
@@ -81,17 +83,35 @@ if __name__ == '__main__':
     # Plotting
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    ax.scatter(points[:, 0], points[:, 1], points[:, 2], s=1, label='Mesh Points')
-    ax.scatter(sphere_points[:, 0], sphere_points[:, 1], sphere_points[:, 2], s=1, color='r', label='Fitted Sphere')
+    ## Scatter plot
+    # ax.scatter(points[:, 0], points[:, 1], points[:, 2], s=1, label='Mesh Points')
+    # ax.scatter(sphere_points[:, 0], sphere_points[:, 1], sphere_points[:, 2], s=1, color='r', label='Fitted Sphere')
+
+    # Convert points to surface
+    ax.plot_trisurf(points[:, 0], points[:, 1], points[:, 2], color='b', alpha=0.3)
+    ax.plot_trisurf(sphere_points[:, 0], sphere_points[:, 1], sphere_points[:, 2], color='r', alpha=0.3)
+
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
-    ax.legend()
 
     # Calculate covered area
-    covered_area = calculate_covered_area(points, optimal_center, optimal_radius)
-    print(f'Optimal radius: {np.round(optimal_radius)} mm')
-    print(f"Approximate covered area of the sphere: {covered_area:.4f} mm^2")
+    covered_area = calculate_covered_area(points, optimal_center, optimal_radius)    
     
-    plt.show()
+    # add text for covered area
+    ax.text2D(0.95, 0.95, f'Covered Area: {covered_area:.1f} mm^2', transform=ax.transAxes, ha='right', va='top')
 
+    filename_without_extension = os.path.splitext(os.path.basename(mesh_path))[0]
+    plt.title(f'Fitted Sphere for {filename_without_extension}')
+    plt.savefig(os.path.join(os.path.dirname(mesh_path), filename_without_extension + '_fitted_sphere.png'))
+
+    return covered_area
+    
+
+
+if __name__ == '__main__':
+
+    mesh_path = filedialog.askopenfilename(title='Select STL file', filetypes=[('STL Files', '*.stl')])
+    covered_area = fit_sphere_and_plot(mesh_path)
+    print(f"Approximate covered area of the sphere: {covered_area:.1f} mm^2")
+    plt.show()

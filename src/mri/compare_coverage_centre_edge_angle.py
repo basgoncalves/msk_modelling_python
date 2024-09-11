@@ -39,16 +39,21 @@ LCEA = []
 Alpha_angle = []
 Coverage = []
 for iRow in df.index:
-
+    
     value = np.nan
-    if df.loc[iRow, 'Measured Leg'] == 'R' and not np.isnan(df.loc[iRow, coverage_R_column]):
-        Coverage.append(df.loc[iRow, coverage_R_column])
-        LCEA.append(df.loc[iRow, 'Centre edge angle'])
-        Alpha_angle.append(df.loc[iRow, 'Alpha angle'])
-    elif df.loc[iRow, 'Measured Leg'] == 'L' and not np.isnan(df.loc[iRow, coverage_L_column]):
-        Coverage.append(df.loc[iRow, coverage_L_column])
-        LCEA.append(df.loc[iRow, 'Centre edge angle'])
-        Alpha_angle.append(df.loc[iRow, 'Alpha angle'])
+    if df.loc[iRow, 'Measured Leg'] == 'R':
+        value = df.loc[iRow, coverage_R_column]
+        if pd.api.types.is_numeric_dtype(value) and not np.isnan(value):
+            Coverage.append(df.loc[iRow, coverage_R_column])
+            LCEA.append(df.loc[iRow, 'Centre edge angle'])
+            Alpha_angle.append(df.loc[iRow, 'Alpha angle'])
+
+    elif df.loc[iRow, 'Measured Leg'] == 'L':
+        value = df.loc[iRow, coverage_L_column]
+        if pd.api.types.is_numeric_dtype(value) and not np.isnan(value):
+            Coverage.append(df.loc[iRow, coverage_L_column])
+            LCEA.append(df.loc[iRow, 'Centre edge angle'])
+            Alpha_angle.append(df.loc[iRow, 'Alpha angle'])
     
 # calculate the correlation between LCEA and Coverage
 correlation = round(pd.Series(LCEA).corr(pd.Series(Coverage)),2)
