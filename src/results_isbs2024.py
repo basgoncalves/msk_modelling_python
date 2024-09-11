@@ -26,7 +26,7 @@ class steps:
 
 def muscle_groups(paths):
     model_path = paths.model_scaled
-    muscles = get_muscles_by_group_osim(model_path,'all')
+    muscles = bp.get_muscles_by_group_osim(model_path,'all')
     groups = list(muscles.keys())
     hip_r = [group for group in groups if group.startswith('hip') and group.endswith('r')]
     muscles_hip_r = list(set([muscle for group in hip_r for muscle in muscles.get(group, [])]))
@@ -56,6 +56,10 @@ def get_personlised_label(subject_name):
     elif subject_name == 'Athlete_06':
         perosnalised_label = 'Personalised (AVA = {0}-{1} NSA = {2}-{3})'.format(2,3.5,132,129.9)
         personlised_title = 'Athlete 02'
+    
+    elif subject_name == 'Athlete_14':
+        perosnalised_label = 'Personalised (AVA = {0}-{1} NSA = {2}-{3})'.format(8.3,12.7,130.3,132.2)
+        personlised_title = 'Athlete 03'
 
     elif subject_name == 'Athlete_22':
         perosnalised_label = 'Personalised (AVA = {0}-{1} NSA = {2}-{3})'.format(23.1,28.1,129.1,130.9)
@@ -342,7 +346,7 @@ def create_summary_table(subject_name,trial_name):
     plt.legend(['Generic',perosnalised_label])
     plt.title(personlised_title)
 
-    plt.gca().xaxis.set_ticklabels(['Hip', 'Knee', 'Ankle']) 
+    plt.gca().xaxis.set_ticklabels(['hip_r', 'knee_r', 'ankle_r', 'hip_l', 'knee_l', 'ankle_l']) 
     plt.tight_layout()
     
     bp.save_fig(plt.gcf(),os.path.join(paths.results,'jra' , subject_name, trial_name + '_summary_forces.png'))
@@ -354,9 +358,13 @@ def create_summary_table(subject_name,trial_name):
 
 def result_summary(subject_list, trial_list, data_folder):
 
-    perosnalised_label = [get_personlised_label('Athlete_03')[0].replace('Personalised','Athlete 01'),
-                        get_personlised_label('Athlete_06')[0].replace('Personalised','Athlete 02'),
-                        get_personlised_label('Athlete_22')[0].replace('Personalised','Athlete 05')]
+    labels = ['Athlete_03', 'Athlete_06', 'Athlete_14', 'Athlete_20', 'Athlete_22', 'Athlete_25', 'Athlete_26']
+    labels_2 = ['Athlete_01', 'Athlete_02', 'Athlete_03', 'Athlete_04','Athlete_05','Athlete_06','Athlete_07']
+    perosnalised_label = []
+    for idx,label in enumerate(labels):
+        if label in subject_list:
+            perosnalised_label.append(get_personlised_label(labels[idx])[0].replace('Personalised',labels_2[idx]))
+                        
     
     muscle_work_diff = pd.DataFrame()
     jrl_diff = pd.DataFrame()
@@ -376,8 +384,8 @@ def result_summary(subject_list, trial_list, data_folder):
 
             paths = cs.subject_paths(data_folder,subject_code=subject_name,trial_name=trial_name)
             try:
-                muscle_forces_per_subject = pd.read_csv(os.path.join(paths.so_output_forces),index_col=0)
                 muscle_work_per_subject = pd.read_csv(os.path.join(paths.results, 'muscle_work_torsion' ,f'{subject_name}_{trial_name}.csv'),index_col=0)
+                create_summary_table(subject_name,trial_name)
                 joint_forces_per_subject = pd.read_csv(os.path.join(paths.results, 'jra', subject_name, f'{trial_name}_summary.csv'), index_col=0)
 
                 jra_time_series = pd.read_csv(os.path.join(paths.results, 'jra', subject_name, f'jra_generic_{trial_name}.csv'), index_col=0)
@@ -426,15 +434,18 @@ def result_summary(subject_list, trial_list, data_folder):
 
     # plot muscle work difference bar chart
     try:
-        fig_work = bp.plot_bar_df(muscle_work_diff_short)
-        plt.ylabel(' J/BW difference from generic')
-        plt.legend(perosnalised_label)
-        plt.ylabel('Muscle work (J/BW)')
-        plt.title('Muscle work difference between generic and torsion')
+        plt.rcParams['font.size'] = 15
+        ax = muscle_work_diff_short.plot(kind='bar', figsize=(8, 6), colormap='viridis', width=0.75, fontsize=12)
+        plt.xticks(rotation=45)
+        plt.legend(perosnalised_label, loc = 'upper right', bbox_to_anchor=(1, 1))
+        plt.ylabel('Δ Muscle work from generic (J/BW)')
+        # plt.title('Muscle work difference between generic and torsion')
         plt.gca().spines['top'].set_visible(False)
         plt.gca().spines['right'].set_visible(False)
-
-        bp.save_fig(fig_work, save_path=os.path.join(paths.results, 'muscle_work_torsion' ,'summary_differences.png'))
+        plt.subplots_adjust(bottom=0.16)
+       
+        
+        bp.save_fig(plt.gcf(), save_path=os.path.join(paths.results, 'muscle_work_torsion' ,'summary_differences.png'))
         
         muscle_work_diff.to_csv(os.path.join(paths.results, 'muscle_work_torsion' ,'summary_differences.csv'))
     except Exception as e:
@@ -443,12 +454,16 @@ def result_summary(subject_list, trial_list, data_folder):
 
     # plot joint resultant forces difference bar chart
     try:
-        fig = bp.plot_bar_df(jrl_diff)
-        plt.ylabel(' Difference from generic (BW)')
+        ax = jrl_diff.plot(kind='bar', figsize=(10, 6), colormap='viridis', width=0.75)
+        plt.ylabel('Δ Peak joint forces from generic (BW)')
         plt.legend(perosnalised_label)
+        plt.legend('')
         plt.gca().set_xticklabels(['right hip','right knee','right ankle','left hip','left knee','left ankle'], rotation=45)
-        plt.title('Peak joint resultant forces difference between generic and torsion')
-        bp.save_fig(fig, save_path=os.path.join(paths.results, 'jra' ,'summary_differences.png'))
+        # plt.title('Peak joint resultant forces difference between generic and torsion')
+        plt.gca().spines['top'].set_visible(False)
+        plt.gca().spines['right'].set_visible(False)
+        plt.subplots_adjust(bottom=0.16)
+        bp.save_fig(plt.gcf(), save_path=os.path.join(paths.results, 'jra' ,'summary_differences.png'))
         print(f'Plot saved in {os.path.join(paths.results, "jra" ,"summary_differences.png")}')
     except Exception as e:
         print('Failed to plot joint resultant forces difference bar chart')
@@ -579,7 +594,7 @@ if __name__ == "__main__":
     # option [moment_errors, compare_forces_ceinms, activation_errors, muscle_work]
     steps_to_plot = steps(moment_errors = False, compare_forces_ceinms_so = False, 
                         activation_errors = False, muscle_work = False, compare_forces_torsion = False,
-                        ik_and_id = False, muscle_work_torsion= False, muscle_work_so = False, 
+                        ik_and_id = False, muscle_work_torsion= True, muscle_work_so = True, 
                         activation_torsion = False, joint_reaction_forces = True)
 
     cs.print_terminal_spaced(' ')

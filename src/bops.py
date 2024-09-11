@@ -2503,7 +2503,7 @@ def plot_bar_df(df,transpose = False):
     # Adjust subplot layout to make room for x-axis tick labels
     plt.subplots_adjust(bottom=0.2)
 
-    return plt.gcf()
+    return plt.gcf(), plt.gca()
 
 
 
@@ -2698,6 +2698,13 @@ def print_warning(message = 'Error in code. '):
   from colorama import Fore, Style
   print(Fore.YELLOW + "WARNING: " + message + Style.RESET_ALL)
 
+def get_package_location(package_name):
+  try:
+    module = importlib.import_module(package_name)
+    path = pathlib.Path(module.__file__).parent
+    return str(path)
+  except ImportError:
+    return f"Package '{package_name}' not found."
 
 #%% ######################################################### BOPS TESTING #################################################################
 def platypus_pic_path(imageType = 'happy'):
