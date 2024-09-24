@@ -1,3 +1,3 @@
 import msk_modelling_python as msk
 
-a = msk.src.bops.__version__
+print(msk.__version__)
