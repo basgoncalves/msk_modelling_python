@@ -4,10 +4,7 @@ import json
 from tkinter import messagebox
 from msk_modelling_python.src.mri.coverage import calculate_coverage_batch, show_loading_bar, calculate_normal_vector
 import msk_modelling_python.tests.test_print_xlsx as print_xlsx
-from msk_modelling_python import utils
 
-utils.print_hello
-exit()
 
 def coverage_test(maindir, legs, thresholds, subjects_to_run):
     calculate_coverage_batch(maindir, legs, thresholds, subjects_to_run)
