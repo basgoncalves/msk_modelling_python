@@ -1,4 +1,5 @@
 import os
+import pdb 
 
 def create_subject_folders(folder_path):
   """
@@ -26,6 +27,8 @@ def create_subject_folders(folder_path):
       # Create Meshlab subfolder within the subject folder
       meshlab_folder = os.path.join(subject_folder, "Meshlab")
       os.makedirs(meshlab_folder, exist_ok=True)  # Create Meshlab folder if it doesn't exist, ignoring errors
+
+
 
 if __name__ == "__main__":
   # Replace 'path/to/your/folder' with the actual path to your folder containing MRB files

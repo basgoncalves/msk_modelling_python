@@ -8,13 +8,7 @@ import importlib
 import os
 import time
 import unittest
-
 import sys
-src_path = os.path.join(os.path.dirname(os.path.realpath(__file__)),'utils')
-sys.path.append(src_path)
-
-from utils import msk_modelling_pkg_install
-
 import numpy as np
 import pandas as pd
 import ctypes
@@ -53,6 +47,8 @@ except:
     initPath = os.path.join(pythonPath,'lib\site-packages\opensim\__init__.py')
     print('init path is: ', initPath)    
     print('=============================================================================================')
+
+__version__ = '0.1.0'
 
 # %% ######################################################  Classes  ###################################################################
 class subject_paths:

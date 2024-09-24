@@ -1,12 +1,12 @@
+
+from . import bops
+
 import subprocess
 import importlib
 import os
 import time
 import unittest
 import sys
-
-from . import msk_modelling_pkg_install
-
 import pandas as pd
 import ctypes
 import numpy as np

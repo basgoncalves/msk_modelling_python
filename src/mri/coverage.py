@@ -181,7 +181,7 @@ if __name__ == "__main__":
   legs = ['l']
   thresholds = [25] # distance threshold in mm
   # select the subjects to run
-  subjects_to_run = ["029"]
+  subjects_to_run = ["044"]
   
 
   calculate_coverage_batch(maindir, legs, thresholds, subjects_to_run)
