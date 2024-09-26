@@ -49,23 +49,66 @@ except:
     print('=============================================================================================')
 
 # %% ######################################################  Classes  ###################################################################
+
+class project_paths:
+    def __init__(self, project_folder=''):
+
+        if not project_folder or not os.path.isdir(project_folder):
+            project_folder = select_folder('Please select project directory')
+
+        self.main = project_folder
+        self.simulations = os.path.join(self.main,'simulations')
+        self.results = os.path.join(self.main,'results')
+        self.models = os.path.join(self.main,'models')
+        self.setup_files = os.path.join(self.main,'setupFiles')
+        self.settings = os.path.join(self.main,'settings.json')
+        self.subjects = os.path.join(self.simulations,'subjects')
+
+        self.subject_list = [f for f in os.listdir(self.simulations) if os.path.isdir(os.path.join(self.simulations, f))]
+
+        self.setup_files_dict = dict()
+        self.setup_files_dict['scale'] = os.path.join(self.setup_files, 'setup_Scale.xml')
+        self.setup_files_dict['ik'] = os.path.join(self.setup_files, 'setup_ik.xml')
+        self.setup_files_dict['id'] = os.path.join(self.setup_files, 'setup_id.xml')
+        self.setup_files_dict['so'] = os.path.join(self.setup_files, 'setup_so.xml')
+        self.setup_files_dict['jrf'] = os.path.join(self.setup_files, 'setup_jrf.xml')
+
+        self.settings_dict = dict()
+        self.settings_dict['emg_filter'] = dict()
+        self.settings_dict['emg_filter']['band_pass'] = [40,450]
+        self.settings_dict['emg_filter']['low_pass'] = [6]
+        self.settings_dict['emg_filter']['order'] = [4]
+        self.settings_dict['emg_labels'] = ['all']
+        self.settings_dict['simulations'] = os.path.join(self.main,'simulations')
+
+        self.settings_dict['setupFiles'] = self.setup_files_dict
+        self.settings_dict['subject_list'] = self.subject_list
+
+        self.settings_json = os.path.join(self.main,'settings.json')
+
 class subject_paths:
-    def __init__(self, data_folder,subject_code='default',trial_name='trial1'):
+    def __init__(self, data_folder,subject_code='',session_name = '', trial_name=''):
+
+        if not data_folder or not os.path.isdir(data_folder):
+            data_folder = select_folder('Please select project directory')
+        
+        self.main = data_folder
 
         # main paths
-        self.main = data_folder
         self.setup_folder = os.path.join(self.main,'Setups')
         self.setup_ceinms = os.path.join(self.main,'Setups','ceinms')
         self.simulations = os.path.join(self.main,'Simulations')
+
+        # subject paths
         self.subject = os.path.join(self.simulations, subject_code)
-        self.trial = os.path.join(self.subject, trial_name)
+        self.trial = os.path.join(self.subject, session_name, trial_name)
         self.results = os.path.join(self.main, 'results')
 
         # raw data paths
-        self.c3d = os.path.join(self.subject, trial_name, 'c3dfile.c3d')
-        self.grf = os.path.join(self.subject, trial_name, 'grf.mot')
-        self.markers = os.path.join(self.subject, trial_name, 'marker_experimental.trc')
-        self.emg = os.path.join(self.subject, trial_name, 'EMG_filtered.sto')
+        self.c3d = os.path.join(self.trial, 'c3dfile.c3d')
+        self.grf = os.path.join(self.trial, 'grf.mot')
+        self.markers = os.path.join(self.trial, 'marker_experimental.trc')
+        self.emg = os.path.join(self.trial, 'EMG_filtered.sto')
 
         # model paths
         self.models = os.path.join(self.main, 'Scaled_models')
@@ -1474,13 +1517,17 @@ def scale_model(originalModelPath,targetModelPath,trcFilePath,setupScaleXML):
 def run_IK(osim_modelPath, trc_file, resultsDir):
 
     # Load the TRC file
-    df = import_file (trc_file)
-    
+    tuple_data = import_trc_file(trc_file)
+    df = pd.DataFrame.from_records(tuple_data, columns=[x[0] for x in tuple_data])
+    column_names = [x[0] for x in tuple_data]
+    if len(set(column_names)) != len(column_names):
+        print("Error: Duplicate column names found.")
     # Load the model
     osimModel = osim.Model(osim_modelPath)                              
     state = osimModel.initSystem()
 
     # Define the time range for the analysis
+    import pdb; pdb.set_trace()
     initialTime = TRCData.getIndependentColumn()
     finalTime = TRCData.getLastTime()
 
@@ -2517,9 +2564,6 @@ def play_animation():
         turtle.fd(x+50)
         turtle.rt(91)
     turtle.exitonclick()
-
-def play_pong():
-    import pong
 
 def play_random_walk():
     #https://matplotlib.org/stable/gallery/animation/random_walk.html

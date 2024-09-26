@@ -5,7 +5,7 @@ import sys
 import os
 import time
 import platform
-from git_tools import import_repos, summary_git_status, clear_terminal
+from .git_tools import import_repos, summary_git_status, clear_terminal
 import re
 
 repos = import_repos()        
