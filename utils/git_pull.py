@@ -5,7 +5,7 @@ import sys
 import os
 import time
 import platform
-from git_tools import import_repos
+from .git_tools import import_repos
 
 repos = import_repos()
 print(repos)

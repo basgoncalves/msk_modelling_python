@@ -1,2 +1,2 @@
 
-from . import bops
+from . import bops as bp

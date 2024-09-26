@@ -4,7 +4,7 @@ import sys
 import os
 import time
 import re
-from git_tools import import_repos,split_changes_summary_in_different_lines
+from .git_tools import import_repos,split_changes_summary_in_different_lines
 
 
 repos = import_repos()
@@ -61,7 +61,7 @@ else:
     # if the used wants he can push all uncommited repos
     if answer == 'y':
         
-        import git_push_all
+        from . import git_push_all
         
         # re-run status to ensure no commits are missing 
         exist_changes_to_commit = git_status()
