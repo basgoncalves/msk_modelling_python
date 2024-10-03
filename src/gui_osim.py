@@ -1,4 +1,5 @@
 from msk_modelling_python.src import bops as bp
+import msk_modelling_python.src.ceinms_setup as cs
 import tkinter as tk
 import os
 import json
@@ -44,7 +45,7 @@ def select_folder(Entry, settings: dict =None):
     Entry.delete(0, tk.END)
     Entry.insert(0, path)
     if settings:
-        save_settings_to_file(settings={"trial_folder": path})
+        save_settings_to_file(new_settings={"trial_folder": path})
 
 def run_IK(osim_modelPath='test', trc_file_path='test', resultsDir='test'):
     # bp.run_IK(osim_modelPath, trc_file_path, resultsDir)
@@ -65,24 +66,22 @@ def run_IK(osim_modelPath='test', trc_file_path='test', resultsDir='test'):
     print("trc file at path: ", trc_file_path)
     print("Results will be saved at: ", resultsDir)
     print(" ")
-    bp.run_IK(osim_modelPath, trc_file_path, resultsDir)
+    print("please continue fixing ...")
+    bp.run_inverse_kinematics(osim_modelPath, trc_file_path, resultsDir)
     print("IK run successfully")
 
 def function4():
     print("Function 4")
 
-def save_settings_to_file(settings_json_path=json_file_path(), settings=None):
+def save_settings_to_file(settings_json_path=json_file_path(), new_settings=None):
         # Save settings to a JSON file (add each setting to a dictionary)
-        if not settings:
-            settings = load_settings_from_file()
+        old_settings = load_settings_from_file()
 
-        settings_json_text = {}
-        for key in settings.keys():
-            settings_json_text[key] = settings[key]
+        for key in new_settings.keys():
+            old_settings[key] = new_settings[key]
 
-        
         with open(settings_json_path, "w") as file:
-            json.dump(settings_json_text, file, indent=4)
+            json.dump(old_settings, file, indent=4)
 
         messagebox.showinfo("Settings Saved", "Settings have been saved to settings.json")
 
@@ -102,31 +101,47 @@ def start_gui():
     settings = load_settings_from_file()
 
     root = bp.tk.Tk()
-    root.geometry("400x600")
+    root.geometry("500x800")
     root.title("Opensim run single trial")
     
     # Projct path input
     add_label(root, "Folder path")
-    trial_box, project_path = add_text_input_box(root, "Enter path of the trial folder")
+    trial_box, project_path = add_text_input_box(root, "Enter path of the trial folder", settings["trial"])
     add_button(root, "Select folder of the trial", select_folder, [trial_box])
 
     # Model path input      
     add_label(root, "Model path")
-    osim_model_box, osim_modelPath = add_text_input_box(root, "Enter path of the scaled .osim model")
+    osim_model_box, osim_modelPath = add_text_input_box(root, "Enter path of the scaled .osim model", settings["model_scaled"])
     add_button(root, "Select .osim file", select_file, [osim_model_box])
 
     # IK path input
     add_label(root, "IK path")
-    trc_box, trc_path = add_text_input_box(root, "Enter path of the trc file")
+    trc_box, trc_path = add_text_input_box(root, "Enter path of the trc file", settings["markers"])
+    mot_box, mot_path = add_text_input_box(root, "Enter path of the grf .mot file", settings["grf"])
+    grf_xml_box, xml_path = add_text_input_box(root, "Enter path of the grf .xml file", settings["grf_xml"])
     add_button(root, "Select trc file",  select_file, [trc_box])       
-    def resultsDir():
+    def resultsDir(analyis = 'ik'):
         trial_box_value = trial_box.get()
-        return os.path.join(trial_box_value, "ik.mot")
+        if analyis == 'ik':
+            return os.path.join(trial_box_value, "ik.mot")
+        elif analyis == 'id':
+            return os.path.join(trial_box_value, "inverse_dynamics.sto")
+        
+    def actuators_file_path():
+        return os.path.join(trial_box.get(), "actuators_so.xml")
     
     add_button(root, "Run IK", lambda: run_IK(osim_model_box.get(),trc_box.get(),resultsDir()))
-    # add_button(root, "Run IK", update_and_run_IK)
+    add_button(root, "Run ID", lambda: bp.run_ID(osim_model_box.get(),resultsDir(analyis='ik'), 
+                                                 mot_box.get(),grf_xml_box.get(), resultsDir(analyis='id')))
+    add_button(root, "Run SO", lambda: bp.run_SO(osim_model_box.get(),trial_box.get(),actuators_file_path()))
+
+    def update_settings():
+        save_settings_to_file(new_settings={"model_scaled": osim_model_box.get(), 
+                                        "markers": trc_box.get(), 
+                                        "trial": trial_box.get()})
 
     # add close button
+    add_button(root, "Save", update_settings)
     add_button(root, "Close", root.quit)
     
     

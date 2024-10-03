@@ -98,6 +98,7 @@ class subject_paths:
         self.setup_folder = os.path.join(self.main,'Setups')
         self.setup_ceinms = os.path.join(self.main,'Setups','ceinms')
         self.simulations = os.path.join(self.main,'Simulations')
+        self.current_analysis = os.path.join(get_dir_bops(),'current_analysis.json')
 
         # subject paths
         self.subject = os.path.join(self.simulations, subject_code)
@@ -590,6 +591,18 @@ def import_trc_file(trcFilePath):
     
     return trc_data, trc_dataframe
 
+def import_json_file(jsonFilePath):
+    with open(jsonFilePath, 'r') as f:
+        data = json.load(f)
+    return data
+
+def save_json_file(data, jsonFilePath):
+    if type(data) == subject_paths: # convert to dictionary
+        data = data.__dict__
+
+    with open(jsonFilePath, 'w') as f:
+        json.dump(data, f, indent=4)
+
 def c3d_osim_export(c3dFilePath):
     
     trialFolder = create_trial_folder(c3dFilePath)
@@ -758,7 +771,6 @@ def readXML(xml_file_path):
     import xml.etree.ElementTree as ET
 
     # Load XML file
-    xml_file_path = 'path_to_your_xml_file.xml'
     tree = ET.parse(xml_file_path)
     root = tree.getroot()
 
@@ -1548,34 +1560,104 @@ def run_IK(osim_modelPath, trc_file, resultsDir):
     print("running ik...")                                             
     ikTool.run()
 
-def run_ID(osim_modelPath, ik_results_file, mot_file, grf_xml, resultsDir):
-    # Load the TRC file
-    mot = osim.TimeSeriesTableMotion().loadTRC(mot_file)
+def run_inverse_kinematics(model_file, marker_file, output_motion_file):
+    # Load model and create an InverseKinematicsTool
+    model = osim.Model(model_file)
+    ik_tool = osim.InverseKinematicsTool()
 
+    # Set the model for the InverseKinematicsTool
+    ik_tool.setModel(model)
+
+    # Set the marker data file for the InverseKinematicsTool
+    ik_tool.setMarkerDataFileName(marker_file)
+
+    # Specify output motion file
+    ik_tool.setOutputMotionFileName(output_motion_file)
+
+    # Save setup file
+    ik_tool.printToXML('setup_ik.xml')
+
+    # Run Inverse Kinematics
+    ik_tool.run()
+
+def run_ID(osim_modelPath, ik_results_file, mot_file, grf_xml, resultsDir):
+        
     # Load the model
     osimModel = osim.Model(osim_modelPath)
-    state = osimModel.initSystem()
+    osimModel.initSystem()
 
-    # Define the time range for the analysis
-    initialTime = mot.getStartTime()
-    finalTime = mot.getLastTime()
+    # Load the motion data and times
+    motion = osim.Storage(ik_results_file)
+    initialTime = round(motion.getFirstTime(),2)
+    finalTime = round(motion.getLastTime(),2)   
 
     # Create the inverse kinematics tool
     idTool = osim.InverseDynamics()
     idTool.setModel(osimModel)
+    idTool.(6)
     idTool.setStartTime(initialTime)
     idTool.setEndTime(finalTime)
-    idTool.setCoordinatesFileName(ik_results_file)
-    idTool.setExternalLoadsFileName(mot_file)
-    idTool.setExternalLoads(grf_xml)
-    idTool.setPrintResultFiles(resultsDir)
-    idTool.setOutputMotionFileName(os.path.join(resultsDir, "inverse_dynamics.sto"))
+
+    
+    idTool.printToXML(os.path.join(os.path.dirname(resultsDir), "id_setup2.xml"))
+
+    
+    trial_folder = os.path.dirname(ik_results_file)
+    
+    # edit XML file tags
+    XML = readXML(os.path.join(os.path.dirname(resultsDir), "id_setup2.xml"))
+    
+    XML.find('.//InverseDynamics').insert(0,ET.Element('results_directory'))
+    XML.find('.//results_directory').text = '.' + os.path.sep
+
+    XML.find('.//InverseDynamics').insert(0,ET.Element('external_loads_file'))
+    XML.find('.//external_loads_file').text = os.path.relpath(grf_xml, trial_folder)
+    
+    XML.find('.//InverseDynamics').insert(0,ET.Element('time_range'))
+    XML.find('.//time_range').text = f'{initialTime} {finalTime}'
+
+    XML.find('.//InverseDynamics').insert(0,ET.Element('coordinates_file'))
+    XML.find('.//coordinates_file').text = os.path.relpath(ik_results_file, trial_folder)
+
+    XML.find('.//InverseDynamics').insert(0,ET.Element('output_gen_force_file'))
+    XML.find('.//output_gen_force_file').text = os.path.relpath(resultsDir, trial_folder)
+
+    writeXML(XML, os.path.join(os.path.dirname(resultsDir), "id_setup2.xml"))
+    idTool = osim.InverseDynamicsTool(os.path.join(os.path.dirname(resultsDir), "id_setup2.xml"))
+    import pdb; pdb.set_trace()
+    # Run inverse kinematics
+    print("running id...")
+    idTool.run()
+    exit()
+    # Create analysis tool
+    analysisTool = osim.AnalyzeTool()
+    analysisTool.setModel(osimModel)
+    analysisTool.setModelFilename(osim_modelPath)
+    analysisTool.setLowpassCutoffFrequency(6)
+    analysisTool.setCoordinatesFileName(ik_results_file)
+    analysisTool.setName('Inverse Dynamics')
+    analysisTool.setMaximumNumberOfSteps(20000)
+    analysisTool.setStartTime(initialTime)
+    analysisTool.setFinalTime(finalTime)
+    analysisTool.getAnalysisSet().cloneAndAppend(idTool)
+    analysisTool.setResultsDir(os.path.dirname(resultsDir))
+    analysisTool.setInitialTime(initialTime)
+    analysisTool.setFinalTime(finalTime)
+    analysisTool.setExternalLoadsFileName(grf_xml)
+    analysisTool.setSolveForEquilibrium(False)
+    analysisTool.setReplaceForceSet(False)
+    analysisTool.setMaximumNumberOfSteps(20000)
+    analysisTool.setOutputPrecision(8)
+    analysisTool.setMaxDT(1)
+    analysisTool.setMinDT(1e-008)
+    analysisTool.setErrorTolerance(1e-005)
+    analysisTool.removeControllerSetFromModel()
+    
 
     # print setup
-    idTool.printToXML(os.path.join(resultsDir, "id_setup.xml"))
-
-    # Run inverse kinematics
-    print("running ik...")
+    import pdb; pdb.set_trace()
+    
+    # analysisTool.run()
     idTool.run()
 
 def run_MA(osim_modelPath, ik_mot, grf_xml, resultsDir):
@@ -1626,7 +1708,7 @@ def run_MA(osim_modelPath, ik_mot, grf_xml, resultsDir):
     # Run the muscle analysis calculation
     maTool.run()
 
-def runSO(modelpath, trialpath, actuators_file_path):
+def run_SO(modelpath, trialpath, actuators_file_path):
     os.chdir(trialpath)
 
     # create directories

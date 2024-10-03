@@ -12,6 +12,12 @@ print(paths.ik_output)
 print('Model scaled path:')
 print(paths.model_scaled)
 
+bp.save_json_file(paths, jsonFilePath = paths.current_analysis)
+
+json = bp.import_json_file(paths.current_analysis)
+print('Json file grf:')
+print(json['grf'])
+exit()
 mocap_data = TRCData()
 mocap_data.load(paths.markers)
 m = mocap_data['Markers']

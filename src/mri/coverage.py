@@ -160,7 +160,14 @@ def calculate_coverage_batch(maindir, legs, thresholds, subjects_to_run):
           ax.view_init(elev=elev, azim=azim)  # Set viewpoint for each image
           figname = os.path.join(new_folder, f'{filename}_{elev}_{azim}.png')
           fig = pv.plt.gcf()  
-          fig.savefig(figname, bbox_inches='tight') 
+          fig.savefig(figname, bbox_inches='tight')
+          # Save the figure as an STL file
+          stl_filename = os.path.join(new_folder, f'{filename}_{elev}_{azim}.stl')
+          import pdb; pdb.set_trace()
+          from mayavi import mlab
+          scene = mlab.figure(figure=fig)
+          # Save the scene as an STL file
+          mlab.savefig('my_plot.stl')
 
         pv.plt.close(fig)
 
