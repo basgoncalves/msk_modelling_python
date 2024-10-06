@@ -15,6 +15,7 @@ import ctypes
 import math
 import shutil
 from xml.etree import ElementTree as ET
+import pyc3dserver as c3d
 
 import scipy
 import scipy.signal as sig
@@ -310,7 +311,13 @@ def get_project_folder():
 
     return project_folder
 
-def get_project_settings():
+def get_project_settings(project_folder=''):
+    if not project_folder:
+        try:
+            project_folder = get_project_folder()
+        except:
+            project_folder = select_folder('Please select project directory')
+            
     jsonfile = os.path.join(get_project_folder(),'settings.json')
         
     with open(jsonfile, 'r') as f:
@@ -1594,7 +1601,6 @@ def run_ID(osim_modelPath, ik_results_file, mot_file, grf_xml, resultsDir):
     # Create the inverse kinematics tool
     idTool = osim.InverseDynamics()
     idTool.setModel(osimModel)
-    idTool.(6)
     idTool.setStartTime(initialTime)
     idTool.setEndTime(finalTime)
 
@@ -2628,7 +2634,24 @@ def plot_bar_df(df,transpose = False):
 
     return plt.gcf(), plt.gca()
 
+def plot_line_list(data, labels = '', xlabel=' ', ylabel=' ', title=' ', save_path=''):
+    # Create a new figure
+    fig, ax = plt.subplots(figsize=(10, 6))
 
+    if not labels:
+        labels = [f'Data {i}' for i in range(len(data))]
+
+    # Plot the data
+    ax.plot(data, label=labels)
+
+    # Customize the plot
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    ax.legend()
+    
+
+    return fig, ax
 
 
 

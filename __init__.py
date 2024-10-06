@@ -1,7 +1,18 @@
 __version__ = '0.1.1'
-
 from . import src
-from . import utils
+from . import utils as ut
+from. import ui
+
+class utils:
+    def __init__(self):
+        pass
+
+    def print(text):
+        return text
+    
+    def speed_test():
+        return ut.general_utils.speed_test.run()
+    
 
 def update_version(level=3):
     global __version__
@@ -22,3 +33,16 @@ def update_version(level=3):
                 file.write(line)
     
     print(f'Updated version to {__version__}')
+    
+def load_project(project_path=''):
+    if not project_path:
+        project_path = src.bp.select_folder("Select project folder")
+    
+    print(src.bp.get_project_settings(project_path))
+    
+    
+    return project_path
+
+
+
+# END

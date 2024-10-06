@@ -1,37 +1,84 @@
-import tkinter as tk
-from tkinter import filedialog
-from msk_modelling_python.src import bops as bp 
-import pandas as pd
-from trc import TRCData
-import os
+import msk_modelling_python as msk
+import pandas as pd 
 
-main_path = r"C:\Git\research_data\Projects\test_project"
-paths = bp.subject_paths(data_folder=main_path, subject_code="P01", session_name= 'pre', trial_name="dynamic04_l")
-print('IK output path:')
-print(paths.ik_output)
-print('Model scaled path:')
-print(paths.model_scaled)
+def print_test():
+    print('Hello World')    
 
-bp.save_json_file(paths, jsonFilePath = paths.current_analysis)
+class object:
+    def __init__(self, name, value, units):
+        self.name = name
+        self.value = value
+        self.units = units
 
-json = bp.import_json_file(paths.current_analysis)
-print('Json file grf:')
-print(json['grf'])
-exit()
-mocap_data = TRCData()
-mocap_data.load(paths.markers)
-m = mocap_data['Markers']
-v = list(mocap_data.values())
-frame = v[11]
-time = v[12]
-markers = {'time': time, 'frame': frame}
-for i in range(0, len(m)):
-    markers[m[i]] = v[i+13]
-df = pd.DataFrame.from_dict(markers)
+class Element:
+    def __init__(self):
+        self.element_type = []
+        self.location = []
+        self.size = []
+
+class My:
+    def __init__(self, elements):
+        for index, element in enumerate(elements):
+            setattr(self, element.name, element.value)
+
+    def __add__(self, element: Element):
+        setattr(self, element.name, element.value)
+    
+    def __attr__(self):
+        return self.__dict__.keys()
+    
+    def print(self):
+        print_test()
 
 
+a = object('a', 1, 'm')
+b = object('b', 2, 'm')
+# for index,element in enumerate([a,b]):
+#     print(element.name)
+my = My([a,b])
+print(my)
+print(my.a)
+print(my.__dict__)
 
-import pdb; pdb.set_trace()
-# trc_df.to_csv(paths.ik_output + 'markers.csv', index=False)
+my.__add__(object('c', 3, 'm'))
 
-# bp.run_IK(osim_modelPath=paths.model_scaled, trc_file=paths.markers, resultsDir=paths.ik_output)
+if type(a)==object:
+    print(a)
+    print('a: is an object')
+else:
+    print('a: is not an object')
+    
+if type(my)==My:
+    print('my: is a My object')
+else:
+    print('my: is not a My object')
+
+if hasattr(my, 'c'):
+    print('my contains c')
+else:
+    print('my does not contain c')
+    
+
+class GUI:
+    
+    class Element:
+        def __init__(self, element_type, location, size):
+            self.element_type = element_type
+            self.location = location
+            self.size = size
+
+        def delete(self):
+            for element in self.root.winfo_children():
+                if element.winfo_class() == self.element_type and element.winfo_x() == self.location[0] and element.winfo_y() == self.location[1]:
+                    element.destroy()
+                    self.root.update()
+                    break 
+
+    class list:
+                   
+        def __init__(self, elements: list = []):
+            for _, element in enumerate(elements):
+                setattr(self, element.name, element.value)
+                
+        def __add__(self, element: Element):
+            setattr(self, element.name, element.value)

@@ -1,5 +1,5 @@
 import pandas as pd
-import bops as bp
+import msk_modelling_python.src.bops as bp
 import os 
 from trc import TRCData
 
