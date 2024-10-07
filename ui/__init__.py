@@ -1,68 +1,92 @@
 import tkinter as tk
-
-def add_function(self, func):
-    self.func = func
-    return self
-
-class GUI:
-    
-    class Element:
-        def __init__(self, element_type, location, size):
-            self.element_type = element_type
+import traceback
+class Element:
+        def __init__(self, object=None, type='', location='', size='', name="element", value=None, command=None):
+            self.name = name
+            self.object = object
+            self.object.command = command
+            object.text = name
+            self.type = object.__class__.__name__
             self.location = location
             self.size = size
-
+            self.value = value
+            
         def delete(self):
-            for element in self.root.winfo_children():
-                if element.winfo_class() == self.element_type and element.winfo_x() == self.location[0] and element.winfo_y() == self.location[1]:
-                    element.destroy()
-                    self.root.update()
-                    break 
+            self.value.destroy()
 
-    class list:
-                   
+        def change_command(self, command: callable):
+            self.command = command
+            print(f"Function added to {self.name}")
+        
+        def call_command(self):
+            if self.command:
+                self.command()
+                
+        def add_to_ui(self, root):
+            self.object.pack()  # Adjust layout method as needed
+            root.update()
+             
+class list:
         def __init__(self, elements: list = []):
             for _, element in enumerate(elements):
                 setattr(self, element.name, element.value)
-                
-        def __add__(self, element: Element):
-            setattr(self, element.name, element.value)
-        
-        def delete_list(self, elements):
-            if elements == "all":
-                elements = range(len(self.elements))
-            elif type(elements) == int:
-                elements = [elements]
-                
-            for element, index in enumerate(elements):
-                element = self.elements[index]
-                element.delete()
 
-        def get_elements(self):
-            return self.elements
-                
-    def __init__(self, root=tk.Tk()):
+class GUI:
+    def __init__(self, root=tk.Tk(), elements_list: list = []):
         setattr(self, 'root', root)
-        
+
         if not self.root.title():
             self.root.title("Major App GUI")
+            
         self.elements = []
+        if len(elements_list)>0:
+            for element in elements_list:
+                setattr(self, element.name, element.command)
+                element.object.pack()
+                self.elements.append(element)
+
+    def change_command(self, element, command):
+        if type(element.object) is not tk.Button:
+            print("Error: button is not a Button object")
+        else:
+            print("Button functionality changed!")
+            element.object.config(command=command)
+        return self
+
+    def __add__(self, element: Element):
+        element.object.pack()  # Adjust layout method as needed
+        self.root.update()
 
     def add(self, element_type, x, y, width, height, text="", command=None):
-        if element_type == "button":
-            button = tk.Button(self.root, text=text or "Button", command=command)
-            button.place(relx=x, rely=y, relwidth=width, relheight=height)
-            self.elements.append(button)
+        print(type(element_type))
+        if element_type == Element:
+            tkObject = element_type
+            tkObject.place(relx=x, rely=y, relwidth=width, relheight=height)
+            
+        elif element_type == "button":
+            tkObject = tk.Button(self.root, text=text or "Button", command=command)
+            tkObject.place(relx=x, rely=y, relwidth=width, relheight=height)
+
         elif element_type == "label":
-            label = tk.Label(self.root, text=text or "Label")
-            label.place(relx=x, rely=y, relwidth=width, relheight=height)
-            self.elements.append(label)
-        
-        return 
+            tkObject = tk.Label(self.root, text=text or "Label")
+            tkObject.place(relx=x, rely=y, relwidth=width, relheight=height)
+
+        elif element_type == "toggle":
+            tkObject = tk.Checkbutton(self.root, text=text or "Toggle")
+            tkObject.place(relx=x, rely=y, relwidth=width, relheight=height)
         # Add more element types as needed
 
+        element = Element(element_type, (x, y), (width, height), text, command = command)
+        GUI.__add__(self, element)
+        self.elements.append(element)
+        
+        return element
+
     def get_elements(self):
-        return [self.object(element.winfo_class(), (element.winfo_x(), element.winfo_y()), (element.winfo_width(), element.winfo_height())) for element in self.elements]
+        return self.elements
+    
+    def get_elements_names(self):
+        return [element.name for element in self.elements]
 
     def change_size(self, width, height, unit="percent"):
         if unit == "inch":
@@ -78,29 +102,42 @@ class GUI:
             height_pixels = int(screen_height * height)
         else:
             raise ValueError("Unsupported unit. Use 'inch', 'm', or 'percent'.")
-        
+
         self.root.geometry(f"{width_pixels}x{height_pixels}")
+    
+    def start(self):
+        self.root.mainloop()
 
 def main_gui(size_window= "800x600"):
-    
+
     gui = GUI()
     gui.change_size(0.8, 0.6, "percent")
     gui.add("button", x=0.1, y=0.1, width=0.2, height=0.1, text="Click me!", command=lambda: print("Button clicked!"))
     gui.add("label", x=0.1, y=0.3, width=0.2, height=0.1, text="Let's start simulating!")
-    close_button = gui.add("button", x=0.1, y=0.5, width=0.2, height=0.1, text="Close")
-    close_button.add_function(lambda: gui.root.quit())
+    # close_button = gui.add("button", x=0.1, y=0.5, width=0.2, height=0.1, text="Close", command=lambda: gui.root.quit())
+    
 
+    return gui
+
+
+def quit(self):
+    self.quit()
+
+def run():
+    print("Welcome to the major app!")
+    gui = main_gui()
+    gui.add("button", x=0.5, y=0.7, width=0.2, height=0.1, text="New button", command=lambda: print("New button clicked!"))
+    gui.elements[-1].command.configure(command= quit)
     gui.root.mainloop()
     
     
-
-def run():
-    main_gui()
-    print("Welcome to the major app!")
-    
+# Run when the script is executed
 if __name__ == "__main__":
     try:
         run()
     except Exception as e:
         print(f"An error occurred: {e}")
         raise e
+
+
+# END
