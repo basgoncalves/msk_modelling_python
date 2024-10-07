@@ -24,3 +24,13 @@ def print_with_line_number(text):
 
 # def add_debug_break():
 #   pdb.set_trace()
+
+def header(text):
+    """Prints a header with the given text.
+
+    Args:
+        text (str): The text to be printed.
+    """
+    print("\n" + "="*30)
+    print(text)
+    print("="*30)

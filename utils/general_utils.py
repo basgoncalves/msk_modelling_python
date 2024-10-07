@@ -4,6 +4,20 @@ from tkinter import Tk
 from tkinter.filedialog import askdirectory
 import pandas as pd
 
+#%% Description
+# This module contains a set o utility functions that can be run from the command line
+# The functions are defined as classes so that we can print the names of the functions
+# and run from the command line
+#
+# To modify functions or add new functions, create the function under section"Functions to be turned into Options"
+# and add create an Option class for the function
+#
+# Usage:
+# python utils.py <function_name>
+# eg python utils.py speed_test
+
+
+#%% Start
 # create a class for each option so that we can print the option names
 class Option:
     def __init__(self, func):
@@ -12,7 +26,7 @@ class Option:
     def run(self):
         self.func()
 
-#%% Options
+#%% Functions to be turned into Options
 def speed_test():
     import speedtest
     
@@ -70,6 +84,9 @@ def create_template():
         try:
             if not os.path.exists(directory):
                 os.makedirs(directory)
+            else:
+                print(f"Folder {directory} already exists.")
+                return directory
         except OSError:
             print ('Error: Creating directory. ' +  directory)
 
@@ -125,7 +142,7 @@ def create_template():
         print(e)
         exit()
 
-# print names (NOT AN OPTION)
+#%% print names (NOT AN OPTION)
 def print_option_names():
     options = [name for name in globals() if isinstance(globals()[name], Option)]
     for option in options:
@@ -137,8 +154,8 @@ def print_error_message():
     print_option_names()
     print("eg usage: utils.py speet_test")
 
-#%% Select
-def select():
+#%% Main function to select option to run if the script is executed
+def select_option_to_run():
     # Check if the number of command line arguments is not equal to 2
     if len(sys.argv) != 2:
         print_error_message()
@@ -168,12 +185,13 @@ def select():
         print_error_message()
         sys.exit(1)
 
+#%% Convert functions to options
 python_path = Option(python_path)
 speed_test = Option(speed_test)
 get_current_dir = Option(get_current_dir)
 files_above_100mb = Option(files_above_100mb)
 create_template = Option(create_template)
 
-
+#%% Run if the script is executed
 if __name__ == "__main__":
-    select()
+    select_option_to_run()

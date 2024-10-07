@@ -1,18 +1,36 @@
-__version__ = '0.1.1'
+
+
+__version__ = '0.1.2'
+
 from . import src
-from . import utils as ut
+from .utils import general_utils as ut
+import importlib
 from. import ui
+import pyperclip
 
 class utils:
     def __init__(self):
         pass
+   
+    def is_intalled(package_name):
+        import importlib.util
+        return importlib.util.find_spec(package_name) is not None
 
-    def print(text):
-        return text
+    def import_lib(package_name):
+        if is_intalled(package_name):
+            subprocess.check_call([sys.executable, '-m', 'pip', 'install', package_name])
+        
+        importlib.import_module(package_name)
+
+class mcf: # make coding fancy
     
-    def speed_test():
-        return ut.general_utils.speed_test.run()
+    def __init__(self):
+        pass
     
+    header = staticmethod(lambda: pyperclip.copy("#%% ##################################### header \n " +
+                                                 " # Description: \n " +
+                                                 "######################################################"))
+
 
 def update_version(level=3):
     global __version__
@@ -44,5 +62,6 @@ def load_project(project_path=''):
     return project_path
 
 
+update_version = ut.Option(update_version)
 
 # END
