@@ -3,11 +3,13 @@
 This package includes a combination of other packages and custom functions to manipulate and analyse biomechanical data.
 Inspired by the MATLAB version of BOPS (Batch OpenSim Processing Scripts) - https://simtk.org/projects/bops/
 
-Biomechanical tools included:
+Biomechanical tools to be included:
     - BTK               https://biomechanical-toolkit.github.io/docs/Wrapping/Python/_getting_started.html
     - c3dServer         https://www.c3dserver.com/ 
-    - opensim           https://simtk-confluence.stanford.edu:8443/display/OpenSim/Scripting+in+Python 
-    - animation_blender https://github.com/MattiasFredriksson/io_anim_c3d
+    - opensim v4.4      https://simtk-confluence.stanford.edu:8443/display/OpenSim/Scripting+in+Python 
+    - 3D slicer         https://www.slicer.org/
+    - FEbioStudio       https://febio.org/
+    - MeshLab 2023.12   https://www.meshlab.net/
 
 ## Code diagram 
 - https://www.lucidchart.com/blog/visualize-code-documentation#:~:text=Visual%20documentation%20of%20your%20code,Conceptualize%20large%2Dscale%20projects.

@@ -53,10 +53,11 @@ def determine_foot_on_plate(markers, forces):
     return foot_on_plate
 
 
-
-# Example usage
-marker_names = ['RTOE', 'LTOE', 'RHEE', 'LHEE']
-c3d_dict, analog_dict = import_c3d(bp.select_file(), marker_names)
-print(c3d_dict)
-# foot_on_plate = determine_foot_on_plate(c3d_dict,analog_dict)
-# print(foot_on_plate)
+if __name__ == '__main__':
+   
+    # Example usage
+    marker_names = ['RTOE', 'LTOE', 'RHEE', 'LHEE']
+    c3d_dict, analog_dict = import_c3d(bp.select_file(), marker_names)
+    print(c3d_dict)
+    # foot_on_plate = determine_foot_on_plate(c3d_dict,analog_dict)
+    # print(foot_on_plate)

@@ -16,7 +16,7 @@ def change_button_functionality(button):
         button.config(command=lambda: print("New functionality!"))
     
 #%% Test create UI
-def create_ui():
+def create():
     # Create the main window
     root = tk.Tk()
     root.title("Basic UI")

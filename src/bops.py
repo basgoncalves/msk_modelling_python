@@ -3,6 +3,18 @@
 # BOPS: a Matlab toolbox to batch musculoskeletal data processing for OpenSim, Computer Methods in Biomechanics and Biomedical Engineering
 # DOI: 10.1080/10255842.2020.1867978
 
+__version__ = '0.0.2'
+
+import msk_modelling_python as msk
+
+def update_version(level=3, module='', invert=False):
+    if not module:
+        module = __file__
+    msk.update_version(level, module, invert)
+    # msk.update_version(level=3, path=__file__)
+
+
+
 import subprocess
 import importlib
 import os
@@ -163,7 +175,7 @@ class subject_paths:
         self.ceinms_results_forces = os.path.join(self.ceinms_results,'MuscleForces.sto')
         self.ceinms_results_activations = os.path.join(self.ceinms_results,'Activations.sto')
 
-class model:
+class Model:
     def __init__(self, model_path):
         self.osim_object = osim.Model(model_path)
         self.path = model_path
@@ -175,6 +187,15 @@ class model:
         print('Model path: ' + self.path)
         print('Model version: ' + self.version)
         print('---')
+
+class Subject:
+    def __init__(self, subject_folder):
+        self.folder = subject_folder
+        self.id = os.path.basename(os.path.normpath(subject_folder))
+        self.sessions = [f.path for f in os.scandir(subject_folder) if f.is_dir()]
+        self.trials = [f.path for f in os.scandir(subject_folder) if f.is_file()]
+        self.trial_names = [os.path.basename(os.path.normpath(trial)) for trial in self.trials]
+        self.print = lambda: print('Subject ID: ' + self.id), print('Subject folder: ' + self.folder)
 
 #%% ######################################################  General  #####################################################################
 def select_file():
@@ -192,9 +213,8 @@ def select_file():
 
 def select_folder(prompt='Please select your folder', staring_path=''):
     if not staring_path: # if empty
-        staring_path = os.getcwd()
+        staring_path = os.getcwd()      
 
-    tk.Tk().withdraw()
     selected_folder = filedialog.askdirectory(initialdir=staring_path,title=prompt)
     return selected_folder
 
@@ -255,13 +275,13 @@ def get_trial_list(sessionPath='',full_dir=False):
 
     return trial_list
 
-def get_bops_settings(project_folder=''):
+def get_bops_settings():
     
     # get settings from bops directory
     jsonfile = os.path.join(get_dir_bops(),'settings.json')
     
     # if user asks for example path 
-    if project_folder.__contains__('example'):
+    if project_folder == 'example':
         c3dFilePath = get_testing_file_path()
         project_folder = os.path.abspath(os.path.join(c3dFilePath, '../../../../..'))
    
@@ -274,16 +294,16 @@ def get_bops_settings(project_folder=''):
            
     # create a new settings.json if file 
     if not bops_settings or not os.path.isdir(bops_settings['current_project_folder']):
-        
-        print('creating new bops "settings.json"...')
-        print('')
-        print('')
-        print('')
-        
+        print('creating new bops "settings.json"... \n \n')       
+                
         # if project folder do not exist, select new project
-        if not os.path.isdir(project_folder):                                       
+        if not os.path.isdir(project_folder):
+            pop_warning(f'Project folder does not exist on {project_folder}. Please select a new project folder')                                           
             project_folder = select_folder('Please select project directory')
+        
+        create_project_settings(project_folder=project_folder)
     
+    # if project folder is not the same as the one in settings, update settings
     if os.path.isdir(project_folder) and not bops_settings['current_project_folder'] == project_folder:
         bops_settings['current_project_folder'] = project_folder
         save_bops_settings(bops_settings)
@@ -395,11 +415,17 @@ def create_new_project_folder(basedir = ''): # to complete
 
     return project_settings
 
-def create_project_settings(project_folder=''):
+def create_project_settings(project_folder='', overwrite=False):
 
     if not project_folder or not os.path.isdir(project_folder):                                       
         project_folder = select_folder('Please select project directory')
-
+    
+    jsonpath = Path(project_folder) / ("settings.json")
+    
+    if os.path.isfile(jsonpath) or not overwrite:
+        print('settings.json already exists')
+        return
+    
     project_settings = dict()
 
     project_settings['emg_filter'] = dict()
@@ -426,7 +452,7 @@ def create_project_settings(project_folder=''):
 
 
 
-    jsonpath = Path(project_folder) / ("settings.json")
+    
     jsonpath.write_text(json.dumps(project_settings))
 
     print('project directory was set to: ' + project_folder)
@@ -1431,7 +1457,7 @@ class osimSetup:
         The model with the changed marker locations is saved as a new model.
         '''
         # Load the OpenSim model
-        model1 = model(model_path1)
+        model1 = Model(model_path1)
         model1_version = model1.version
         model1_xml = model1.xml
         model1 = model1.osim_object
@@ -2653,7 +2679,27 @@ def plot_line_list(data, labels = '', xlabel=' ', ylabel=' ', title=' ', save_pa
 
     return fig, ax
 
+def plot_from_txt(file_path='', xlabel=' ', ylabel=' ', title=' ', save_path=''):
+    
+    if not file_path:
+        file_path = select_file()
+    
+    # Read the data from the text file
+    data = np.loadtxt(file_path)
 
+    # plot simple line plot
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(data)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+            
+    fig.set_tight_layout(True)
+
+    if save_path:
+        save_fig(fig,save_path)
+    
+    return fig, ax
 
 #%% ####################################################  Error prints  ##################################################################
 

@@ -1,15 +1,39 @@
 import tkinter as tk
 import traceback
+
 class Element:
-        def __init__(self, object=None, type='', location='', size='', name="element", value=None, command=None):
+        def __init__(self, root=None, object='', location=[], size=[], name="element", value=None, command=None, text=""):
+            
+            if not root:
+                root = tk.Tk()
+            
+            if object == '':
+                object = tk.Button(root, text=name)
+                return
+            
             self.name = name
             self.object = object
-            self.object.command = command
-            object.text = name
+            
+            
+            try:
+                self.object.config(command=command)
+            except:
+                print("Error: command could not added to object")
+            try:
+                self.object.config(text=text)
+            except:
+                print("Error: text could not added to object")
+                
+            try: 
+                self.object.size = size
+            except:
+                print("Error: size could not added to object")
+                
             self.type = object.__class__.__name__
             self.location = location
             self.size = size
             self.value = value
+            
             
         def delete(self):
             self.value.destroy()
@@ -25,19 +49,26 @@ class Element:
         def add_to_ui(self, root):
             self.object.pack()  # Adjust layout method as needed
             root.update()
-             
+            
+
+    
 class list:
         def __init__(self, elements: list = []):
             for _, element in enumerate(elements):
                 setattr(self, element.name, element.value)
 
 class GUI:
-    def __init__(self, root=tk.Tk(), elements_list: list = []):
+    def __init__(self, root="", elements_list: list = []):
+        # if not window exists, create one
+        if not root:
+            root = tk.Tk()
         setattr(self, 'root', root)
 
+        # Set the title of the window
         if not self.root.title():
             self.root.title("Major App GUI")
-            
+        
+        # If elements are passed, add them to the GUI
         self.elements = []
         if len(elements_list)>0:
             for element in elements_list:
@@ -54,6 +85,7 @@ class GUI:
         return self
 
     def __add__(self, element: Element):
+        import pdb; pdb.set_trace()
         element.object.pack()  # Adjust layout method as needed
         self.root.update()
 
@@ -106,35 +138,58 @@ class GUI:
         self.root.geometry(f"{width_pixels}x{height_pixels}")
     
     def start(self):
-        self.root.mainloop()
+        # self.root.mainloop()
+        print("GUI started")
+        pass
 
 def main_gui(size_window= "800x600"):
 
     gui = GUI()
     gui.change_size(0.8, 0.6, "percent")
-    gui.add("button", x=0.1, y=0.1, width=0.2, height=0.1, text="Click me!", command=lambda: print("Button clicked!"))
-    gui.add("label", x=0.1, y=0.3, width=0.2, height=0.1, text="Let's start simulating!")
-    # close_button = gui.add("button", x=0.1, y=0.5, width=0.2, height=0.1, text="Close", command=lambda: gui.root.quit())
+    # gui.add("button", x=0.1, y=0.1, width=0.2, height=0.1, text="Click me!", command=lambda: print("Button clicked!"))
+    # gui.add("label", x=0.1, y=0.3, width=0.2, height=0.1, text="Let's start simulating!")
+    
+    # element = Element(object=tk.Button(gui.root, text="Close", command=gui.root.quit),
+    #                   size=(0.2, 0.1), location=(0.1, 0.1), name="close")
+    # close_button = gui.__add__(element)
     
 
     return gui
 
-
 def quit(self):
     self.quit()
 
-def run():
-    print("Welcome to the major app!")
+def create():
     gui = main_gui()
-    gui.add("button", x=0.5, y=0.7, width=0.2, height=0.1, text="New button", command=lambda: print("New button clicked!"))
-    gui.elements[-1].command.configure(command= quit)
-    gui.root.mainloop()
+    print("Generic UI created")
+    return gui
+
+def input_text_box(root, text=""):
+    element = Element(object=tk.Entry(root))
     
+    entry = tk.Entry(root)
+    entry.pack()
+    entry.insert(0, text)
+    return entry
+
+def select_from_list(options=[]):
     
+    root = tk.Tk()
+    root.withdraw()
+    
+    element = Element(object=tk.Listbox(root))
+    listbox = tk.Listbox(root)
+    listbox.pack()
+    
+    for option in options:
+        listbox.insert(tk.END, option)
+    
+    return listbox
+
 # Run when the script is executed
 if __name__ == "__main__":
     try:
-        run()
+        create()
     except Exception as e:
         print(f"An error occurred: {e}")
         raise e

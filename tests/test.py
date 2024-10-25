@@ -1,15 +1,15 @@
-# my_package.py
+import tkinter as tk
+import msk_modelling_python as msk
 
-import pyperclip
+file_path = r"C:\Users\Bas\Downloads\hip\PersMeshPersF\kinematics_009_runStraight1\hip_rotation_r.txt"
+msk.src.bops.plot_from_txt(file_path, title='Hip Rotation R')
 
-class mcf:
-    def __init__(self):
-        pass
+file_path = r"C:\Users\Bas\Downloads\hip\PersMeshPersF\kinematics_009_runStraight1\hip_flexion_r.txt"
+msk.src.bops.plot_from_txt(file_path, title='Hip Flexion R')
 
-    header = staticmethod(lambda: pyperclip.copy("#%% ################################################## \n " +
-                                                 " #                 Description:                        \n " +
-                                                 "######################################################"))
+file_path = r"C:\Users\Bas\Downloads\hip\PersMeshPersF\kinematics_009_runStraight1\hip_adduction_r.txt"
+msk.src.bops.plot_from_txt(file_path, title='Hip Adduction R')
 
-# main.py
+msk.src.bops.plt.show()
 
-print(mcf.header())
+

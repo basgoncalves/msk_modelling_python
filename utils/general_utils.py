@@ -1,8 +1,12 @@
 import sys
 import os
-from tkinter import Tk
+import tkinter as tk
 from tkinter.filedialog import askdirectory
 import pandas as pd
+import inspect
+import tkinter.messagebox as mbox
+from msk_modelling_python import cmd_function
+
 
 #%% Description
 # This module contains a set o utility functions that can be run from the command line
@@ -18,13 +22,6 @@ import pandas as pd
 
 
 #%% Start
-# create a class for each option so that we can print the option names
-class Option:
-    def __init__(self, func):
-        self.func = func
-
-    def run(self):
-        self.func()
 
 #%% Functions to be turned into Options
 def speed_test():
@@ -142,12 +139,59 @@ def create_template():
         print(e)
         exit()
 
-#%% print names (NOT AN OPTION)
+#%% Functions (NOT AN OPTION)
 def print_option_names():
     options = [name for name in globals() if isinstance(globals()[name], Option)]
     for option in options:
         print(option)
 
+def pop_warning(message='Warning: ', title='Warning'):
+    mbox.showwarning(title, message)
+
+def find_current_line():
+    frame = inspect.currentframe().f_back
+    lineno = frame.f_lineno
+    return lineno
+
+## FOLDERS
+def select_folder(prompt='Please select your folder', staring_path=''):
+    if not staring_path: # if empty
+        staring_path = os.getcwd()
+    root = tk.Tk()
+    root.withdraw()  # Hide the main window
+    selected_folder = askdirectory(initialdir=staring_path,title=prompt)
+    return selected_folder
+
+def select_file():
+    root = tk.Tk()
+    root.withdraw()  # Hide the main window
+
+    file_path = tk.filedialog.askopenfilename(title="Select a file")
+
+    if file_path:
+        pass
+    else:
+        raise ValueError('No file selected')    
+
+    return file_path
+
+def create_folder(folder_path = ''):
+    if not folder_path:
+        folder_path = select_folder()
+        pop_warning(f"Creaing folder at {folder_path}")
+           
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
+    else:
+        print(f"Folder {folder_path} already exists.")
+    
+    return folder_path
+
+def input_popup(prompt='Enter the path: ', title='Input'):
+    root = tk.Tk()
+    root.withdraw()  
+    return sd.askstring(title, prompt)
+    
 #%% Errors
 def print_error_message():
     print("please select one of the following options:")
@@ -186,12 +230,18 @@ def select_option_to_run():
         sys.exit(1)
 
 #%% Convert functions to options
-python_path = Option(python_path)
-speed_test = Option(speed_test)
-get_current_dir = Option(get_current_dir)
-files_above_100mb = Option(files_above_100mb)
-create_template = Option(create_template)
+python_path = cmd_function(python_path)
+speed_test = cmd_function(speed_test)
+get_current_dir = cmd_function(get_current_dir)
+files_above_100mb = cmd_function(files_above_100mb)
+create_template = cmd_function(create_template)
+
 
 #%% Run if the script is executed
 if __name__ == "__main__":
+    import pdb; pdb.set_trace()
     select_option_to_run()
+
+
+    
+
