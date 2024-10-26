@@ -47,9 +47,11 @@ print(button.object.pack())
 
 # Add button to GUI
 gui.start()
-exit()
+
 
 gui.add(button, x=50, y=50, width=100, height=50)
 
 
-# %%
+
+
+# END

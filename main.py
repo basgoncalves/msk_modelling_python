@@ -3,6 +3,9 @@ import msk_modelling_python as msk
 
 def run():
   print("Running")
+  
+  ui = msk.ui.GUI()
+  ui.start()
 
 
 if __name__ == "__main__":

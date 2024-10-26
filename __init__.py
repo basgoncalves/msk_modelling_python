@@ -8,6 +8,10 @@ if __testing__:
     print(f"Version: {__version__}")  
     print("Testing mode is on.")
     print("To turn off testing mode, set __testing__ to False.") 
+    
+    print("Python version: 3.8.10")
+    print("For the latest version, visit " + r'GitHub\basgoncalves\msk_modelling_python')
+    
 
 import os
 from . import src

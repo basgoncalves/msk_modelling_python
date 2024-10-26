@@ -50,8 +50,6 @@ class Element:
             self.object.pack()  # Adjust layout method as needed
             root.update()
             
-
-    
 class list:
         def __init__(self, elements: list = []):
             for _, element in enumerate(elements):
@@ -85,7 +83,6 @@ class GUI:
         return self
 
     def __add__(self, element: Element):
-        import pdb; pdb.set_trace()
         element.object.pack()  # Adjust layout method as needed
         self.root.update()
 
@@ -138,7 +135,10 @@ class GUI:
         self.root.geometry(f"{width_pixels}x{height_pixels}")
     
     def start(self):
-        # self.root.mainloop()
+        # usage:
+        #   ui = msk.ui.GUI() 
+        #   ui.start()
+        self.root.mainloop()
         print("GUI started")
         pass
 
