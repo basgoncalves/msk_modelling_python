@@ -40,7 +40,7 @@ def create():
 root = tk.Tk()
 gui = GUI(root) # Create GUI object
 # Create a button and add it to the window
-button = Element(object=tk.Button(gui.root, text="Click Me", command=lambda: on_button_click(gui.root)))
+button = Element(type=tk.Button(gui.root, text="Click Me", command=lambda: on_button_click(gui.root)))
 
 # Add button to GUI
 print(button.object.pack())

@@ -2,39 +2,39 @@ import tkinter as tk
 import traceback
 
 class Element:
-        def __init__(self, root=None, object='', location=[], size=[], name="element", value=None, command=None, text=""):
-            
+        def __init__(self, root=None, type='', location=[], size=[], name="element", value=None, command=None, text=""):
+           
             if not root:
                 root = tk.Tk()
             
-            if object == '':
-                object = tk.Button(root, text=name)
+            if type == '':
+                type = tk.Button(root, text=name)
                 return
             
             self.name = name
-            self.object = object
+            
+            self.type = type
             
             
             try:
-                self.object.config(command=command)
+                self.type.config(command=command)
             except:
-                print("Error: command could not added to object")
+                print("Error: command could not added to type")
             try:
-                self.object.config(text=text)
+                self.type.config(text=text)
             except:
-                print("Error: text could not added to object")
+                print("Error: text could not added to type")
                 
             try: 
-                self.object.size = size
+                self.type.size = size
             except:
-                print("Error: size could not added to object")
+                print("Error: size could not added to type")
                 
-            self.type = object.__class__.__name__
+            self.type = type.__class__.__name__
             self.location = location
             self.size = size
             self.value = value
-            
-            
+                 
         def delete(self):
             self.value.destroy()
 
@@ -47,7 +47,7 @@ class Element:
                 self.command()
                 
         def add_to_ui(self, root):
-            self.object.pack()  # Adjust layout method as needed
+            self.type.pack()  # Adjust layout method as needed
             root.update()
             
 class list:
@@ -71,43 +71,30 @@ class GUI:
         if len(elements_list)>0:
             for element in elements_list:
                 setattr(self, element.name, element.command)
-                element.object.pack()
+                element.type.pack()
                 self.elements.append(element)
 
     def change_command(self, element, command):
-        if type(element.object) is not tk.Button:
-            print("Error: button is not a Button object")
+        if type(element.type) is not tk.Button:
+            print("Error: button is not a Button type")
         else:
             print("Button functionality changed!")
-            element.object.config(command=command)
+            element.type.config(command=command)
         return self
 
-    def __add__(self, element: Element):
-        element.object.pack()  # Adjust layout method as needed
+    def on_button_click(self, root):
+        print("Button clicked!")
+        close_button = tk.Button(root, text="Close", command=root.destroy)
+        close_button.pack(pady=20)
+    
+    
+    def add(self, element: Element):
+        
+        if element.lower() == 'button':
+            element = Element(type=tk.Button(self.root, text="Click Me", command=lambda: self.on_button_click(self.root)))
+        
         self.root.update()
-
-    def add(self, element_type, x, y, width, height, text="", command=None):
-        print(type(element_type))
-        if element_type == Element:
-            tkObject = element_type
-            tkObject.place(relx=x, rely=y, relwidth=width, relheight=height)
-            
-        elif element_type == "button":
-            tkObject = tk.Button(self.root, text=text or "Button", command=command)
-            tkObject.place(relx=x, rely=y, relwidth=width, relheight=height)
-
-        elif element_type == "label":
-            tkObject = tk.Label(self.root, text=text or "Label")
-            tkObject.place(relx=x, rely=y, relwidth=width, relheight=height)
-
-        elif element_type == "toggle":
-            tkObject = tk.Checkbutton(self.root, text=text or "Toggle")
-            tkObject.place(relx=x, rely=y, relwidth=width, relheight=height)
-        # Add more element types as needed
-
-        element = Element(element_type, (x, y), (width, height), text, command = command)
-        GUI.__add__(self, element)
-        self.elements.append(element)
+        print(f"Element added to GUI: {element.name}")
         
         return element
 
@@ -138,7 +125,7 @@ class GUI:
         # usage:
         #   ui = msk.ui.GUI() 
         #   ui.start()
-        self.root.mainloop()
+        
         print("GUI started")
         pass
 
@@ -146,14 +133,17 @@ def main_gui(size_window= "800x600"):
 
     gui = GUI()
     gui.change_size(0.8, 0.6, "percent")
-    # gui.add("button", x=0.1, y=0.1, width=0.2, height=0.1, text="Click me!", command=lambda: print("Button clicked!"))
+    
+    
+    gui.add("button")
     # gui.add("label", x=0.1, y=0.3, width=0.2, height=0.1, text="Let's start simulating!")
     
-    # element = Element(object=tk.Button(gui.root, text="Close", command=gui.root.quit),
+    # element = Element(type=tk.Button(gui.root, text="Close", command=gui.root.quit),
     #                   size=(0.2, 0.1), location=(0.1, 0.1), name="close")
     # close_button = gui.__add__(element)
     
-
+    gui.start()
+    
     return gui
 
 def quit(self):
@@ -165,7 +155,7 @@ def create():
     return gui
 
 def input_text_box(root, text=""):
-    element = Element(object=tk.Entry(root))
+    element = Element(type=tk.Entry(root))
     
     entry = tk.Entry(root)
     entry.pack()
@@ -177,7 +167,7 @@ def select_from_list(options=[]):
     root = tk.Tk()
     root.withdraw()
     
-    element = Element(object=tk.Listbox(root))
+    element = Element(type=tk.Listbox(root))
     listbox = tk.Listbox(root)
     listbox.pack()
     
@@ -186,10 +176,14 @@ def select_from_list(options=[]):
     
     return listbox
 
-# Run when the script is executed
+# Run when the module is called
 if __name__ == "__main__":
+    
+    # test code 
     try:
         create()
+        
+        pass
     except Exception as e:
         print(f"An error occurred: {e}")
         raise e
