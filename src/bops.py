@@ -275,7 +275,7 @@ def get_trial_list(sessionPath='',full_dir=False):
 
     return trial_list
 
-def get_bops_settings():
+def get_bops_settings(project_folder = ''):
     
     # get settings from bops directory
     jsonfile = os.path.join(get_dir_bops(),'settings.json')
@@ -288,6 +288,7 @@ def get_bops_settings():
     try:
         with open(jsonfile, 'r') as f:
             bops_settings = json.load(f)
+            bops_settings['jsonfile'] = jsonfile
     except:
         print('bops settings do not exist.')  
         bops_settings = dict()
@@ -297,10 +298,11 @@ def get_bops_settings():
         print('creating new bops "settings.json"... \n \n')       
                 
         # if project folder do not exist, select new project
-        if not os.path.isdir(project_folder):
+        while not os.path.isdir(project_folder):
             pop_warning(f'Project folder does not exist on {project_folder}. Please select a new project folder')                                           
-            project_folder = select_folder('Please select project directory')
+            project_folder = select_folder('Please select project directory') 
         
+        # create new settings.json in the project folder
         create_project_settings(project_folder=project_folder)
     
     # if project folder is not the same as the one in settings, update settings
@@ -2894,6 +2896,11 @@ def get_package_location(package_name):
     return str(path)
   except ImportError:
     return f"Package '{package_name}' not found."
+
+def pop_warning(message = 'Error in code. '):
+  from tkinter import messagebox
+  messagebox.showwarning("Warning", message)
+  
 
 #%% ######################################################### BOPS TESTING #################################################################
 def platypus_pic_path(imageType = 'happy'):
