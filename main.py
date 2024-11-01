@@ -8,7 +8,7 @@ def run(update_version=False):
   # implement gui functions
   msk.ui.main_gui()
   
-  # implement version update
+  # implement version update if needed
   if update_version:
     msk.update_version(3, msk, invert=False)
     print(f"New version: {msk.__version__}")
@@ -21,7 +21,6 @@ if __name__ == "__main__":
   update_version =  False
   run(update_version)
   
-  # msk.update_version(3, msk, invert=False)
   
   
 # END
