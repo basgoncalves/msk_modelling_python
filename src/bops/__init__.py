@@ -10,6 +10,7 @@ import importlib
 import subprocess
 import pyperclip
 import pathlib
+import unittest
 from pathlib import Path
 
 #%% data strerelization formats
