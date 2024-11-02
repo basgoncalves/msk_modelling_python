@@ -1,4 +1,4 @@
-import tkinter as tk
+from msk_modelling_python import *
 import msk_modelling_python as msk
 from msk_modelling_python.ui import Element, GUI
 
@@ -19,7 +19,11 @@ def run(update_version=False):
 if __name__ == "__main__":
   
   update_version =  False
-  run(update_version)
+  # run(update_version)
+  
+  print('next step to fix: make function create_analysis_tool() fpr bops and ceinms_setup')
+  
+  
   
   
   

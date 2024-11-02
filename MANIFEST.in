@@ -1,4 +1,0 @@
-include src/*.JSON
-include src/*.XML
-include src/*.osim
-include src/*.trc

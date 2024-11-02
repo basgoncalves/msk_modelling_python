@@ -95,11 +95,8 @@ $$ x = {-b \pm \sqrt{b^2-4ac} \over 2a} $$
 
 ## Code block examples - https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet
 
-
-The aim of this project is to create a 
  
 ```python 3.8.10
 s = "Python syntax highlighting"
 print s
 ```
- 

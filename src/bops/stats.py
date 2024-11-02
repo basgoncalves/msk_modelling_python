@@ -60,6 +60,18 @@ def compar2groups(Y1, Y2, alpha=0.05, TYPE=1):
 
     return H, P, Npvalue, MD, std_err, uCI, lCI
 
+
+def test():
+    Y1 = np.array([1, 2, 3, 4, 5])
+    Y2 = np.array([6, 7, 8, 9, 10, 12])
+    alpha = 0.05
+    TYPE = 2
+    H, P, Npvalue, MD, std_err, uCI, lCI = compar2groups(Y1, Y2, alpha, TYPE)
+    print(f'H: {H}, P: {P}, Npvalue: {Npvalue}, MD: {MD}, uCI: {uCI}, lCI: {lCI}')
+    
+    print("Test passed!")
+    
+
 if __name__ == '__main__':
     Y1 = np.array([1, 2, 3, 4, 5])
     Y2 = np.array([6, 7, 8, 9, 10, 12])

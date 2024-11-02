@@ -13,14 +13,16 @@ if __testing__:
     print("For the latest version, visit " + r'GitHub\basgoncalves\msk_modelling_python')
     
 
-import os
+#%% load all the packages needed
 from . import src
 from .src.classes import *
 from .src import bops as bp
+from .src.bops import ceinms_setup as cs
 from .utils import general_utils as ut
-import importlib
 from . import ui
-import pyperclip
+
+
+
 
 #%% ###########################################################################
 #                        Description:                                         # 
@@ -96,9 +98,9 @@ def create_folder(folder_path):
 
 def load_project(project_path=''):
     if not project_path:
-        project_path = src.bp.select_folder("Select project folder")
+        project_path = bp.select_folder("Select project folder")
     
-    print(src.bp.get_project_settings(project_path))
+    print(bp.get_project_settings(project_path))
     
     return project_path
 

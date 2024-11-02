@@ -1,22 +1,6 @@
 # to import bops need to deactivate some packages not intalled (offline mode, consider this when packaging)
-import subprocess
-import sys
-import os
-import time
-import datetime
-import shutil
-import tkinter as tk
-import opensim as osim
-from tkinter import filedialog
-import os
-import pandas as pd
-import xml.etree.ElementTree as ET
-from memory_profiler import profile
-import numpy as np
-from sklearn.metrics import mean_squared_error
+from msk_modelling_python.src.bops import *
 
-import bops as bp
-# import pyomeca as pym
 
 def get_main_path():
     main_path = r'C:\Git\isbs2024\Data'
@@ -383,7 +367,7 @@ def run_so(paths, rerun=False):
     if os.path.exists(paths.so_output_forces) and not rerun:
         pass
     else:
-        bp.runSO(paths.model_scaled, paths.trial, paths.so_actuators)
+        bops.runSO(paths.model_scaled, paths.trial, paths.so_actuators)
         print_to_log_file('done! ', ' ', ' ') # log file
 
 def run_jra(paths, rerun = False):
@@ -599,7 +583,7 @@ def run_execution(paths: type):
         command = " ".join([paths.ceinms_src + "\CEINMS.exe -S", paths.ceinms_exe_setup])
         proc = subprocess.run(command, shell=True)
         try:
-            forces = bp.import_sto_data(paths.ceinms_results_forces)
+            forces = bops.import_sto_data(paths.ceinms_results_forces)
         except:
             forces = pd.DataFrame()
 
@@ -614,7 +598,7 @@ def run_full_pipeline():
 
 if __name__ == '__main__':
     data_folder = get_main_path()
-    project_settings = bp.create_project_settings(data_folder)
+    project_settings = bops.create_project_settings(data_folder)
 
     analyis_to_run = ['scale','ik','id','ma','so','jra','ceinms_cal','ceinms_exe']
     analyis_to_run = analyis_to_run[1:2] #+ analyis_to_run[4:6]
@@ -644,7 +628,7 @@ if __name__ == '__main__':
     print(re_run)
     print(' ')
 
-    bp.ask_to_continue()
+    bops.ask_to_continue()
 
     print_to_log_file('\n \n \n New analysis started ...')
     print_to_log_file('    subject list: ',str(subject_list), ' ')
@@ -712,8 +696,8 @@ if __name__ == '__main__':
                 
                 try: 
                     print_to_log_file('check muscle moment arms ... ', ' ', 'start') # log file
-                    bp.checkMuscleMomentArms(paths.model_scaled, paths.ik_output, leg = 'l')
-                    bp.checkMuscleMomentArms(paths.model_scaled, paths.ik_output, leg = 'r')
+                    bops.checkMuscleMomentArms(paths.model_scaled, paths.ik_output, leg = 'l')
+                    bops.checkMuscleMomentArms(paths.model_scaled, paths.ik_output, leg = 'r')
                     print_to_log_file('done! ', ' ', ' ') # log file
                 except Exception as e:
                     print_to_log_file('stop for error ...', ' ', ' ')

@@ -5,6 +5,8 @@
 
 __version__ = '0.0.2'
 
+from msk_modelling_python.src.bops import *
+from msk_modelling_python.src.classes import *
 import msk_modelling_python as msk
 
 def update_version(level=3, module='', invert=False):
@@ -15,54 +17,7 @@ def update_version(level=3, module='', invert=False):
 
 
 
-import subprocess
-import importlib
-import os
-import time
-import unittest
-import sys
-import numpy as np
-import pandas as pd
-import ctypes
-import math
-import shutil
-from xml.etree import ElementTree as ET
-import pyc3dserver as c3d
-
-import scipy
-import scipy.signal as sig
-from scipy.spatial.transform import Rotation
-import scipy.integrate as integrate
-from pathlib import Path
-import warnings
-import json
-import screeninfo as si
-from tqdm import tqdm
-import matplotlib.pyplot as plt
-
-import tkinter as tk
-from tkinter import messagebox
-import tkinter.messagebox as mbox
-from tkinter import filedialog
-import tkfilebrowser
-import customtkinter as ctk
-
-from PIL import ImageTk, Image
-from trc import TRCData
-
-try:
-    import opensim as osim
-except:
-    print('=============================================================================================')
-    print('could not import opensim')
-    print('Check if __init__.py has "." before packages (e.g. "from .simbody" instead of "from simbody")')
-    pythonPath = os.path.dirname(sys.executable)
-    initPath = os.path.join(pythonPath,'lib\site-packages\opensim\__init__.py')
-    print('init path is: ', initPath)    
-    print('=============================================================================================')
-
 # %% ######################################################  Classes  ###################################################################
-
 class project_paths:
     def __init__(self, project_folder=''):
 
@@ -1833,7 +1788,7 @@ def runJRA(modelpath, trialPath, setupFilePath):
 
     # save setup file and run
     analyzeTool_JR.print(['./setup_jra.xml'])
-    analyzeTool_JR = AnalyzeTool(['./setup_jra.xml'])
+    analyzeTool_JR = osim.AnalyzeTool(['./setup_jra.xml'])
     print('jra for', trialName)
     analyzeTool_JR.run()
 
@@ -2886,8 +2841,8 @@ def raise_exception(error_text = "Error, please check code. ", err = " ", hard =
         print('Continuing...')
     
 def print_warning(message = 'Error in code. '):
-  from colorama import Fore, Style
-  print(Fore.YELLOW + "WARNING: " + message + Style.RESET_ALL)
+    from colorama import Fore, Style
+    print(Fore.YELLOW + "WARNING: " + message + Style.RESET_ALL)
 
 def get_package_location(package_name):
   try:

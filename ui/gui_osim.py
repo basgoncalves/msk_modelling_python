@@ -1,5 +1,4 @@
 from msk_modelling_python.src import bops as bp
-import msk_modelling_python.src.ceinms_setup as cs
 import tkinter as tk
 import os
 import json
@@ -100,7 +99,7 @@ def start_gui():
 
     settings = load_settings_from_file()
 
-    root = bp.tk.Tk()
+    root = tk.Tk()
     root.geometry("500x800")
     root.title("Opensim run single trial")
     
