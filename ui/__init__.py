@@ -199,10 +199,33 @@ class App(ctk.CTk):
         self.try_pack(self.button_open)
         
         
-        
+    def create_input_and_buttons(self, label_text, input_text, run_command, edit_command, padx=20, pady=20):
+                label = ctk.CTkLabel(self, text=label_text)
+                label.pack(padx=padx, pady=pady)
+
+                input = ctk.CTkEntry(self)
+                input.insert(0, input_text)
+                input.pack(padx=padx, pady=pady)
+
+                button_frame = ctk.CTkFrame(self)
+                button_frame.pack(padx=padx, pady=pady)
+                
+                # button to select new file path
+                open_button = ctk.CTkButton(self, text="Open", command=lambda: bops.select_file(input_text))
+                open_button.pack(in_=button_frame, side="left", padx=5, pady=5)
+
+                # button to run the analysis tool
+                if edit_command:
+                    edit_button = ctk.CTkButton(self, text="Edit setup", command=edit_command)
+                    edit_button.pack(in_=button_frame, side="left", padx=5, pady=5)
+
+                # button to run the analysis tool
+                if run_command:
+                    run_button = ctk.CTkButton(self, text='Run', command=run_command)
+                    run_button.pack(in_=button_frame, side="left", padx=5, pady=5)    
                 
     # function to add elements to the GUI
-    def add(self, type = 'osim_input', prompt = '', osim_model = False, setup_ik_path = '', 
+    def add(self, type = 'osim_input', osim_model = False, setup_ik_path = '', 
             setup_id_path = '', setup_so_path = '', setup_jra_path = '', **kwargs):
         
         if type == 'label':
@@ -218,67 +241,34 @@ class App(ctk.CTk):
         
         # Input for an analysis tool of opensim    
         elif type == 'osim_input':
-            # prompt label
-            self.label = ctk.CTkLabel(self, text=prompt)          
+            
+            self.model = osim_model
+            self.setup_ik = setup_ik_path
+            self.setup_id = setup_id_path
+            self.setup_so = setup_so_path
+            self.setup_jra = setup_jra_path
             
             # input field for osim model
-            if osim_model:
-                self.model_label = ctk.CTkLabel(self, text="Model path:")
-                self.model = ctk.CTkEntry(self)
-                self.model.insert(0, osim_model)
+            self.create_input_and_buttons("Model file path:", osim_model, '', '')
         
             # input field for setup file
             self.input_label = ctk.CTkLabel(self, text="Setup file paths:")
-            
-            def create_input_and_buttons(self, label_text, input_var, run_command, edit_command, padx=20, pady=20):
-                label = ctk.CTkLabel(self, text=label_text)
-                label.pack(padx=padx, pady=pady)
-
-                input_var.pack(padx=padx, pady=pady)
-
-                button_frame = ctk.CTkFrame(self)
-                button_frame.pack(padx=padx, pady=pady)
-
-                edit_button = ctk.CTkButton(self, text="Edit setup", command=edit_command)
-                edit_button.pack(in_=button_frame, side="left", padx=5, pady=5)
-
-                run_button = ctk.CTkButton(self, text='Run', command=run_command)
-                run_button.pack(in_=button_frame, side="left", padx=5, pady=5)
-            
+                        
             # IK
-            self.create_input_and_buttons("IK Setup:", self.input_ik, self.run_osim_setup(setup_ik_path), self.edit_setup_file(setup_ik_path))
+            self.create_input_and_buttons("IK Setup:", setup_ik_path, 
+                                          lambda: self.run_osim_setup(setup_ik_path), lambda: self.edit_setup_file(setup_ik_path))
 
-            self.input_ik = ctk.CTkEntry(self)   
-            self.input_ik.insert(0, setup_ik_path)
-            button_frame_ik = ctk.CTkFrame(self)
-            self.button_open_ik = ctk.CTkButton(self, text="Edit setup", command=self.edit_setup_file(setup_ik_path))
-            self.button_ik = ctk.CTkButton(self, text='Run', command=self.run_osim_setup(setup_ik_path))
-
-            button_frame_ik.pack(padx=10, pady=10)
-            self.button_open_ik.pack(in_=button_frame_ik, side="left", padx=5, pady=5)
-            self.button_ik.pack(in_=button_frame_ik, side="left", padx=5, pady=5)
-            button_frame_ik = ctk.CTkFrame(self)
-            self.button_open_ik = ctk.CTkButton(self, text="Edit setup", command=self.edit_setup_file(setup_ik_path))
-
-            self.button_open_ik = ctk.CTkButton(self, text="Edit setup", command=self.edit_setup_file(setup_ik_path))
-            
             # ID
-            self.input_id = ctk.CTkEntry(self)
-            self.input_id.insert(0, setup_id_path)
-            self.button_id = ctk.CTkButton(self, text='Run', command=self.run_osim_setup(setup_id_path))
-            self.button_open_id = ctk.CTkButton(self, text="Edit setup", command=self.edit_setup_file(setup_id_path))
+            self.create_input_and_buttons("ID Setup:", setup_id_path, 
+                                          lambda: self.run_osim_setup(setup_id_path), lambda: self.edit_setup_file(setup_id_path))
             
             # SO
-            self.input_so = ctk.CTkEntry(self)
-            self.input_so.insert(0, setup_so_path)
-            self.button_so = ctk.CTkButton(self, text='Run', command=self.run_osim_setup(setup_so_path))
-            self.button_open = ctk.CTkButton(self, text="Edit setup", command=self.edit_setup_file(setup_so_path))
+            self.create_input_and_buttons("SO Setup:", setup_so_path, 
+                                          lambda: self.run_osim_setup(setup_so_path), lambda: self.edit_setup_file(setup_so_path))
             
             # JRA
-            self.input_jra = ctk.CTkEntry(self)
-            self.input_jra.insert(0, setup_jra_path)
-            self.button_jra = ctk.CTkButton(self, text='Run', command=self.run_osim_setup(setup_jra_path))
-            self.button_open = ctk.CTkButton(self, text="Edit setup", command=self.edit_setup_file(setup_jra_path))
+            self.create_input_and_buttons("JRA Setup:", setup_jra_path, 
+                                          lambda: self.run_osim_setup(setup_jra_path), lambda: self.edit_setup_file(setup_jra_path))
                 
             # pack all objects            
             # self.pack_objects()
@@ -310,32 +300,29 @@ class App(ctk.CTk):
         
         # Check if the file is a valid setup file
         if bops.is_setup_file(setup_file,'InverseKinematicsTool' , print_output=False):
-            model = osim.Model(self.model.get())
+            model = osim.Model(self.model)
             tool = osim.InverseKinematicsTool(setup_file)
             tool.setModel(model)
             
             tool.run()
             
         elif bops.is_setup_file(setup_file,'InverseDynamicsTool' , print_output=False):
-            model = osim.Model(self.model.get())
+            model = osim.Model(self.model)
             tool = osim.InverseDynamicsTool(setup_file)
             tool.setModel(model)
             
             tool.run()
         
-        elif bops.is_setup_file(setup_file,'StaticOptimizationTool' , print_output=False):
-            model = osim.Model(self.model.get())
-            tool = osim.StaticOptimizationTool(setup_file)
+        elif bops.is_setup_file(setup_file,'StaticOptimization' , print_output=False) and not bops.is_setup_file(setup_file,'JointReaction' , print_output=False):
+            model = osim.Model(self.model)
+            tool = osim.AnalyzeTool(setup_file)
             tool.setModel(model)
             
             tool.run()
         
-        elif bops.is_setup_file(setup_file,'JointReactionAnalysisTool' , print_output=False):
-            model = osim.Model(self.model.get())
-            tool = osim.JointReactionAnalysisTool(setup_file)
-            tool.setModel(model)
-
-            tool.run()
+        elif bops.is_setup_file(setup_file,'JointReaction' , print_output=False):
+            trial_path = os.path.dirname(setup_file)
+            bops.runJRA(self.model, trial_path,setup_file)
             
         else:
             print("Error: file is not a valid setup file")
@@ -379,22 +366,13 @@ def run_example():
     
     
     osim_model = os.path.join(os.path.dirname(trial_path), "torsion_scaled.osim")
-    setup_file = os.path.join(trial_path, "setup_ik.xml")
+    setup_ik_path = os.path.join(trial_path, "setup_ik.xml")
+    setup_id_path = os.path.join(trial_path, "setup_id.xml")
+    setup_so_path = os.path.join(trial_path, "setup_so.xml")
+    setup_jra_path = os.path.join(trial_path, "setup_jra.xml")
     
-    setup_file = os.path.join(trial_path, "setup_id.xml")
-    app.add(type = 'osim_input', prompt = 'Run Inverse Kinematics:', osim_model = osim_model, setup_path = setup_file)
-    
-    # add ID button
-    
-    app.add(type = 'osim_input', prompt = 'Run Inverse Dynamics:', osim_model = False, setup_path = setup_file)
-    
-    # add SO button
-    setup_file = os.path.join(trial_path, "setup_so.xml")
-    app.add(type = 'osim_input', prompt = 'Run Static Optimization:', osim_model = False, setup_path = setup_file)
-    
-    # add JRA button
-    setup_file = os.path.join(trial_path, "setup_jra.xml")
-    app.add(type = 'osim_input', prompt = 'Run Joint Reaction Analysis:', osim_model = False, setup_path = setup_file)    
+    app.add(type = 'osim_input', osim_model=osim_model, setup_ik_path=setup_ik_path, 
+            setup_id_path=setup_id_path, setup_so_path=setup_so_path, setup_jra_path=setup_jra_path)
     
     # add exit button
     app.add(type = 'exit_button')

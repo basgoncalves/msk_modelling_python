@@ -41,10 +41,6 @@ def is_setup_file(file_path, type = 'OpenSimDocument', print_output=False):
         
     return is_setup
 
-
-
-def add_module_to_python_env():
-    print(ut.python_path.run())
     
 # %% ######################################################  Classes  ###################################################################
 class project_paths:
@@ -182,11 +178,16 @@ class Subject:
         self.print = lambda: print('Subject ID: ' + self.id), print('Subject folder: ' + self.folder)
 
 #%% ######################################################  General  #####################################################################
-def select_file():
+def select_file(original_path=''):
+    if not original_path:
+        original_path = os.getcwd()
+    elif os.path.isfile(original_path):
+        original_path = os.path.dirname
+        
     root = tk.Tk()
     root.withdraw()  # Hide the main window
 
-    file_path = filedialog.askopenfilename(title="Select a file")
+    file_path = filedialog.askopenfilename(title="Select a file", initialdir=original_path)
 
     if file_path:
         pass
@@ -1846,11 +1847,11 @@ def run_SO(modelpath, trialpath, actuators_file_path):
     # run
     analyzeTool_SO.run()
 
-def runJRA(modelpath, trialPath, setupFilePath):
-    os.chdir(trialPath)
-    results_directory = [trialPath]
-    coordinates_file = [trialPath, 'IK.mot']
-    _, trialName = os.path.split(trialPath)
+def runJRA(modelpath, trial_path, setup_file_path):
+    os.chdir(trial_path)
+    results_directory = [trial_path]
+    coordinates_file = [trial_path, 'ik.mot']
+    _, trialName = os.path.split(trial_path)
 
     # start model
     osimModel = osim.Model(modelpath)
@@ -1863,7 +1864,7 @@ def runJRA(modelpath, trialPath, setupFilePath):
     final_time = motData.getLastTime()
 
     # start joint reaction analysis
-    jr = osim.JointReaction(setupFilePath)
+    jr = osim.JointReaction(setup_file_path)
     jr.setName('joint reaction analysis')
     jr.set_model(osimModel)
 
@@ -1881,10 +1882,10 @@ def runJRA(modelpath, trialPath, setupFilePath):
     # Set other parameters as needed
     jr.setStartTime(initial_time)
     jr.setEndTime(final_time)
-    jr.setForcesFileName([results_directory, '_StaticOptimization_force.sto'])
+    jr.setForcesFileName(['.\joint_reaction_analysis.sto'])
 
     # add to analysis tool
-    analyzeTool_JR = create_analysisTool(coordinates_file, modelpath, results_directory)
+    analyzeTool_JR = create_analysis_tool(coordinates_file, modelpath, results_directory)
     analyzeTool_JR.get().AnalysisSet.cloneAndAppend(jr)
     osimModel.addAnalysis(jr)
 
