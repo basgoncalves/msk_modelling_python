@@ -9,6 +9,7 @@ from msk_modelling_python.src.utils import general_utils as ut
 from msk_modelling_python.src.bops import *
 from msk_modelling_python.src.classes import *
 import msk_modelling_python as msk
+from msk_modelling_python import osim
 
 def update_version(level=3, module='', invert=False):
     if not module:
@@ -40,7 +41,6 @@ def is_setup_file(file_path, type = 'OpenSimDocument', print_output=False):
         print(f"{file_path} is not a setup file")
         
     return is_setup
-
     
 # %% ######################################################  Classes  ###################################################################
 class project_paths:
@@ -79,7 +79,7 @@ class project_paths:
 
         self.settings_json = os.path.join(self.main,'settings.json')
 
-class subject_paths:
+class SubjectPaths:
     def __init__(self, data_folder,subject_code='',session_name = '', trial_name=''):
 
         if not data_folder or not os.path.isdir(data_folder):
@@ -617,7 +617,7 @@ def import_json_file(jsonFilePath):
     return data
 
 def save_json_file(data, jsonFilePath):
-    if type(data) == subject_paths: # convert to dictionary
+    if type(data) == SubjectPaths: # convert to dictionary
         data = data.__dict__
 
     with open(jsonFilePath, 'w') as f:
@@ -1362,21 +1362,38 @@ class osimSetup:
 
         return members_dict
 
-    def increase_max_isometric_force(model_path, factor): # opensim API
+    def increase_max_isometric_force(model_path, factor, compare_models = False): # opensim API
         # Load the OpenSim model
         model = osim.Model(model_path)
 
         # Loop through muscles and update their maximum isometric force
+        muscles = pd.DataFrame()
+        muscle_data = []
         for muscle in model.getMuscles():
             current_max_force = muscle.getMaxIsometricForce()
             new_max_force = current_max_force * factor
+            muscle_data.append([muscle.getName(), current_max_force, new_max_force])
             muscle.setMaxIsometricForce(new_max_force)
 
+        # Create a DataFrame with the muscle data
+        muscle_df = pd.DataFrame(muscle_data, columns=['Muscle Name', 'Old Max Isometric Force', 'New Max Isometric Force'])
+        
         # Save the modified model
         output_model_path = model_path.replace('.osim', f'_increased_force_{factor}.osim')
         model.printToXML(output_model_path)
 
         print(f'Model with increased forces saved to: {output_model_path}')
+        
+        if compare_models:
+            # plot muscle_df
+            fig, ax = plt.subplots()
+            ax.bar(muscle_df['Muscle Name'], muscle_df['Old Max Isometric Force'], label='Old Max Isometric Force')
+            ax.bar(muscle_df['Muscle Name'], muscle_df['New Max Isometric Force'], label='New Max Isometric Force')
+            ax.set_ylabel('Max Isometric Force')           
+            plt.show()
+            
+        
+        return output_model_path
 
     def update_max_isometric_force_xml(xml_file, factor,output_file = ''): # xml
         # Parse the XML file
@@ -1530,7 +1547,14 @@ class osimSetup:
         print(f'The total mass of the model is: {mass} kg')
         return mass
 
+def example_data(trial_name = 'walking1'):
+    
+    if trial_name == 'walking1':
+        osim
+        
+        
 
+    
 
 #%% ##############################################  OpenSim run (to be complete)  ############################################################
 def scale_model(originalModelPath,targetModelPath,trcFilePath,setupScaleXML):

@@ -44,26 +44,9 @@ try:
     from trc import TRCData
 except:
     print('Could not load TRDData')
-
-try:
-    import opensim as osim
-except:
-    class osim:
-        def __init__(self):
-            pass
-        
-    print('=============================================================================================')
-    print('could not import opensim')
-    print('Check if __init__.py has "." before packages (e.g. "from .simbody" instead of "from simbody")')
-    pythonPath = os.path.dirname(sys.executable)
-    initPath = os.path.join(pythonPath,'lib\site-packages\opensim\__init__.py')
-    print('init path is: ', initPath)    
-    print('=============================================================================================\n\n\n\n\n')
-
 #%% modules withing
 from msk_modelling_python import *
 from msk_modelling_python.src.bops import bops
-from msk_modelling_python.src.bops import osim
 from msk_modelling_python.src.bops import stats
 
 

@@ -3,7 +3,10 @@ import tkinter as tk
 import customtkinter as ctk
 import screeninfo as si
 from tkinter import messagebox
-from msk_modelling_python.src.bops import bops, osim
+from msk_modelling_python import *
+import msk_modelling_python as msk
+from msk_modelling_python import bops
+
 
 class Element:
         def __init__(self, root=None, type='', location=[], size=[], name="element", value=None, command=None, text=""):
@@ -169,133 +172,212 @@ class GUI:
 
 #%% OpenSim GUI
 class App(ctk.CTk):
+        
     def __init__(self, *args, **kwargs):
         super().__init__()
         self.title("Opensim Analysis Tool")
+        
+        # pading for the elements (5 pixels by default)
+        self.padx = kwargs.get('padx', 5)
+        self.pady = kwargs.get('pady', 5)
     
+    # function to pack elements with error handling
     def try_pack(self, element):
         try:
             element.pack()
         except:
             print("Error: Could not pack element")
         
-    def pack_objects(self):
+    # function to create input field and buttons for file selection and running the analysis tool     
+    def create_osim_analysis_buttons(self, label_text, input_text, run_command, edit_command, padx='', pady=''):
         
-        self.try_pack(self.label)
-        self.try_pack(self.model_label)
-        self.try_pack(self.model)
-        self.try_pack(self.input_label)
-        self.try_pack(self.input_ik)
-        self.try_pack(self.button_ik)
-        self.try_pack(self.button_open)
-        self.try_pack(self.input_id)
-        self.try_pack(self.button_id)
-        self.try_pack(self.button_open)
-        self.try_pack(self.input_so)
-        self.try_pack(self.button_so)
-        self.try_pack(self.button_open)
-        self.try_pack(self.input_jra)
-        self.try_pack(self.button_jra)
-        self.try_pack(self.button_open)
+        padx = padx if padx else self.padx
+        pady = pady if pady else self.pady
         
+        # create text label
+        label = ctk.CTkLabel(self, text=label_text)
+        label.pack(padx=padx, pady=pady)
+
+        input = ctk.CTkEntry(self)
+        input.insert(0, input_text)
+        input.pack(padx=padx, pady=pady)
+
+        button_frame = ctk.CTkFrame(self)
+        button_frame.pack(padx=padx, pady=pady)
         
-    def create_input_and_buttons(self, label_text, input_text, run_command, edit_command, padx=20, pady=20):
-                label = ctk.CTkLabel(self, text=label_text)
-                label.pack(padx=padx, pady=pady)
+        # button to select new file path
+        open_button = ctk.CTkButton(self, text="Open", command=lambda: bops.select_file(input_text))
+        open_button.pack(in_=button_frame, side="left", padx=padx, pady=pady)
 
-                input = ctk.CTkEntry(self)
-                input.insert(0, input_text)
-                input.pack(padx=padx, pady=pady)
+        # button to run the analysis tool
+        if edit_command:
+            edit_button = ctk.CTkButton(self, text="Edit setup", command=edit_command)
+            edit_button.pack(in_=button_frame, side="left", padx=padx, pady=pady)
+        else:
+            edit_button = None
 
-                button_frame = ctk.CTkFrame(self)
-                button_frame.pack(padx=padx, pady=pady)
-                
-                # button to select new file path
-                open_button = ctk.CTkButton(self, text="Open", command=lambda: bops.select_file(input_text))
-                open_button.pack(in_=button_frame, side="left", padx=5, pady=5)
-
-                # button to run the analysis tool
-                if edit_command:
-                    edit_button = ctk.CTkButton(self, text="Edit setup", command=edit_command)
-                    edit_button.pack(in_=button_frame, side="left", padx=5, pady=5)
-
-                # button to run the analysis tool
-                if run_command:
-                    run_button = ctk.CTkButton(self, text='Run', command=run_command)
-                    run_button.pack(in_=button_frame, side="left", padx=5, pady=5)    
-                
-    # function to add elements to the GUI
+        # button to run the analysis tool
+        if run_command:
+            run_button = ctk.CTkButton(self, text='Run', command=run_command)
+            run_button.pack(in_=button_frame, side="left", padx=padx, pady=pady)
+        else:
+            run_button = None 
+        
+        return input, run_button, edit_button, open_button, label, button_frame
+    
+    # function to create buttons at the same y position
+    def create_buttons_in_line(self, button_list, command_list, padx='', pady=''):
+        
+        padx = padx if padx else self.padx
+        pady = pady if pady else self.pady
+        
+        button_frame = ctk.CTkFrame(self)
+        button_frame.pack(padx=padx, pady=pady)
+        
+        for i, button_text in enumerate(button_list):
+            button = ctk.CTkButton(button_frame, text=button_text, command=command_list[i])
+            button.pack(side="left", padx=padx, pady=pady)
+    
+    def increase_max_isometric_force(self, model_path):
+        
+        # pop up gui to enter new value
+        new_value = None
+        has_confirm = False
+        while not type(new_value) == int:
+            new_value = ctk.CTkInputDialog(title="Update Fmax", text="Enter the scale factor to use:")
+            
+            # tick box to confirm the action of plotting the data
+            if not has_confirm:
+                self.confirm_var = tk.IntVar()
+                confirm = ctk.CTkCheckBox(self, text="Confirm", variable=self.confirm_var)
+                confirm.pack(padx=self.padx, pady=self.pady)
+                has_confirm = True
+            
+            new_value = new_value.get_input()
+            if new_value == 'Cancel' or new_value is None:
+                return
+            
+            # check if the input is a number
+            try:
+                new_value = int(new_value.get_input())
+            except:
+                new_value = None
+        
+        # update the model
+        new_osim_model = bops.osimSetup.increase_max_isometric_force(model_path, new_value, self.confirm_var.get())
+        
+        # update the model in the GUI
+        self.entry_osim_model = new_osim_model
+        
+        return new_osim_model
+         
+    # function to add elements to the GUI based on the type. osim_input is the default type and includes all input fields for the opensim analysis tools
     def add(self, type = 'osim_input', osim_model = False, setup_ik_path = '', 
             setup_id_path = '', setup_so_path = '', setup_jra_path = '', **kwargs):
         
         if type == 'label':
-            self.label = ctk.CTkLabel(self, text='label')
-            self.label.pack(padx=10, pady=10)
+            if 'text' in kwargs:
+                self.label = ctk.CTkLabel(self, text=kwargs['text'])
+            else:
+                self.label = ctk.CTkLabel(self, text='label')
+            
+            self.label.pack(padx=self.padx, pady=self.pady)
+            
+            return self.label
+        
+        # create button with or without a command
         elif type == 'button':
             if 'command' in kwargs:
                 self.button = ctk.CTkButton(self, text='button', command=kwargs['command'])
             else:
                 self.button = ctk.CTkButton(self, text='button', command=self.run_system_deault)
             
-            self.button.pack(padx=10, pady=10)
+            self.button.pack(padx=self.padx, pady=self.pady)
+            return self.button
+        
+        # create entry field with or without a default text
+        elif type == 'entry':
+            
+            if 'text' in kwargs:
+                self.input = ctk.CTkEntry(self)
+                self.input.insert(0, kwargs['text'])
+            else:
+                self.input = ctk.CTkEntry(self)
+            
+            self.input.pack(padx=self.padx, pady=self.pady)
+
+            return self.input
         
         # Input for an analysis tool of opensim    
         elif type == 'osim_input':
             
+            # set the input field and paths
             self.model = osim_model
             self.setup_ik = setup_ik_path
             self.setup_id = setup_id_path
             self.setup_so = setup_so_path
             self.setup_jra = setup_jra_path
             
+            # function to update the input field
+            def update_field(field):
+                new_text = bops.select_file()
+                if isinstance(field, ctk.CTkEntry):
+                    field.delete(0, tk.END)
+                    field.insert(0, new_text)
+                else:
+                    print("Error: field is not a CTkEntry widget")
+            
+            label_osim_model = self.add(type='label', text='OpenSim Model:')
+            self.entry_osim_model = self.add(type='entry', text=self.model)
+            
             # input field for osim model
-            self.create_input_and_buttons("Model file path:", osim_model, '', '')
-        
+            button_list = ['Select new', 'Change Fmax', 'Run']
+            command_list = [lambda: update_field(self.entry_osim_model), 
+                            lambda: self.increase_max_isometric_force(self.model),
+                            lambda: print(self.model)]
+            self.create_buttons_in_line(button_list, command_list)
+            
             # input field for setup file
             self.input_label = ctk.CTkLabel(self, text="Setup file paths:")
                         
             # IK
-            self.create_input_and_buttons("IK Setup:", setup_ik_path, 
+            self.create_osim_analysis_buttons("IK Setup:", setup_ik_path, 
                                           lambda: self.run_osim_setup(setup_ik_path), lambda: self.edit_setup_file(setup_ik_path))
 
             # ID
-            self.create_input_and_buttons("ID Setup:", setup_id_path, 
+            self.create_osim_analysis_buttons("ID Setup:", setup_id_path, 
                                           lambda: self.run_osim_setup(setup_id_path), lambda: self.edit_setup_file(setup_id_path))
             
             # SO
-            self.create_input_and_buttons("SO Setup:", setup_so_path, 
+            self.create_osim_analysis_buttons("SO Setup:", setup_so_path, 
                                           lambda: self.run_osim_setup(setup_so_path), lambda: self.edit_setup_file(setup_so_path))
             
             # JRA
-            self.create_input_and_buttons("JRA Setup:", setup_jra_path, 
+            self.create_osim_analysis_buttons("JRA Setup:", setup_jra_path, 
                                           lambda: self.run_osim_setup(setup_jra_path), lambda: self.edit_setup_file(setup_jra_path))
                 
-            # pack all objects            
-            # self.pack_objects()
         
         # exit button
         elif type == 'exit_button':
             self.button_quit = ctk.CTkButton(self, text="Quit", command=self.quit)
-            self.button_quit.pack(padx=10, pady=10)
-        
+            self.button_quit.pack(padx=self.padx, pady=self.pady)
+
+        # if no valid type is given, print an error
         else:
             print("Error: no valid input")
-        
-            
-            
+         
+    # function to run the file with the system default application     
     def run_system_deault(self):
         if not os.path.exists(self.input.get()):
             print("Error: file does not exist")
             return
         os.system(self.input.get())
     
-        
+    # function to run the opensim analysis tool based on the setup file
     def run_osim_setup(self,setup_file):
         if not os.path.isfile(setup_file):
             print("Error: file does not exist")
             return
-
-        print(setup_file)
         
         
         # Check if the file is a valid setup file
@@ -335,8 +417,7 @@ class App(ctk.CTk):
             print("Error: file does not exist")
             return
         os.system(setup_file)  
-
-    
+ 
     # function to autoscale the window to fit all elements
     def autoscale(self, centered=True):
         self.update_idletasks()
@@ -363,16 +444,10 @@ def run_example():
     
     # example data path for walking trial 1
     trial_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "example_data", "walking", "trial1")
-    
-    
-    osim_model = os.path.join(os.path.dirname(trial_path), "torsion_scaled.osim")
-    setup_ik_path = os.path.join(trial_path, "setup_ik.xml")
-    setup_id_path = os.path.join(trial_path, "setup_id.xml")
-    setup_so_path = os.path.join(trial_path, "setup_so.xml")
-    setup_jra_path = os.path.join(trial_path, "setup_jra.xml")
-    
-    app.add(type = 'osim_input', osim_model=osim_model, setup_ik_path=setup_ik_path, 
-            setup_id_path=setup_id_path, setup_so_path=setup_so_path, setup_jra_path=setup_jra_path)
+    trial_paths = msk.TrialPaths(trial_path)
+        
+    app.add(type = 'osim_input', osim_model=trial_paths.model_torsion, setup_ik_path=trial_paths.setup_ik, 
+            setup_id_path=trial_paths.setup_id, setup_so_path=trial_paths.setup_so, setup_jra_path=trial_paths.setup_jra)
     
     # add exit button
     app.add(type = 'exit_button')

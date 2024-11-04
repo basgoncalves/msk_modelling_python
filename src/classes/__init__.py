@@ -1,8 +1,10 @@
 from msk_modelling_python import *
 import msk_modelling_python as msk
+from msk_modelling_python import osim
 import pyperclip
 import json
 import os
+import xml.etree.ElementTree as ET
 
 class mcf: # make coding fancy
     
@@ -13,7 +15,6 @@ class mcf: # make coding fancy
                                                  "#                        Description:                           # \n" +
                                                  "##################################################################"))
 
-
 # create a class for each option so that we can print the option names
 class cmd_function:
     def __init__(self, func):
@@ -22,8 +23,85 @@ class cmd_function:
     def run(self, *args, **kwargs):
         self.func(*args, **kwargs)
 
-
 #%% OSIM DATA CLASSES
+
+class SubjectPaths:
+    def __init__(self, data_folder,subject_code='default',trial_name='trial1'):
+
+        # main paths
+        self.main = data_folder
+        self.setup_folder = os.path.join(self.main,'Setups')
+        self.setup_ceinms = os.path.join(self.main,'Setups','ceinms')
+        self.simulations = os.path.join(self.main,'Simulations')
+        self.subject = os.path.join(self.simulations, subject_code)
+        
+        trial_path = os.path.join(self.subject, trial_name)
+        self.trial = TrialPaths(trial_path)
+        self.results = os.path.join(self.main, 'results')
+
+class TrialPaths:
+    def __init__(self, trial_path = ''):
+
+        if not trial_path: 
+            trial_path = msk.bops.select_folder('Select trial folder')
+        
+        # main paths
+        self.path = trial_path
+        
+        # raw data paths
+        self.c3d = os.path.join(self.path, 'c3dfile.c3d')
+        self.grf = os.path.join(self.path, 'grf.mot')
+        self.markers = os.path.join(self.path, 'marker_experimental.trc')
+        self.emg = os.path.join(self.path, 'emg.csv')
+
+        # model paths
+        self.model_generic = os.path.join(self.path, 'generic.osim')
+        self.model_scaled = os.path.join(self.path, 'scaled.osim')
+        self.model_torsion = os.path.join(self.path, 'torsion_scaled.osim')
+
+        # setup files
+        self.grf_xml = os.path.join(self.path,'GRF.xml')
+        self.setup_ik = os.path.join(self.path, 'setup_ik.xml')
+        self.setup_id = os.path.join(self.path, 'setup_id.xml')
+        self.setup_so = os.path.join(self.path, 'setup_so.xml')
+        self.setup_ma = os.path.join(self.path, 'setup_ma.xml')
+        self.setup_jra = os.path.join(self.path, 'setup_jra.xml')
+        
+        # output paths
+        self.ik_output = os.path.join(self.path, 'ik.mot')
+        self.id_output = os.path.join(self.path, 'inverse_dynamics.sto')
+        self.ma_output_folder = os.path.join(self.path, 'muscle_analysis')
+
+        self.so_output_forces = os.path.join(self.path, 'muscle_forces.sto')
+        self.so_output_activations = os.path.join(self.path, 'muscle_activations.sto')
+        self.so_actuators = os.path.join(self.path, 'actuators_so.xml')
+
+        self.jra_output = os.path.join(self.path, 'joint_raction_loads.sto')
+        
+        # CEINMS paths
+        current_folder = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.ceinms_src = os.path.join(current_folder, 'ceinms2')
+        if not os.path.isdir(self.ceinms_src):
+            raise Exception('CEINMS source folder not found: {}'.format(self.ceinms_src))
+
+        # subject files (model, excitation generator, calibration setup, trial xml)
+        self.uncalibrated_subject = os.path.join(self.path,'ceinms','ceinms_uncalibrated_subject.xml') 
+        self.calibrated_subject = os.path.join(self.path,'ceinms','ceinms_calibrated_subject.xml')
+        self.ceinms_exc_generator = os.path.join(self.path,'ceinms','ceinms_excitation_generator.xml')
+        self.ceinms_calibration_setup = os.path.join(self.path,'ceinms' ,'ceinms_calibration_setup.xml')
+        
+        # trial files (trial xml, ceinms_exe_setup, ceinms_exe_cfg)
+        self.ceinms_trial_exe = os.path.join(self.path,'ceinms_trial.xml')
+        self.ceinms_trial_cal = os.path.join(self.path,'ceinms_trial_cal.xml')
+        self.ceinms_exe_setup = os.path.join(self.path, 'ceinms_exe_setup.xml')
+        self.ceinms_exe_cfg = os.path.join(self.path, 'ceinms_exe_cfg.xml')
+
+        # results folder
+        self.ceinms_results = os.path.join(self.path, 'ceinms_results')
+        self.ceinms_results_forces = os.path.join(self.ceinms_results,'MuscleForces.sto')
+        self.ceinms_results_activations = os.path.join(self.ceinms_results,'Activations.sto')
+
+
 class osimData:
     def __init__(self,path):
         self.path = path
@@ -36,12 +114,11 @@ class osimData:
                 print(f"Error: {file} not found in {path}")
             else:
                 if file == 'ik.mot':
-                    self.angles = msk.bp.import_sto_data(os.path.join(path, file))
+                    self.angles = msk.bops.import_sto_data(os.path.join(path, file))
                 elif file == 'muscleFroces.sto':
-                    self.muscleForces = msk.bp.import_sto_data(os.path.join(path, file))
+                    self.muscleForces = msk.bops.import_sto_data(os.path.join(path, file))
                 elif file == 'jointLoads.sto':
-                    self.jointLoads = msk.bp.import_sto_data(os.path.join(path, file))
-   
+                    self.jointLoads = msk.bops.import_sto_data(os.path.join(path, file))
    
 class osimSetup:
     def __init__(self):
@@ -205,7 +282,7 @@ class osimSetup:
         The model with the changed marker locations is saved as a new model.
         '''
         # Load the OpenSim model
-        model1 = Model(model_path1)
+        model1 = msk.osim.Model(model_path1)
         model1_version = model1.version
         model1_xml = model1.xml
         model1 = model1.osim_object
@@ -289,11 +366,8 @@ class osimSetup:
         for i in range(model.osim_object.getBodySet().getSize()):
             mass += model.osim_object.getBodySet().get(i).getMass()
         print(f'The total mass of the model is: {mass} kg')
-        return mass
+        return mass       
 
-
-   
-        
 class Task:
     # For each task, create a class that contains the osimData objects
     # check example folder structure: C:\Project\Subject\Task\osimData
@@ -305,7 +379,6 @@ class Task:
             folderPath = os.path.join(taskPath, folder)
             self.__dict__[folder] = msk.osimData(folderPath)
             
-
 class Subject:
     # For each subject, create a class that contains the Task objects
     # check example folder structure: C:\Project\Subject\Task\osimData
@@ -318,8 +391,6 @@ class Subject:
             if os.path.isdir(taskPath):
                 self.__dict__[task] = msk.Task(taskPath)
         
-
-
 class Project:
     # For each project, create a class that contains the Subject objects
     # check example folder structure: C:\Project\Subject\Task\osimData

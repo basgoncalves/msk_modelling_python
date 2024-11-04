@@ -3,7 +3,7 @@ import msk_modelling_python as msk
 from msk_modelling_python.ui import Element, GUI
 
 def run(update_version=False):
-  print("Running")
+  print("Running main code from msk_modelling_python")
   
   # implement gui functions
   gui = msk.ui.run_example()

@@ -2958,3 +2958,9 @@ Try appending the model with additional force(s) or locking joint(s) to reduce t
 [2024-11-04 07:57:14.937] [info] AbstractTool  loading model C:\Git\research_data\torsion_deformities_healthy_kinematics\simulations\P01\pre\torsion_scaled.osim
 [2024-11-04 07:57:22.408] [info] Loaded model P01 from file C:\Git\python-envs\msk_modelling\lib\site-packages\msk_modelling_python\ui\..\example_data\walking\torsion_scaled.osim
 [2024-11-04 07:57:22.469] [info] AbstractTool  loading model C:\Git\research_data\torsion_deformities_healthy_kinematics\simulations\P01\pre\torsion_scaled.osim
+[2024-11-04 11:22:13.290] [info] Loaded model P01 from file C:\Git\python-envs\msk_modelling\lib\site-packages\msk_modelling_python\ui\..\example_data\walking\torsion_scaled.osim
+[2024-11-04 11:24:21.816] [info] Loaded model P01 from file C:\Git\python-envs\msk_modelling\lib\site-packages\msk_modelling_python\ui\..\example_data\walking\torsion_scaled.osim
+[2024-11-04 11:37:04.360] [info] Loaded model P01 from file C:\Git\python-envs\msk_modelling\lib\site-packages\msk_modelling_python\ui\..\example_data\walking\torsion_scaled.osim
+[2024-11-04 11:40:09.763] [info] Loaded model P01 from file C:\Git\python-envs\msk_modelling\lib\site-packages\msk_modelling_python\ui\..\example_data\walking\torsion_scaled.osim
+[2024-11-04 11:40:52.590] [info] Loaded model P01 from file C:\Git\python-envs\msk_modelling\lib\site-packages\msk_modelling_python\ui\..\example_data\walking\torsion_scaled.osim
+[2024-11-04 11:46:11.977] [info] Loaded model P01 from file C:\Git\python-envs\msk_modelling\lib\site-packages\msk_modelling_python\ui\..\example_data\walking\torsion_scaled.osim

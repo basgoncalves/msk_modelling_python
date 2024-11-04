@@ -5,7 +5,7 @@ from tkinter.filedialog import askdirectory
 import pandas as pd
 import inspect
 import tkinter.messagebox as mbox
-from msk_modelling_python import cmd_function
+from msk_modelling_python.src.classes import cmd_function
 
 
 #%% Description

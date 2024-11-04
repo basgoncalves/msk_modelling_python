@@ -16,13 +16,13 @@ if __testing__:
 #%% load all the packages needed
 import sys
 import os
-from . import src
-from .src.classes import *
-from .src.bops import bops 
-from .src.bops import ceinms_setup as cs
-from .src.utils import general_utils as ut
-from . import ui
-
+from msk_modelling_python import src
+from msk_modelling_python.src import osim
+from msk_modelling_python.src.classes import *
+from msk_modelling_python.src.bops import bops 
+from msk_modelling_python.src.bops import ceinms
+from msk_modelling_python.src.utils import general_utils as ut
+from msk_modelling_python import ui
 
 
 
@@ -82,7 +82,6 @@ def update_version(level=3, module=__file__, invert=False):
     
     print(f'Updated version to {new_version}')
 
-
 def log_error(error_message, error_log_path=''):
     if not error_log_path:
         current_file_path = os.path.dirname(os.path.abspath(__file__))
@@ -108,7 +107,5 @@ def load_project(project_path=''):
 
 def mir():
     print("My gf is the best ever!!")
-
-
 
 #%% END
