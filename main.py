@@ -6,7 +6,7 @@ def run(update_version=False):
   print("Running")
   
   # implement gui functions
-  msk.ui.simple_gui.run_example()
+  gui = msk.ui.run_example()
   
   # implement version update if needed
   if update_version:

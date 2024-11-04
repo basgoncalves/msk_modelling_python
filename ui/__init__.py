@@ -167,130 +167,147 @@ class GUI:
     def quit(self):
         self.root.quit()
 
-def simple_gui():
-        
-    class App(ctk.CTk):
-        def __init__(self, *args, **kwargs):
-            super().__init__()
-
-            self.title("Simple osim")
-                
+#%% OpenSim GUI
+class App(ctk.CTk):
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+        self.title("Opensim Analysis Tool")
             
-            self.label = ctk.CTkLabel(self, text="Enter the path of the osim model:")
+    def pack_objects(self):
+        try: 
             self.label.pack(padx=10, pady=10)
-                    
-            
-            self.button = ctk.CTkButton(self, text="my button", command=self.run_system_deault)
-            self.button.pack(padx=10, pady=10)
-            
-            self.autoscale()
-            
-        # function to add elements to the GUI
-        def add(self, *args, **kwargs):
-            
-            if "label" in kwargs:
-                self.label = ctk.CTkLabel(self, text=kwargs["label"])
-                self.label.pack(padx=10, pady=10)
-            elif "button" in kwargs:
-                self.button = ctk.CTkButton(self, text=kwargs["button"], command=self.run_system_deault)
-                self.button.pack(padx=10, pady=10)
-            
-            # Input for an analysis tool of opensim    
-            elif "osim_input" in kwargs:
-                # kwargs["osim_input"]:
-                # 0: label
-                # 1: path for osim model
-                # 2: path for setup file
+            self.model_label.pack(padx=10, pady=10)
+            self.model.pack(padx=10, pady=10)
+            self.input_label.pack(padx=10, pady=10)
+            self.input.pack(padx=10, pady=10)
+            self.button_run.pack(padx=10, pady=10)
+            self.button_open.pack(padx=10, pady=10)
+            self.button_quit.pack(padx=10, pady=10)
+        except:
+            print("Error: Could not pack objects")
                 
-                self.label = ctk.CTkLabel(self, text=kwargs["osim_input"][0])
-                self.label.pack(padx=10, pady=10)
-                
-                self.model = ctk.CTkEntry(self)
-                self.model.insert(0, kwargs["osim_input"][1])
-                self.model.pack(padx=10, pady=10)
-                
-                
-                self.input = ctk.CTkEntry(self)   
-                self.input.insert(0, kwargs["osim_input"][2])
-                self.input.pack(padx=10, pady=10)
-                
-                self.button_run = ctk.CTkButton(self, text='Run', command=self.run_osim_setup)
-                self.button_run.pack(padx=10, pady=10)
-                
-                # osim setup
-                self.button_open = ctk.CTkButton(self, text="Edit setup", command=self.edit_setup_file)
-                self.button_open.pack(padx=10, pady=10)
-            
-            elif "exit_button" in kwargs:
-                self.button_quit = ctk.CTkButton(self, text="Quit", command=self.quit)
-                self.button_quit.pack(padx=10, pady=10)
-            
-            else:
-                print("Error: no valid input")
-            
-            # self.autoscale()
-                
-                
-        def run_system_deault(self):
-            if not os.path.exists(self.input.get()):
-                print("Error: file does not exist")
-                return
-            os.system(self.input.get())
-            
-        def run_osim_setup(self):
-            
-            
-            if not os.path.isfile(self.input.get()):
-                print("Error: file does not exist")
-                return
-                    
-            if bops.is_ik_setup(self.input.get(), print_output=True):
-                model = osim.Model(self.model.get())
-                tool = osim.InverseKinematicsTool(self.input.get())
-                tool.setModel(model)
-                
-                tool.run()
-            else:
-                print("Error: file is not a valid setup file")
-                print("XML file must contain the following tags:")
-                print("<InverseKinematicsTool>")
-            
-        def edit_setup_file(self):
-            if not os.path.exists(self.input.get()):
-                print("Error: file does not exist")
-                return
-            os.system(self.input.get())  
-
-            
-        def autoscale(self, centered=True):
-            self.update_idletasks()
-            self.geometry(f"{self.winfo_reqwidth()}x{self.winfo_reqheight()}")
-            if centered:
-                self.center()
-
-        def center(self):
-            self.update_idletasks()
-            width = self.winfo_reqwidth()
-            height = self.winfo_reqheight()
-            x = (self.winfo_screenwidth() // 2) - (width // 2)
-            y = (self.winfo_screenheight() // 2) - (height // 2)
-            self.geometry(f'{width}x{height}+{x}+{y}')
+    # function to add elements to the GUI
+    def add(self, type = 'osim_input', prompt = '', osim_model = False, setup_path = ''):
         
-        def start(self):
-            self.mainloop()
+        if type == 'label':
+            self.label = ctk.CTkLabel(self, text='label')
+            self.label.pack(padx=10, pady=10)
+        elif type == 'button':
+            self.button = ctk.CTkButton(self, text='button', command=self.run_system_deault)
+            self.button.pack(padx=10, pady=10)
+        
+        # Input for an analysis tool of opensim    
+        elif type == 'osim_input':
+            # prompt label
+            self.label = ctk.CTkLabel(self, text=prompt)          
             
-    def run_example():
-        app = App()
-        # ik path as relative path to example_data
-        prompt = "Enter the path of the ik setup file"
-        trial_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "example_data", "walking", "trial1")
-        setup_file = os.path.join(trial_path, "setup_ik.xml")
-        osim_model = os.path.join(os.path.dirname(trial_path), "torsion_scaled.osim")
-        app.add(osim_input = ["Setup file to run:", osim_model, setup_file])
-        app.add(exit_button = '')
-        app.autoscale()
-        app.start()    
+            # input field for osim model
+            if osim_model:
+                self.model_label = ctk.CTkLabel(self, text="Model path:")
+                self.model = ctk.CTkEntry(self)
+                self.model.insert(0, osim_model)
+        
+            # input field for setup file
+            self.input_label = ctk.CTkLabel(self, text="Setup file path:")
+            self.input = ctk.CTkEntry(self)   
+            self.input.insert(0, setup_path)
+            
+            # run button
+            self.button_run = ctk.CTkButton(self, text='Run', command=self.run_osim_setup)
+            
+            # osim setup edit button
+            self.button_open = ctk.CTkButton(self, text="Edit setup", command=self.edit_setup_file)
 
+            # pack all objects            
+            self.pack_objects()
+        
+        # exit button
+        elif type == 'exit_button':
+            self.button_quit = ctk.CTkButton(self, text="Quit", command=self.quit)
+            self.button_quit.pack(padx=10, pady=10)
+        
+        else:
+            print("Error: no valid input")
+        
+            
+            
+    def run_system_deault(self):
+        if not os.path.exists(self.input.get()):
+            print("Error: file does not exist")
+            return
+        os.system(self.input.get())
+    
+        
+    def run_osim_setup(self):       
+        if not os.path.isfile(self.input.get()):
+            print("Error: file does not exist")
+            return
+                
+        if bops.is_ik_setup(self.input.get(), print_output=True):
+            model = osim.Model(self.model.get())
+            tool = osim.InverseKinematicsTool(self.input.get())
+            tool.setModel(model)
+            
+            tool.run()
+        else:
+            print("Error: file is not a valid setup file")
+            print("XML file must contain the following tags:")
+            print("<InverseKinematicsTool>")
+    
+    # function to open the setup XML in the system default editor
+    def edit_setup_file(self):
+        if not os.path.exists(self.input.get()):
+            print("Error: file does not exist")
+            return
+        os.system(self.input.get())  
+
+    
+    # function to autoscale the window to fit all elements
+    def autoscale(self, centered=True):
+        self.update_idletasks()
+        self.geometry(f"{self.winfo_reqwidth()}x{self.winfo_reqheight()}")
+        if centered:
+            self.center()
+
+    # function to center the window on the screen 
+    def center(self):
+        self.update_idletasks()
+        width = self.winfo_reqwidth()
+        height = self.winfo_reqheight()
+        x = (self.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.winfo_screenheight() // 2) - (height // 2)
+        self.geometry(f'{width}x{height}+{x}+{y}')
+    
+    # function to start the GUI
+    def start(self):
+        self.mainloop()
+
+# function to run the example        
+def run_example():
+    app = App()
+    
+    # example data path for walking trial 1
+    trial_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "example_data", "walking", "trial1")
+    
+    # add IK button
+    setup_file = os.path.join(trial_path, "setup_ik.xml")
+    osim_model = os.path.join(os.path.dirname(trial_path), "torsion_scaled.osim")
+    app.add(type = 'osim_input', prompt = 'Run Inverse Kinematics:', osim_model = osim_model, setup_path = setup_file)
+    
+    # add ID button
+    setup_file = os.path.join(trial_path, "setup_id.xml")
+    app.add(type = 'osim_input', prompt = 'Run Inverse Dynamics:', osim_model = False, setup_path = setup_file)
+    
+    # add exit button
+    app.add(type = 'exit_button')
+    
+    app.autoscale()
+    
+    app.start()    
+    
+    return app
+
+#%%
 def complex_gui():
     ctk.set_appearance_mode("System")  # Modes: "System" (standard), "Dark", "Light"
     ctk.set_default_color_theme("blue")  # Themes: "blue" (standard), "green", "dark-blue"
@@ -499,9 +516,7 @@ if __name__ == "__main__":
     
     # test code 
     try:
-        create()
-        
-        pass
+        app = run_example()
     except Exception as e:
         print(f"An error occurred: {e}")
         raise e
