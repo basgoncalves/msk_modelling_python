@@ -36,6 +36,25 @@ def is_setup_file(file_path, print_output=False):
         
     return is_setup
 
+def is_ik_setup(file_path, print_output=False):
+        
+        is_ik = False
+        try:
+            with open(file_path, 'r') as file:
+                for line in file:
+                    if 'InverseKinematicsTool' in line:
+                        is_ik = True
+                        break
+        except Exception as e:
+            print(f"Error reading file: {e}")
+        
+        if print_output and is_ik:
+            print(f"{file_path} is an IK setup file")
+        elif print_output and not is_ik:
+            print(f"{file_path} is not an IK setup file")
+            
+        return is_ik
+
 # %% ######################################################  Classes  ###################################################################
 class project_paths:
     def __init__(self, project_folder=''):

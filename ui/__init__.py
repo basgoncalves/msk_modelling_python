@@ -1,8 +1,9 @@
+import os
 import tkinter as tk
 import customtkinter as ctk
 import screeninfo as si
 from tkinter import messagebox
-
+from msk_modelling_python.src.bops import bops, osim
 
 class Element:
         def __init__(self, root=None, type='', location=[], size=[], name="element", value=None, command=None, text=""):
@@ -167,39 +168,128 @@ class GUI:
         self.root.quit()
 
 def simple_gui():
-    ctk.set_appearance_mode('dark')
-    ctk.set_default_color_theme('dark-blue')
+        
+    class App(ctk.CTk):
+        def __init__(self, *args, **kwargs):
+            super().__init__()
 
-    screen_size = si.get_monitors()
-    print(screen_size)
-    root = ctk.CTk()
-    root.geometry('500x350')
+            self.title("Simple osim")
+                
+            
+            self.label = ctk.CTkLabel(self, text="Enter the path of the osim model:")
+            self.label.pack(padx=10, pady=10)
+                    
+            
+            self.button = ctk.CTkButton(self, text="my button", command=self.run_system_deault)
+            self.button.pack(padx=10, pady=10)
+            
+            self.autoscale()
+            
+        # function to add elements to the GUI
+        def add(self, *args, **kwargs):
+            
+            if "label" in kwargs:
+                self.label = ctk.CTkLabel(self, text=kwargs["label"])
+                self.label.pack(padx=10, pady=10)
+            elif "button" in kwargs:
+                self.button = ctk.CTkButton(self, text=kwargs["button"], command=self.run_system_deault)
+                self.button.pack(padx=10, pady=10)
+            
+            # Input for an analysis tool of opensim    
+            elif "osim_input" in kwargs:
+                # kwargs["osim_input"]:
+                # 0: label
+                # 1: path for osim model
+                # 2: path for setup file
+                
+                self.label = ctk.CTkLabel(self, text=kwargs["osim_input"][0])
+                self.label.pack(padx=10, pady=10)
+                
+                self.model = ctk.CTkEntry(self)
+                self.model.insert(0, kwargs["osim_input"][1])
+                self.model.pack(padx=10, pady=10)
+                
+                
+                self.input = ctk.CTkEntry(self)   
+                self.input.insert(0, kwargs["osim_input"][2])
+                self.input.pack(padx=10, pady=10)
+                
+                self.button_run = ctk.CTkButton(self, text='Run', command=self.run_osim_setup)
+                self.button_run.pack(padx=10, pady=10)
+                
+                # osim setup
+                self.button_open = ctk.CTkButton(self, text="Edit setup", command=self.edit_setup_file)
+                self.button_open.pack(padx=10, pady=10)
+            
+            elif "exit_button" in kwargs:
+                self.button_quit = ctk.CTkButton(self, text="Quit", command=self.quit)
+                self.button_quit.pack(padx=10, pady=10)
+            
+            else:
+                print("Error: no valid input")
+            
+            # self.autoscale()
+                
+                
+        def run_system_deault(self):
+            if not os.path.exists(self.input.get()):
+                print("Error: file does not exist")
+                return
+            os.system(self.input.get())
+            
+        def run_osim_setup(self):
+            
+            
+            if not os.path.isfile(self.input.get()):
+                print("Error: file does not exist")
+                return
+                    
+            if bops.is_ik_setup(self.input.get(), print_output=True):
+                model = osim.Model(self.model.get())
+                tool = osim.InverseKinematicsTool(self.input.get())
+                tool.setModel(model)
+                
+                tool.run()
+            else:
+                print("Error: file is not a valid setup file")
+                print("XML file must contain the following tags:")
+                print("<InverseKinematicsTool>")
+            
+        def edit_setup_file(self):
+            if not os.path.exists(self.input.get()):
+                print("Error: file does not exist")
+                return
+            os.system(self.input.get())  
 
-    frame = ctk.CTkFrame(root)
-    frame.pack(pady=5,padx=5,fill='both',expand=True)
+            
+        def autoscale(self, centered=True):
+            self.update_idletasks()
+            self.geometry(f"{self.winfo_reqwidth()}x{self.winfo_reqheight()}")
+            if centered:
+                self.center()
 
-    def exit_application():
-        msg_box = messagebox.askquestion('Exit Application', 'Are you sure you want to exit the application?',
-                                            icon='warning')
-        if msg_box == 'yes':
-            root.destroy()
-        else:
-            messagebox.showinfo('Return', 'You will now return to the application screen')
-
-
-    button1 = ctk.CTkButton(master = root, text='Exit Application', command=exit_application)
-    button1.pack(pady=12,padx=10)
-
-    label = ctk.CTkLabel(master=root, text="Write some text", width=120, height=25, corner_radius=8)
-    label.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
-
-    entry = ctk.CTkEntry(master=root, width=120, height=25,corner_radius=10)
-    entry.place(relx=0.5, rely=0.5, anchor=tk.CENTER)
-
-    text = entry.get()
-    print(text)
-
-    root.mainloop()
+        def center(self):
+            self.update_idletasks()
+            width = self.winfo_reqwidth()
+            height = self.winfo_reqheight()
+            x = (self.winfo_screenwidth() // 2) - (width // 2)
+            y = (self.winfo_screenheight() // 2) - (height // 2)
+            self.geometry(f'{width}x{height}+{x}+{y}')
+        
+        def start(self):
+            self.mainloop()
+            
+    def run_example():
+        app = App()
+        # ik path as relative path to example_data
+        prompt = "Enter the path of the ik setup file"
+        trial_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "example_data", "walking", "trial1")
+        setup_file = os.path.join(trial_path, "setup_ik.xml")
+        osim_model = os.path.join(os.path.dirname(trial_path), "torsion_scaled.osim")
+        app.add(osim_input = ["Setup file to run:", osim_model, setup_file])
+        app.add(exit_button = '')
+        app.autoscale()
+        app.start()    
 
 def complex_gui():
     ctk.set_appearance_mode("System")  # Modes: "System" (standard), "Dark", "Light"

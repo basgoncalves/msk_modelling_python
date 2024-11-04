@@ -6,7 +6,7 @@ def run(update_version=False):
   print("Running")
   
   # implement gui functions
-  msk.ui.simple_gui()
+  msk.ui.simple_gui.run_example()
   
   # implement version update if needed
   if update_version:
@@ -19,8 +19,8 @@ def run(update_version=False):
 if __name__ == "__main__":
   
   update_version =  False
-  # run(update_version)
-  msk.ui.complex_gui()
+  run(update_version)
+  
   
   print('next step to fix: make function create_analysis_tool() fpr bops and ceinms_setup')
   

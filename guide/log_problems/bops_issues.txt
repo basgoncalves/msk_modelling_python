@@ -1,6 +1,6 @@
 
 
-## opensim import with ezc3d 
+## opensim import
 
 '''
 import opensim
@@ -15,7 +15,21 @@ Traceback (most recent call last):
 ImportError: DLL load failed while importing _common: The specified procedure could not be found.
 
 Solution:
-        NA 
+  https://stackoverflow.com/questions/20201868/importerror-dll-load-failed-the-specified-module-could-not-be-found
+  
+  Download msvcp71.dll and msvcr71.dll from the web or check msk_modelling_python.src.bops
+
+  Save them to your C:\Windows\System32 folder.
+
+  Save them to your C:\Windows\SysWOW64 folder as well (if you have a 64-bit operating system).
+
+Solution 2:
+
+  cd 'C:\OpenSim 4.4\sdk\Python' (or your version)
+
+  pip install -m . 
+
+  change DLL path in 'C:\Git\python-envs\msk_modelling\lib\site-packages\opensim\__init__.py' to 'C:\OpenSim 4.4\bin' (or your version)
 
 
 

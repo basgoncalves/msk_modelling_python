@@ -59,9 +59,6 @@ except:
     initPath = os.path.join(pythonPath,'lib\site-packages\opensim\__init__.py')
     print('init path is: ', initPath)    
     print('=============================================================================================\n\n\n\n\n')
-    
-#%%
-import opensim as osim
 
 #%% modules withing
 from msk_modelling_python import *
