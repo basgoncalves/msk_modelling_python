@@ -102,24 +102,7 @@ class TrialPaths:
         self.ceinms_results_activations = os.path.join(self.ceinms_results,'Activations.sto')
 
 
-class osimData:
-    def __init__(self,path):
-        self.path = path
 
-        filesToImport = ['ik.mot', 'muscleFroces.sto', 'jointLoads.sto']
-        
-        # check if the files exist and load the existing files
-        for file in filesToImport:
-            if not os.path.isfile(os.path.join(path, file)):
-                print(f"Error: {file} not found in {path}")
-            else:
-                if file == 'ik.mot':
-                    self.angles = msk.bops.import_sto_data(os.path.join(path, file))
-                elif file == 'muscleFroces.sto':
-                    self.muscleForces = msk.bops.import_sto_data(os.path.join(path, file))
-                elif file == 'jointLoads.sto':
-                    self.jointLoads = msk.bops.import_sto_data(os.path.join(path, file))
-   
 class osimSetup:
     def __init__(self):
         pass
@@ -367,6 +350,33 @@ class osimSetup:
             mass += model.osim_object.getBodySet().get(i).getMass()
         print(f'The total mass of the model is: {mass} kg')
         return mass       
+
+class osimData:
+    def __init__(self,path):
+        self.path = path    
+        if not os.path.isfile(path):
+            print(f"Error not found: {path}")
+            
+        else:
+            print(f"Loading: {path}")
+            
+            if path.__contains__('angles.csv'):
+                self.angles = msk.bops.import_file(path)
+                
+            elif path.__contains__('muscle_forces.sto'):
+                new_path = path.replace('.sto','.csv')
+                msk.bops.shutil.copy(path,new_path)
+                self.muscleForces = msk.bops.import_file(new_path)
+                # remove time offset and time normalise
+                self.muscleForces['time'] = self.muscleForces['time'] - self.muscleForces['time'][0]
+                muscleForces_timeNorm = msk.bops.time_normalise_df(self.muscleForces)
+                muscleForces_timeNorm.to_csv(new_path.replace('.csv','_normalised.csv'), index=False)
+                
+            elif path.__contains__('muscle_forces.csv'):
+                self.muscleForces = msk.bops.import_file(path)
+                
+            elif path.__contains__('joint_loads.csv'):
+                self.jointLoads = msk.bops.import_file(path)
 
 class Task:
     # For each task, create a class that contains the osimData objects

@@ -458,6 +458,29 @@ def run_example():
     
     return app
 
+def batch_run_example():
+    #%%
+    import msk_modelling_python as msk
+    project_path = msk.ut.select_folder("Select project folder")
+    
+    project = msk.Project(project_path)
+    print("Project loaded")
+    
+    for subject in project.subjects:
+        print(f"Subject: {subject}")
+        for trial in project.__dict__[subject].tasks:
+            print(f"Trial: {trial}")
+
+            
+        
+    #%%
+    
+    return project
+
+    
+    
+    
+
 #%%
 def complex_gui():
     ctk.set_appearance_mode("System")  # Modes: "System" (standard), "Dark", "Light"

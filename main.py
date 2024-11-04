@@ -1,6 +1,7 @@
 from msk_modelling_python import *
 import msk_modelling_python as msk
 from msk_modelling_python.ui import Element, GUI
+from msk_modelling_python.src.bops import *
 
 def run(update_version=False):
   print("Running main code from msk_modelling_python")
@@ -19,9 +20,10 @@ def run(update_version=False):
 if __name__ == "__main__":
   
   update_version =  False
-  run(update_version)
-  
-  print('next step to fix: SO and ID gui')
+  # run(update_version)
+  ui.batch_run_example()
+
+  print('next step to fix: SO and ID gui and batch')
   
   # Create GUI
   

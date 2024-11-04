@@ -472,7 +472,7 @@ def import_file(file_path):
             import_trc_file(file_path)
             
         elif file_extension.lower() == ".csv":
-            df = pd.read_csv(file_path)
+            df = pd.read_csv(file_path, sep='\t')
         
         else:
             print('file extension does not match any of the bops options')
