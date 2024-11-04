@@ -58,7 +58,10 @@ except:
     pythonPath = os.path.dirname(sys.executable)
     initPath = os.path.join(pythonPath,'lib\site-packages\opensim\__init__.py')
     print('init path is: ', initPath)    
-    print('=============================================================================================')
+    print('=============================================================================================\n\n\n\n\n')
+    
+#%%
+import opensim as osim
 
 #%% modules withing
 from msk_modelling_python import *
@@ -75,5 +78,6 @@ if __name__ == "__main__":
 
     stats.test()
     bops.print_warning('test')
+    bops.is_setup_file(r"C:\Git\python-envs\msk_modelling\Lib\site-packages\msk_modelling_python\example_data\walking\trial1\setup_id.xml", print_output=True)
     
     

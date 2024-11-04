@@ -16,7 +16,7 @@ if __testing__:
 #%% load all the packages needed
 from . import src
 from .src.classes import *
-from .src import bops as bp
+from .src.bops import bops as bp
 from .src.bops import ceinms_setup as cs
 from .utils import general_utils as ut
 from . import ui
