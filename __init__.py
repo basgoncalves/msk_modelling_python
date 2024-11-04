@@ -18,7 +18,7 @@ import sys
 import os
 from . import src
 from .src.classes import *
-from .src.bops import bops as bp
+from .src.bops import bops 
 from .src.bops import ceinms_setup as cs
 from .src.utils import general_utils as ut
 from . import ui
@@ -100,9 +100,9 @@ def create_folder(folder_path):
 
 def load_project(project_path=''):
     if not project_path:
-        project_path = bp.select_folder("Select project folder")
+        project_path = bops.select_folder("Select project folder")
     
-    print(bp.get_project_settings(project_path))
+    print(bops.get_project_settings(project_path))
     
     return project_path
 

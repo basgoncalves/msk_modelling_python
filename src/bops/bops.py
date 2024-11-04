@@ -17,15 +17,20 @@ def update_version(level=3, module='', invert=False):
     # msk.update_version(level=3, path=__file__)
 
 
-def is_setup_file(file_path, print_output=False):
+def is_setup_file(file_path, type = 'OpenSimDocument', print_output=False):
     
     is_setup = False
     try:
         with open(file_path, 'r') as file:
-            first_line = file.readline().strip()
-            second_line = file.readline().strip()
-            if second_line.__contains__('OpenSimDocument'):
-                is_setup = True
+            for line in file:
+                if type in line:
+                    is_setup = True
+                    break
+                
+                #if is last line and no match, return false
+                if line == None:
+                    is_setup = False
+                    
     except Exception as e:
         print(f"Error reading file: {e}")
     
@@ -36,24 +41,7 @@ def is_setup_file(file_path, print_output=False):
         
     return is_setup
 
-def is_ik_setup(file_path, print_output=False):
-        
-        is_ik = False
-        try:
-            with open(file_path, 'r') as file:
-                for line in file:
-                    if 'InverseKinematicsTool' in line:
-                        is_ik = True
-                        break
-        except Exception as e:
-            print(f"Error reading file: {e}")
-        
-        if print_output and is_ik:
-            print(f"{file_path} is an IK setup file")
-        elif print_output and not is_ik:
-            print(f"{file_path} is not an IK setup file")
-            
-        return is_ik
+
 
 def add_module_to_python_env():
     print(ut.python_path.run())
