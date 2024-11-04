@@ -3,7 +3,7 @@
 # BOPS: a Matlab toolbox to batch musculoskeletal data processing for OpenSim, Computer Methods in Biomechanics and Biomedical Engineering
 # DOI: 10.1080/10255842.2020.1867978
 
-__version__ = '0.0.2'
+__version__ = '0.0.3'
 
 from msk_modelling_python.src.utils import general_utils as ut
 from msk_modelling_python.src.bops import *
