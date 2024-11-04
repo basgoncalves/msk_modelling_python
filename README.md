@@ -6,8 +6,15 @@
 ```sh
 python -m venv myenv
 ```
-2. copy this module "msk_modelling_python" to the Lib
+2. copy this module "msk_modelling_python" to 
+    .\myenv\Lib\site-packages\
 
+3. Run opensim setup from instalation folder - see https://simtk-confluence.stanford.edu:8443/display/OpenSim/Scripting+in+Python 
+
+```sh
+cd 'C:\OpenSim 4.4\sdk\Python'
+python -m pip install .
+```
 
 This package includes a combination of other packages and custom functions to manipulate and analyse biomechanical data.
 Inspired by the MATLAB version of BOPS (Batch OpenSim Processing Scripts) - https://simtk.org/projects/bops/
