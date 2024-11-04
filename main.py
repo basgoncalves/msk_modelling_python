@@ -19,8 +19,8 @@ def run(update_version=False):
 if __name__ == "__main__":
   
   update_version =  False
-  run(update_version)
-  
+  # run(update_version)
+  print(print(sys.executable))
   
   print('next step to fix: make function create_analysis_tool() fpr bops and ceinms_setup')
   

@@ -1,5 +1,14 @@
 # msk_modelling_python 
 
+## Usage 
+
+1. create a virtual enviroment 
+```sh
+python -m venv myenv
+```
+2. copy this module "msk_modelling_python" to the Lib
+
+
 This package includes a combination of other packages and custom functions to manipulate and analyse biomechanical data.
 Inspired by the MATLAB version of BOPS (Batch OpenSim Processing Scripts) - https://simtk.org/projects/bops/
 
@@ -34,7 +43,7 @@ https://simtk.org/frs/?group_id=91
 6. Install ezc3d 
     see ..\guide\steps_install_ezc3d_python.txt
 
-## Usage
+## Examples
 
 Find examples under "ExampleScripts".
 
