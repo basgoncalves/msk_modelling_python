@@ -468,8 +468,9 @@ def batch_run_example():
     
     for subject in project.subjects:
         print(f"Subject: {subject}")
-        for trial in project.__dict__[subject].tasks:
-            print(f"Trial: {trial}")
+        for task in project.__dict__[subject].tasks:
+            print(f"Trial: {task}")
+            trials = project.__dict__[subject].__dict__[task].trials
 
             
         

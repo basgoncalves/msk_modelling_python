@@ -7,13 +7,29 @@
 python -m venv myenv
 ```
 2. copy this module "msk_modelling_python" to 
-    .\myenv\Lib\site-packages\
-
+```
+.\myenv\Lib\site-packages\
+ ```
 3. Run opensim setup from instalation folder - see https://simtk-confluence.stanford.edu:8443/display/OpenSim/Scripting+in+Python 
 
 ```sh
 cd 'C:\OpenSim 4.4\sdk\Python'
 python -m pip install .
+```
+4. Add the path to the OpenSim libraries to your environment variables. This can be done by adding the following paths to your `PATH` variable:
+    ```
+    C:\OpenSim 4.4\bin
+    C:\OpenSim 4.4\lib
+    ```
+5. Verify the installation by running a simple script to ensure everything is set up correctly:
+    ```python
+    import opensim as osim
+    model = osim.Model()
+    print("OpenSim model created successfully!")
+    ```
+6. Use example scrtips in
+```markdown
+Use example scripts in the "ExampleScripts" directory to get started with common tasks and workflows.
 ```
 
 This package includes a combination of other packages and custom functions to manipulate and analyse biomechanical data.

@@ -1,6 +1,11 @@
+import os
+import sys
+
 try:
     import opensim as osim
-except:      
+except: 
+    class osim:
+        pass     
     print('=============================================================================================')
     print('could not import opensim')
     print('Check if __init__.py has "." before packages (e.g. "from .simbody" instead of "from simbody")')
