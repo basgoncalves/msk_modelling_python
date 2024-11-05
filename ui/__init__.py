@@ -460,9 +460,8 @@ def run_example():
 
 def batch_run_example():
     #%%
-    import msk_modelling_python as msk
     project_path = msk.ut.select_folder("Select project folder")
-    
+        
     project = msk.Project(project_path)
     print("Project loaded")
     
@@ -470,7 +469,9 @@ def batch_run_example():
         print(f"Subject: {subject}")
         for task in project.__dict__[subject].tasks:
             print(f"Trial: {task}")
-            trials = project.__dict__[subject].__dict__[task].trials
+            import pdb; pdb.set_trace()
+            trial = project.__dict__[subject].__dict__[task]
+            
 
             
         

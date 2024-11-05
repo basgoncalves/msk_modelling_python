@@ -192,9 +192,6 @@ def input_popup(prompt='Enter the path: ', title='Input'):
     root.withdraw()  
     return sd.askstring(title, prompt)
 
-def copy(src, dest):
-    shutil.copy(src, dest)
-
 #%% Errors
 def print_error_message():
     print("please select one of the following options:")

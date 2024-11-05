@@ -21,7 +21,9 @@ if __name__ == "__main__":
   
   update_version =  False
   # run(update_version)
-  ui.batch_run_example()
+  # ui.batch_run_example()
+  
+  
 
   print('next step to fix: SO and ID gui and batch')
   

@@ -7,6 +7,7 @@ __version__ = '0.0.3'
 
 from msk_modelling_python.src.utils import general_utils as ut
 from msk_modelling_python.src.bops import *
+from msk_modelling_python.src.bops import ghost
 from msk_modelling_python.src.classes import *
 import msk_modelling_python as msk
 from msk_modelling_python import osim
@@ -43,7 +44,7 @@ def is_setup_file(file_path, type = 'OpenSimDocument', print_output=False):
     return is_setup
     
 # %% ######################################################  Classes  ###################################################################
-class project_paths:
+class ProjectPaths:
     def __init__(self, project_folder=''):
 
         if not project_folder or not os.path.isdir(project_folder):
@@ -57,7 +58,12 @@ class project_paths:
         self.settings = os.path.join(self.main,'settings.json')
         self.subjects = os.path.join(self.simulations,'subjects')
 
-        self.subject_list = [f for f in os.listdir(self.simulations) if os.path.isdir(os.path.join(self.simulations, f))]
+        try:
+            self.subject_list = [f for f in os.listdir(self.simulations) if os.path.isdir(os.path.join(self.simulations, f))]
+        except:
+            self.subject_list = []
+            print_warning(message = 'No subjects in the current project folder')
+            
 
         self.setup_files_dict = dict()
         self.setup_files_dict['scale'] = os.path.join(self.setup_files, 'setup_Scale.xml')
@@ -78,6 +84,9 @@ class project_paths:
         self.settings_dict['subject_list'] = self.subject_list
 
         self.settings_json = os.path.join(self.main,'settings.json')
+    
+    def add_template_subject(self):
+        ghost.create_template_osim_subject(parent_dir=self.main)
 
 class SubjectPaths:
     def __init__(self, data_folder,subject_code='',session_name = '', trial_name=''):
@@ -177,6 +186,21 @@ class Subject:
         self.trial_names = [os.path.basename(os.path.normpath(trial)) for trial in self.trials]
         self.print = lambda: print('Subject ID: ' + self.id), print('Subject folder: ' + self.folder)
 
+def StartProject(project_folder=''):
+    
+    if not project_folder:
+        project_folder = select_folder('Please select project directory')
+        new_project = True
+    else:
+        new_project = False
+    
+    create_new_project_folder(project_folder)
+    
+    
+    return ProjectPaths(project_folder)
+    
+    
+
 #%% ######################################################  General  #####################################################################
 def select_file(original_path=''):
     if not original_path:
@@ -270,6 +294,7 @@ def get_bops_settings(project_folder = ''):
         c3dFilePath = get_testing_file_path()
         project_folder = os.path.abspath(os.path.join(c3dFilePath, '../../../../..'))
    
+    # try opening settings.json (or create a new dictionary if it does not exist)
     try:
         with open(jsonfile, 'r') as f:
             bops_settings = json.load(f)
@@ -324,6 +349,8 @@ def get_project_settings(project_folder=''):
             project_folder = get_project_folder()
         except:
             project_folder = select_folder('Please select project directory')
+    else:
+        bops_settings = get_bops_settings(project_folder)
             
     jsonfile = os.path.join(get_project_folder(),'settings.json')
         
@@ -384,20 +411,19 @@ def create_new_project_folder(basedir = ''): # to complete
     if not basedir:
         basedir = select_folder('Select folder to create new project folder')
 
-    os.mkdir(os.path.join(basedir,'simulations'))
-    os.mkdir(os.path.join(basedir,'setupFiles'))
-    os.mkdir(os.path.join(basedir,'results'))
-    os.mkdir(os.path.join(basedir,'models'))
+    ut.create_folder(os.path.join(basedir,'simulations'))
+    ut.create_folder(os.path.join(basedir,'setupFiles'))
+    ut.create_folder(os.path.join(basedir,'results'))
+    ut.create_folder(os.path.join(basedir,'models'))
 
     print_warning('function not complete')
-    exit()
 
     project_settings = create_project_settings(basedir)
-
+    import pdb; pdb.set_trace()
     for setting in project_settings:
         if is_potential_path(setting):
             print('folder is path: ' + setting)
-            os.makedirs(setting)
+            ut.create_folder(setting)
             print(setting)
 
     return project_settings
@@ -409,9 +435,12 @@ def create_project_settings(project_folder='', overwrite=False):
     
     jsonpath = Path(project_folder) / ("settings.json")
     
-    if os.path.isfile(jsonpath) or not overwrite:
+    if os.path.isfile(jsonpath) and not overwrite:
+        project_settings = get_project_settings(project_folder)
         print('settings.json already exists')
         return
+    
+    print('creating new project settings.json... \n \n')
     
     project_settings = dict()
 
@@ -436,9 +465,6 @@ def create_project_settings(project_folder='', overwrite=False):
     except:
         project_settings['subject_list'] = []
         print_warning(message = 'No subjects in the current project folder')
-
-
-
     
     jsonpath.write_text(json.dumps(project_settings))
 

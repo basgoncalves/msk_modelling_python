@@ -46,7 +46,7 @@ except:
     print('Could not load TRDData')
 #%% modules withing
 from msk_modelling_python import *
-from msk_modelling_python.src.bops import bops
+from . import bops
 from msk_modelling_python.src.bops import stats
 
 
