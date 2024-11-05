@@ -56,7 +56,6 @@ class ProjectPaths:
         self.models = os.path.join(self.main,'models')
         self.setup_files = os.path.join(self.main,'setupFiles')
         self.settings = os.path.join(self.main,'settings.json')
-        self.subjects = os.path.join(self.simulations,'subjects')
 
         try:
             self.subject_list = [f for f in os.listdir(self.simulations) if os.path.isdir(os.path.join(self.simulations, f))]
