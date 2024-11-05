@@ -24,7 +24,7 @@ from msk_modelling_python.src.classes import cmd_function
 #%% Start
 
 #%% Functions to be turned into Options
-def speed_test():
+def speed_test_def():
     import speedtest
     
     print("Running speed test ...")
@@ -37,19 +37,19 @@ def speed_test():
     upload_speed = round(speed_test.upload()/1e6)
     print("Your Upload speed is", upload_speed,'Mb')
 
-def get_current_dir():
+def get_current_dir_def():
     print("for .py")
     print("dir_path = os.path.dirname(os.path.realpath(__file__))")
     print("for ipynb")
     print("dir_path = os.getcwd()")
 
-def python_path():
+def python_path_def():
     print(sys.executable)
 
 def print_python_libs():
     print(os.path.join(os.path.dirname(sys.executable),'Lib','site-packages'))
 
-def files_above_100mb():
+def files_above_100mb_def():
     
     current_path = os.getcwd()
 
@@ -74,7 +74,7 @@ def files_above_100mb():
     # Display the resulting DataFrame
     print(size_bytes)
 
-def create_template():
+def create_template_def():
     import os
 
     def create_folder(directory):
@@ -230,11 +230,11 @@ def select_option_to_run():
         sys.exit(1)
 
 #%% Convert functions to options
-python_path = cmd_function(python_path)
-speed_test = cmd_function(speed_test)
-get_current_dir = cmd_function(get_current_dir)
-files_above_100mb = cmd_function(files_above_100mb)
-create_template = cmd_function(create_template)
+python_path = cmd_function(python_path_def)
+speed_test = cmd_function(speed_test_def)
+get_current_dir = cmd_function(get_current_dir_def)
+files_above_100mb = cmd_function(files_above_100mb_def)
+create_template = cmd_function(create_template_def)
 
 
 #%% Run if the script is executed
