@@ -15,7 +15,7 @@ python -m venv myenv
 3. Run opensim setup from instalation folder - see https://simtk-confluence.stanford.edu:8443/display/OpenSim/Scripting+in+Python 
 
 ```sh
-cd 'C:\OpenSim 4.4\sdk\Python'
+cd 'C:\OpenSim 4.5\sdk\Python'
 python setup_win_python38.py
 python -m pip install .
 ```
@@ -38,6 +38,10 @@ python -m pip install .
     project_path = r'.\'
     msk.bops.StartProject(peoject_path)
 
+    # Create a folder structure:
+    #   .\Project\Subject\Session\Trial1.c3d
+    #   .\Project\Subject\Session\Trial2.c3d
+    #   .\Project\Subject\Session\static.c3d
     ```
 
 7. Use example scrtips in

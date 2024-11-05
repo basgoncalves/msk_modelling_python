@@ -1,6 +1,6 @@
 {
-  "current_project_folder": "C:/Users/Bas/Desktop/msk_db",
-  "jsonfile": "C:/Git/python-envs/msk_modelling/Lib/site-packages/msk_modelling_python/src/settings.json",
+  "current_project_folder": "c:\\Git\\Opencap_squat_validation",
+  "jsonfile": "C:\\Git\\python-envs\\msk_modelling\\Lib\\site-packages\\msk_modelling_python\\src\\bops\\settings.json",
   "bops": {
     "installtion": "/path/to/project",
     "type": "biomechanics",

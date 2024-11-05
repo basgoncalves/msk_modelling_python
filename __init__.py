@@ -16,6 +16,7 @@ if __testing__:
 #%% load all the packages needed
 import sys
 import os
+import time
 from msk_modelling_python import src
 from msk_modelling_python.src import osim
 from msk_modelling_python.src.classes import *

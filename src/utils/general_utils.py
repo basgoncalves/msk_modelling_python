@@ -1,5 +1,6 @@
 import sys
 import os
+import math
 import tkinter as tk
 from tkinter.filedialog import askdirectory
 import pandas as pd
@@ -152,6 +153,28 @@ def find_current_line():
     frame = inspect.currentframe().f_back
     lineno = frame.f_lineno
     return lineno
+def print_loading_bar(completion_ratio):
+    """Prints a visual loading bar indicating progress.
+
+    Args:
+        completion_ratio (float): A value between 0.0 (no progress) and 1.0 (complete).
+    """
+
+    # Define bar length and characters
+    bar_length = 20  # Adjust for desired visual length
+    completed_char = '='
+    remaining_char = ' '
+
+    # Calculate completed and remaining sections
+    completed_sections = int(math.floor(completion_ratio * bar_length))
+    remaining_sections = bar_length - completed_sections
+
+    # Build the progress bar string
+    progress_bar = completed_char * completed_sections + remaining_char * remaining_sections
+
+    # Print the progress bar and optional percentage
+    print(f"\rProgress: [{progress_bar}] {completion_ratio:.2%}", end="")
+
 
 ## FOLDERS
 def select_folder(prompt='Please select your folder', staring_path=''):

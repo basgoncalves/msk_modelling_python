@@ -32,12 +32,35 @@ Solution 2:
   change DLL path in 'C:\Git\python-envs\msk_modelling\lib\site-packages\opensim\__init__.py' to 'C:\OpenSim 4.4\bin' (or your version)
 
 
+## C3D export
+
+### Problem 1 - pyc3dserver 
+```
+Traceback (most recent call last):
+  File "c:/Git/Opencap_squat_validation/code/export_emg_c3d.py", line 5, in <module>
+    msk.bops.c3d_emg_export(c3d_file_path,emg_labels='all')
+  File "C:\Git\python-envs\msk_modelling\lib\site-packages\msk_modelling_python\src\bops\bops.py", line 720, in c3d_emg_export      
+    itf = c3d.c3dserver(msg=False)   # Get the COM object of C3Dserver (https://pypi.org/project/pyc3dserver/)
+  File "C:\Git\python-envs\msk_modelling\lib\site-packages\pyc3dserver\pyc3dserver.py", line 145, in c3dserver
+    itf = win32.Dispatch('C3DServer.C3D')
+  File "C:\Git\python-envs\msk_modelling\lib\site-packages\win32com\client\__init__.py", line 118, in Dispatch
+    dispatch, userName = dynamic._GetGoodDispatchAndUserName(dispatch, userName, clsctx)
+  File "C:\Git\python-envs\msk_modelling\lib\site-packages\win32com\client\dynamic.py", line 104, in _GetGoodDispatchAndUserName    
+    return (_GetGoodDispatch(IDispatch, clsctx), userName)
+  File "C:\Git\python-envs\msk_modelling\lib\site-packages\win32com\client\dynamic.py", line 86, in _GetGoodDispatch
+    IDispatch = pythoncom.CoCreateInstance(
+pywintypes.com_error: (-2147221005, 'Invalid class string', None, None)
+```
+#### solution1
+  try regsvr32 C3DServer.dll in cmd (open as admin)
+  ```
+  regsvr32 C3DServer.dll
+  ```
 
 
 
 
-
-####################################### CEINMS ################################
+## CEINMS 
 
 
 Error 1

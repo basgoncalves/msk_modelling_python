@@ -47,22 +47,28 @@ def is_setup_file(file_path, type = 'OpenSimDocument', print_output=False):
 class ProjectPaths:
     def __init__(self, project_folder=''):
 
-        if not project_folder or not os.path.isdir(project_folder):
-            project_folder = select_folder('Please select project directory')
+        
+        if project_folder == 'example':
+            c3dFilePath = get_testing_file_path()
+            project_folder = os.path.abspath(os.path.join(c3dFilePath, '../../../../..'))
 
+        elif not project_folder or not os.path.isdir(project_folder):
+            pop_warning(f'Project folder does not exist on {project_folder}. Please select a new project folder')
+            project_folder = select_folder('Please select project directory')
+            return
+        
         self.main = project_folder
         self.simulations = os.path.join(self.main,'simulations')
         self.results = os.path.join(self.main,'results')
         self.models = os.path.join(self.main,'models')
         self.setup_files = os.path.join(self.main,'setupFiles')
-        self.settings = os.path.join(self.main,'settings.json')
+        self.settings_json = os.path.join(self.main,'settings.json')
 
         try:
             self.subject_list = [f for f in os.listdir(self.simulations) if os.path.isdir(os.path.join(self.simulations, f))]
         except:
             self.subject_list = []
-            print_warning(message = 'No subjects in the current project folder')
-            
+            print_warning(message = 'No subjects in the current project folder')     
 
         self.setup_files_dict = dict()
         self.setup_files_dict['scale'] = os.path.join(self.setup_files, 'setup_Scale.xml')
@@ -78,90 +84,113 @@ class ProjectPaths:
         self.settings_dict['emg_filter']['order'] = [4]
         self.settings_dict['emg_labels'] = ['all']
         self.settings_dict['simulations'] = os.path.join(self.main,'simulations')
-
         self.settings_dict['setupFiles'] = self.setup_files_dict
-        self.settings_dict['subject_list'] = self.subject_list
-
-        self.settings_json = os.path.join(self.main,'settings.json')
-    
+        
+        # create a list of subject paths
+        self.subject_paths = []
+        for subject in self.subject_list:
+            self.subject_paths.append(os.path.join(self.simulations, subject))
+                    
     def add_template_subject(self):
         ghost.create_template_osim_subject(parent_dir=self.main)
 
-class SubjectPaths:
-    def __init__(self, data_folder,subject_code='',session_name = '', trial_name=''):
+    def create_settings_json(self):
+        save_json_file(self.__dict__, self.settings_json)
+        print('settings.json created in ' + self.main)
 
-        if not data_folder or not os.path.isdir(data_folder):
-            data_folder = select_folder('Please select project directory')
+class Subject:
+    # class to store subject information
+    def __init__(self, subject_folder):
+        self.folder = subject_folder
+        self.id = os.path.basename(os.path.normpath(subject_folder))
+        self.session_paths = [f.path for f in os.scandir(subject_folder) if f.is_dir()]
+        self.settings_json = os.path.join(self.folder,'settings.json')
         
-        self.main = data_folder
-
-        # main paths
-        self.setup_folder = os.path.join(self.main,'Setups')
-        self.setup_ceinms = os.path.join(self.main,'Setups','ceinms')
-        self.simulations = os.path.join(self.main,'Simulations')
-        self.current_analysis = os.path.join(get_dir_bops(),'current_analysis.json')
-
-        # subject paths
-        self.subject = os.path.join(self.simulations, subject_code)
-        self.trial = os.path.join(self.subject, session_name, trial_name)
-        self.results = os.path.join(self.main, 'results')
-
-        # raw data paths
-        self.c3d = os.path.join(self.trial, 'c3dfile.c3d')
-        self.grf = os.path.join(self.trial, 'grf.mot')
-        self.markers = os.path.join(self.trial, 'marker_experimental.trc')
-        self.emg = os.path.join(self.trial, 'EMG_filtered.sto')
-
-        # model paths
-        self.models = os.path.join(self.main, 'Scaled_models')
-        self.model_generic = os.path.join(self.models, 'generic_model.osim')
-        self.model_scaled = os.path.join(self.models, subject_code + '_scaled.osim')
-
-        # setup files
-        self.grf_xml = os.path.join(self.trial,'GRF.xml')
-        self.ik_setup = os.path.join(self.trial, 'setup_ik.xml')
-        self.id_setup = os.path.join(self.trial, 'setup_id.xml')
-        self.ma_setup = os.path.join(self.trial, 'setup_ma.xml')
-
-        # IK paths
-        self.ik_output = os.path.join(self.trial, 'IK.mot')
-        
-        # ID paths
-        self.id_output = os.path.join(self.trial, 'inverse_dynamics.sto')
+    def print(self):
+        print('Subject ID: ' + self.id)
+        print('Subject folder: ' + self.folder)
     
-        # MA paths 
-        self.ma_output_folder = os.path.join(self.trial, 'muscle_analysis')
-
-        # SO paths
-        self.so_output_forces = os.path.join(self.trial, '_StaticOptimization_force.sto')
-        self.so_output_activations = os.path.join(self.trial, '_StaticOptimization_activation.sto')
-        self.so_actuators = os.path.join(self.trial, 'actuators_so.xml')
-
-        # JRA paths
-        self.jra_output = os.path.join(self.trial, 'joint_reaction.sto')
-        self.jra_setup = os.path.join(self.trial, 'setup_jra.xml')
-
-        # CEINMS paths 
-        self.ceinms_src = r"C:\Git\msk_modelling_matlab\src\Ceinms\CEINMS_2"
-        if not os.path.isdir(self.ceinms_src):
-            raise Exception('CEINMS source folder not found: {}'.format(self.ceinms_src))
-
-        # subject files (model, excitation generator, calibration setup, trial xml)
-        self.uncalibrated_subject = os.path.join(self.subject,'ceinms_shared','ceinms_uncalibrated_subject.xml') 
-        self.calibrated_subject = os.path.join(self.subject,'ceinms_shared','ceinms_calibrated_subject.xml')
-        self.ceinms_exc_generator = os.path.join(self.subject,'ceinms_shared','ceinms_excitation_generator.xml')
-        self.ceinms_calibration_setup = os.path.join(self.subject,'ceinms_shared' ,'ceinms_calibration_setup.xml')
+    def create_settings_json(self, overwrite=False):
         
-        # trial files (trial xml, ceinms_exe_setup, ceinms_exe_cfg)
-        self.ceinms_trial_exe = os.path.join(self.trial,'ceinms_trial.xml')
-        self.ceinms_trial_cal = os.path.join(self.trial,'ceinms_trial_cal.xml')
-        self.ceinms_exe_setup = os.path.join(self.trial, 'ceinms_exe_setup.xml')
-        self.ceinms_exe_cfg = os.path.join(self.trial, 'ceinms_exe_cfg.xml')
+        if os.path.isfile(self.settings_json) and not overwrite:
+            print('settings.json already exists')
+            return
+        
+        save_json_file(self.__dict__, self.settings_json)
+        print('subject settings.json created in ' + self.folder)
 
-        # results folder
-        self.ceinms_results = os.path.join(self.trial, 'ceinms_results')
-        self.ceinms_results_forces = os.path.join(self.ceinms_results,'MuscleForces.sto')
-        self.ceinms_results_activations = os.path.join(self.ceinms_results,'Activations.sto')
+    def get_session(self, session_name):
+        if session_name is int():
+            print('session name must be a string')
+            return 
+        else:
+            session = Session(os.path.join(self.folder, session_name))
+        return session
+
+class Session:
+    def __init__(self, session_path):
+        self.path = session_path
+        self.name = os.path.basename(os.path.normpath(session_path))
+        self.trial_paths = [f.path for f in os.scandir(session_path) if f.is_dir()]
+        self.trial_names = [os.path.basename(os.path.normpath(trial)) for trial in self.trial_paths]
+        
+        # get files in the session folder that are .c3d files
+        self.c3d_files = [f.path for f in os.scandir(session_path) if f.is_file() and f.name.endswith('.c3d')]
+        
+        self.settings_json = os.path.join(self.path,'settings.json')
+        
+    def create_settings_json(self, overwrite=False):        
+        if os.path.isfile(self.settings_json) and not overwrite:
+            print('settings.json already exists')
+            return
+        
+        settings_dict = self.__dict__
+        save_json_file(settings_dict, self.settings_json)
+        print('session settings.json created in ' + self.path)
+
+    def get_trial(self, trial_name):
+        if trial_name is int():
+            trial_name = self.trial_names[trial_name]
+            trial = Trial(os.path.join(self.path, trial_name))
+        else:
+            trial = Trial(os.path.join(self.path, trial_name))
+            
+        return trial
+    
+    
+class Trial:
+    def __init__(self, trial_path):
+        self.path = trial_path
+        self.name = os.path.basename(os.path.normpath(trial_path))
+        self.og_c3d = os.path.join(os.path.dirname(trial_path), self.name + '.c3d')
+        
+        if not os.path.isdir(trial_path):
+            ut.create_folder(trial_path)
+            shutil.copyfile(self.og_c3d, os.path.join(trial_path,'c3dfile.c3d'))
+        
+        self.c3d = os.path.join(trial_path,'c3dfile.c3d')
+        self.trc = os.path.join(trial_path,'marker_experimental.trc')
+        self.grf = os.path.join(trial_path,'grf.mot')
+        self.emg = os.path.join(trial_path,'emg.csv')
+        self.ik = os.path.join(trial_path,'ik.mot')
+        self.id = os.path.join(trial_path,'inverse_dynamics.sto')
+        self.so_force = os.path.join(trial_path,'static_optimization_force.sto')
+        self.so_activation = os.path.join(trial_path,'static_optimization_activation.sto')
+        self.jra = os.path.join(trial_path,'joint_reacton_loads.sto')
+        
+        self.settings_json = os.path.join(self.path,'settings.json')
+    
+    def create_settings_json(self, overwrite=False):
+        if os.path.isfile(self.settings_json) and not overwrite:
+            print('settings.json already exists')
+            return
+        
+        settings_dict = self.__dict__
+        save_json_file(settings_dict, self.settings_json)
+        print('trial settings.json created in ' + self.path)
+    
+    def exportC3D(self):
+        c3d_osim_export(self.og_c3d) 
 
 class Model:
     def __init__(self, model_path):
@@ -176,15 +205,8 @@ class Model:
         print('Model version: ' + self.version)
         print('---')
 
-class Subject:
-    def __init__(self, subject_folder):
-        self.folder = subject_folder
-        self.id = os.path.basename(os.path.normpath(subject_folder))
-        self.sessions = [f.path for f in os.scandir(subject_folder) if f.is_dir()]
-        self.trials = [f.path for f in os.scandir(subject_folder) if f.is_file()]
-        self.trial_names = [os.path.basename(os.path.normpath(trial)) for trial in self.trials]
-        self.print = lambda: print('Subject ID: ' + self.id), print('Subject folder: ' + self.folder)
 
+        
 def StartProject(project_folder=''):
     
     if not project_folder:
@@ -263,23 +285,13 @@ def get_subject_sessions(subject_folder):
 
 def get_trial_list(sessionPath='',full_dir=False):
     # get all the folders in sessionPath that contain c3dfile.c3d and are not "static" trials
-    
     if not sessionPath:
         sessionPath = select_folder('Select session folder',get_dir_simulations())
 
-    trial_list = [f.name for f in os.scandir(sessionPath) if f.is_dir()]
-
-    # check which folders have a file inside named "c3dfile.c3d" and if not delete the path from "trialList"
-    for trial_folder in trial_list.copy():
-        c3d_file_path = os.path.join(sessionPath, trial_folder, 'c3dfile.c3d')
-        if not os.path.isfile(c3d_file_path):
-            trial_list.remove(trial_folder)
-        
-        if trial_folder.lower().__contains__('static'):
-            trial_list.remove(trial_folder)
-    
     if full_dir:
-        trial_list = [sessionPath + '\\' + str(element) for element in trial_list]
+        trial_list = [f.path for f in os.scandir(sessionPath) if f.is_dir()]
+    else:
+        trial_list = [f.name for f in os.scandir(sessionPath) if f.is_dir()]   
 
     return trial_list
 
@@ -659,64 +671,51 @@ def c3d_osim_export(c3dFilePath):
     adapter = osim.C3DFileAdapter()
     tables = adapter.read(c3dFilePath)
 
-    # save marker .mot
+    # save markers.trc
     try:
         markers = adapter.getMarkersTable(tables)
         markersFlat = markers.flatten()
         markersFilename = os.path.join(trialFolder,'markers.trc')
         stoAdapter = osim.STOFileAdapter()
         stoAdapter.write(markersFlat, markersFilename)
+        
+        print('markers.trc exported to ' + trialFolder)
     except:
-        print(c3dFilePath + ' could not export markers.trc')
+        print_warning(c3dFilePath + ' could not export markers.trc')
 
-    # save grf .sto
+    # save grf.mot
     try:
         forces = adapter.getForcesTable(tables)
         forcesFlat = forces.flatten()
         forcesFilename = os.path.join(trialFolder,'grf.mot')
         stoAdapter = osim.STOFileAdapter()
         stoAdapter.write(forcesFlat, forcesFilename)
+        print('grf.mot exported to ' + trialFolder)
     except:
-        print(c3dFilePath + 'could not export grf.mot')
+        print_warning(c3dFilePath + 'could not export grf.mot')
 
     # save emg.csv
     try:
        c3d_emg_export(c3dFilePath)
-    except:
-        print(c3dFilePath + 'could not export emg.mot')
+       print('emg.csv exported to ' + trialFolder)  
+    except Exception as e:
+        print_warning(c3dFilePath + 'could not export emg.mot')
+        print(e)
 
 def c3d_osim_export_multiple(sessionPath='',replace=0):
 
     if not sessionPath:
         sessionPath = select_folder('Select session folder',get_dir_simulations())
 
-    if not get_trial_list(sessionPath):
-        add_each_c3d_to_own_folder(sessionPath)
-
-    trial_list = get_trial_list(sessionPath)
+    session = Session(sessionPath)
     print('c3d convert ' + sessionPath)
-    for trial in trial_list:
-        trial_folder = os.path.join(sessionPath, trial)
-        c3dpath = os.path.join(trial_folder, 'c3dfile.c3d')
-        trcpath = os.path.join(trial_folder, 'markers.trc')
-        motpath = os.path.join(trial_folder, 'grf.sto')
-
-        if not os.path.isfile(c3dpath) or not os.path.isfile(trcpath) or not os.path.isfile(motpath):
-            try:
-                c3d_osim_export(c3dpath)
-                print(trial + 'c3d exported')
-            except:
-                print('could not convert ' + trial + ' to markers, grf, or emg')
-
-        # if not os.path.isfile(emgpath):
-        #     try:
-        #         c3d_emg_export(c3dpath,emg_labels)
-        #     except:
-        #         print('could not convert ' + c3dpath + ' to emg.csv')
+    for i_trial in session.trial_paths:
+        trial = session.get_trial(i_trial)
+        trial.exportC3D()
+        print('c3d convert ' + trial.name)
+        
 
 def c3d_emg_export(c3dFilePath,emg_labels='all'):
-
-    trialFolder = create_trial_folder(c3dFilePath)
     
     itf = c3d.c3dserver(msg=False)   # Get the COM object of C3Dserver (https://pypi.org/project/pyc3dserver/)
     c3d.open_c3d(itf, c3dFilePath)   # Open a C3D file
