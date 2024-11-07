@@ -686,11 +686,11 @@ def c3d_osim_export(c3dFilePath):
     except:
         print_warning(c3dFilePath + 'could not export grf.mot')
 
-    # save emg.csv
+    # save analog.csv
     try:
         settings = get_bops_settings()
-        c3d_emg_export(c3dFilePath)
-        print('emg.csv exported to ' + trialFolder)  
+        c3d_analog_export(c3dFilePath)
+        
     except Exception as e:
         print_warning(c3dFilePath + 'could not export emg.mot')
         print(e)
@@ -708,11 +708,11 @@ def c3d_osim_export_multiple(sessionPath='',replace=0):
         print('c3d convert ' + trial.name)
         
 
-def c3d_emg_export(c3dFilePath,emg_labels='all'):
+def c3d_analog_export(c3dFilePath,emg_labels='all'):
+    
+    print('Exporting analog data to csv ...')
     
     reader = c3d.Reader(open(c3dFilePath, 'rb'))
-    print('number of analog channels: ' + str(reader.analog_used))
-    print('number of markers: ' + str(reader.point_used))
 
     # get analog labels, trimmed and replace '.' with '_'
     analog_labels = reader.analog_labels
@@ -722,14 +722,13 @@ def c3d_emg_export(c3dFilePath,emg_labels='all'):
     # get analog labels, trimmed and replace '.' with '_'
     num_frames = reader.frame_count
     df = pd.DataFrame(index=range(num_frames),columns=analog_labels)
-    print('Convert analog data to dataframe ...')
-
+    
     # loop through frames and add analog data to dataframe
     for i_frame, points, analog in reader.read_frames():
         
         # get row number and print loading bar
         i_row = i_frame - reader.first_frame
-        msk.ut.print_loading_bar(i_row/num_frames)
+        # msk.ut.print_loading_bar(i_row/num_frames)
         
         # convert analog data to list
         analog_list  = analog.data.tolist()
@@ -742,9 +741,9 @@ def c3d_emg_export(c3dFilePath,emg_labels='all'):
             df.loc[i_row, channel_name] = analog[i_channel][0]
     
     # save emg data to csv
-    emg_file_path = os.path.join(os.path.dirname(c3dFilePath),'emg.csv')
-    df.to_csv(emg_file_path)
-    print('emg data saved to ' + emg_file_path)
+    analog_file_path = os.path.join(os.path.dirname(c3dFilePath),'analog.csv')
+    df.to_csv(analog_file_path)
+    print('analog.csv exported to ' + analog_file_path)  
     
     return df
     
