@@ -47,7 +47,6 @@ def is_setup_file(file_path, type = 'OpenSimDocument', print_output=False):
 class ProjectPaths:
     def __init__(self, project_folder=''):
 
-        
         if project_folder == 'example':
             c3dFilePath = get_testing_file_path()
             project_folder = os.path.abspath(os.path.join(c3dFilePath, '../../../../..'))
@@ -61,7 +60,7 @@ class ProjectPaths:
         self.simulations = os.path.join(self.main,'simulations')
         self.results = os.path.join(self.main,'results')
         self.models = os.path.join(self.main,'models')
-        self.setup_files = os.path.join(self.main,'setupFiles')
+        self.setup_files_path = os.path.join(self.main,'setupFiles')
         self.settings_json = os.path.join(self.main,'settings.json')
 
         try:
@@ -70,22 +69,25 @@ class ProjectPaths:
             self.subject_list = []
             print_warning(message = 'No subjects in the current project folder')     
 
-        self.setup_files_dict = dict()
-        self.setup_files_dict['scale'] = os.path.join(self.setup_files, 'setup_Scale.xml')
-        self.setup_files_dict['ik'] = os.path.join(self.setup_files, 'setup_ik.xml')
-        self.setup_files_dict['id'] = os.path.join(self.setup_files, 'setup_id.xml')
-        self.setup_files_dict['so'] = os.path.join(self.setup_files, 'setup_so.xml')
-        self.setup_files_dict['jrf'] = os.path.join(self.setup_files, 'setup_jrf.xml')
-
-        self.settings_dict = dict()
-        self.settings_dict['emg_filter'] = dict()
-        self.settings_dict['emg_filter']['band_pass'] = [40,450]
-        self.settings_dict['emg_filter']['low_pass'] = [6]
-        self.settings_dict['emg_filter']['order'] = [4]
-        self.settings_dict['emg_labels'] = ['all']
-        self.settings_dict['simulations'] = os.path.join(self.main,'simulations')
-        self.settings_dict['setupFiles'] = self.setup_files_dict
+        # create a dictionary of setup files
+        self.setup_files = dict()
+        self.setup_files['scale'] = os.path.join(self.setup_files_path, 'setup_Scale.xml')
+        self.setup_files['ik'] = os.path.join(self.setup_files_path, 'setup_ik.xml')
+        self.setup_files['id'] = os.path.join(self.setup_files_path, 'setup_id.xml')
+        self.setup_files['so'] = os.path.join(self.setup_files_path, 'setup_so.xml')
+        self.setup_files['jrf'] = os.path.join(self.setup_files_path, 'setup_jrf.xml')
         
+        # analysis settings
+        self.emg_labels = ['all']
+        self.analog_labels = ['all']
+        
+        self.filters = dict()
+        self.filters['emg_band_pass'] = [40,450]
+        self.filters['emg_low_pass'] = [6]
+        self.filters['emg_order'] = [4]
+        self.filters['grf'] = None
+        self.filters['markers'] = 6
+
         # create a list of subject paths
         self.subject_paths = []
         for subject in self.subject_list:
@@ -131,11 +133,11 @@ class Session:
     def __init__(self, session_path):
         self.path = session_path
         self.name = os.path.basename(os.path.normpath(session_path))
-        self.trial_paths = [f.path for f in os.scandir(session_path) if f.is_dir()]
-        self.trial_names = [os.path.basename(os.path.normpath(trial)) for trial in self.trial_paths]
-        
         # get files in the session folder that are .c3d files
-        self.c3d_files = [f.path for f in os.scandir(session_path) if f.is_file() and f.name.endswith('.c3d')]
+        self.c3d_paths = [f.path for f in os.scandir(session_path) if f.is_file() and f.name.endswith('.c3d')]
+        
+        # trial paths and names only for the c3d files
+        self.trial_names = [os.path.basename(os.path.normpath(f)).replace('.c3d', '') for f in self.c3d_paths]
         
         self.settings_json = os.path.join(self.path,'settings.json')
         
@@ -149,26 +151,33 @@ class Session:
         print('session settings.json created in ' + self.path)
 
     def get_trial(self, trial_name):
+        
+        # if trial_name is an integer, use as index to get trial name
         if trial_name is int():
             trial_name = self.trial_names[trial_name]
             trial = Trial(os.path.join(self.path, trial_name))
+            
         else:
             trial = Trial(os.path.join(self.path, trial_name))
             
         return trial
-    
-    
+     
 class Trial:
+    '''
+    Class to store trial information and file paths
+    '''
     def __init__(self, trial_path):
         self.path = trial_path
         self.name = os.path.basename(os.path.normpath(trial_path))
         self.og_c3d = os.path.join(os.path.dirname(trial_path), self.name + '.c3d')
+        self.c3d = os.path.join(trial_path,'c3dfile.c3d')
         
         if not os.path.isdir(trial_path):
             ut.create_folder(trial_path)
-            shutil.copyfile(self.og_c3d, os.path.join(trial_path,'c3dfile.c3d'))
         
-        self.c3d = os.path.join(trial_path,'c3dfile.c3d')
+        if not os.path.isfile(self.og_c3d):
+            shutil.copyfile(self.og_c3d, self.c3d)
+        
         self.trc = os.path.join(trial_path,'marker_experimental.trc')
         self.grf = os.path.join(trial_path,'grf.mot')
         self.emg = os.path.join(trial_path,'emg.csv')
@@ -263,7 +272,7 @@ def get_dir_bops():
     return os.path.dirname(os.path.realpath(__file__))
 
 def get_dir_simulations():
-    return os.path.join(get_project_folder(),'simulations')
+    return os.path.join(get_current_project_folder(),'simulations')
 
 def get_subject_folders(dir_simulations = ''):
     if dir_simulations:
@@ -341,7 +350,7 @@ def save_bops_settings(settings):
     jsonpath = Path(get_dir_bops()) / ("settings.json")
     jsonpath.write_text(json.dumps(settings,indent=2))
 
-def get_project_folder():
+def get_current_project_folder():
 
     bops_settings = get_bops_settings()
         
@@ -357,16 +366,15 @@ def get_project_folder():
 def get_project_settings(project_folder=''):
     if not project_folder:
         try:
-            project_folder = get_project_folder()
+            project_folder = get_current_project_folder()
         except:
             project_folder = select_folder('Please select project directory')
     else:
         bops_settings = get_bops_settings(project_folder)
-            
-    jsonfile = os.path.join(get_project_folder(),'settings.json')
         
-    with open(jsonfile, 'r') as f:
-        settings = json.load(f)
+    
+    json_file_path = os.path.join(project_folder,'settings.json')
+    settings = import_json_file(json_file_path)    
 
     return settings
 
@@ -453,31 +461,8 @@ def create_project_settings(project_folder='', overwrite=False):
     
     print('creating new project settings.json... \n \n')
     
-    project_settings = dict()
-
-    project_settings['emg_filter'] = dict()
-    project_settings['emg_filter']['band_pass'] = [40,450]
-    project_settings['emg_filter']['low_pass'] = [6]
-    project_settings['emg_filter']['order'] = [4]
-
-    project_settings['emg_labels'] = ['all']
-    project_settings['simulations'] = os.path.join(project_folder,'simulations')    
-    
-    project_settings['setupFiles'] = dict()
-    project_settings['setupFiles']['scale'] = os.path.join(project_folder, 'setup_Scale.xml')
-    project_settings['setupFiles']['ik'] = os.path.join(project_folder, 'setup_ik.xml')
-    project_settings['setupFiles']['id'] = os.path.join(project_folder, 'setup_id.xml')
-    project_settings['setupFiles']['so'] = os.path.join(project_folder, 'setup_so.xml')
-    project_settings['setupFiles']['jrf'] = os.path.join(project_folder, 'setup_jrf.xml')
-
-    # subject list 
-    try:
-        project_settings['subject_list'] = [f for f in os.listdir(project_settings['simulations']) if os.path.isdir(os.path.join(project_settings['simulations'], f))]
-    except:
-        project_settings['subject_list'] = []
-        print_warning(message = 'No subjects in the current project folder')
-    
-    jsonpath.write_text(json.dumps(project_settings))
+    project = msk.bops.ProjectPaths(project_folder=project_folder)
+    project.create_settings_json()
 
     print('project directory was set to: ' + project_folder)
 
@@ -660,13 +645,20 @@ def save_json_file(data, jsonFilePath):
     with open(jsonFilePath, 'w') as f:
         json.dump(data, f, indent=4)
 
+    json_data = import_json_file(jsonFilePath)
+    return json_data
+    
 def c3d_osim_export(c3dFilePath):
     
     trialFolder = create_trial_folder(c3dFilePath)
     
     # create a copy of c3d file 
-    shutil.copyfile(c3dFilePath, os.path.join(trialFolder,'c3dfile.c3d'))
-
+    new_c3d_file = os.path.join(trialFolder,'c3dfile.c3d')
+    shutil.copyfile(c3dFilePath, new_c3d_file)
+    
+    # upadate c3d file path
+    c3dFilePath = new_c3d_file
+    
     # import c3d file data to a table
     adapter = osim.C3DFileAdapter()
     tables = adapter.read(c3dFilePath)
@@ -696,8 +688,9 @@ def c3d_osim_export(c3dFilePath):
 
     # save emg.csv
     try:
-       c3d_emg_export(c3dFilePath)
-       print('emg.csv exported to ' + trialFolder)  
+        settings = get_bops_settings()
+        c3d_emg_export(c3dFilePath)
+        print('emg.csv exported to ' + trialFolder)  
     except Exception as e:
         print_warning(c3dFilePath + 'could not export emg.mot')
         print(e)
@@ -717,29 +710,45 @@ def c3d_osim_export_multiple(sessionPath='',replace=0):
 
 def c3d_emg_export(c3dFilePath,emg_labels='all'):
     
-    itf = c3d.c3dserver(msg=False)   # Get the COM object of C3Dserver (https://pypi.org/project/pyc3dserver/)
-    c3d.open_c3d(itf, c3dFilePath)   # Open a C3D file
+    reader = c3d.Reader(open(c3dFilePath, 'rb'))
+    print('number of analog channels: ' + str(reader.analog_used))
+    print('number of markers: ' + str(reader.point_used))
 
-    # For the information of all analogs(excluding or including forces/moments)
-    dict_analogs = c3d.get_dict_analogs(itf)
-    analog_labels = dict_analogs['LABELS']
+    # get analog labels, trimmed and replace '.' with '_'
+    analog_labels = reader.analog_labels
+    analog_labels = [label.strip() for label in analog_labels]
+    analog_labels = [label.replace('.', '_') for label in analog_labels]
 
-    # if no emg_labels are given export all analog labels
-    if emg_labels == 'all':
-        emg_labels = analog_labels
+    # get analog labels, trimmed and replace '.' with '_'
+    num_frames = reader.frame_count
+    df = pd.DataFrame(index=range(num_frames),columns=analog_labels)
+    print('Convert analog data to dataframe ...')
 
-    # Initialize the final dataframe
-    analog_df = pd.DataFrame()
-
-    # Store each of the vectors in dict_analogs as a columns in the final dataframe
-    for iLab in analog_labels:
-        if iLab in emg_labels:
-            iData = dict_analogs['DATA'][iLab]
-            analog_df[iLab] = iData.tolist()
+    # loop through frames and add analog data to dataframe
+    for i_frame, points, analog in reader.read_frames():
+        
+        # get row number and print loading bar
+        i_row = i_frame - reader.first_frame
+        msk.ut.print_loading_bar(i_row/num_frames)
+        
+        # convert analog data to list
+        analog_list  = analog.data.tolist()
+        
+        # loop through analog channels and add to dataframe
+        for i_channel in range(len(analog_list)):
+            channel_name = analog_labels[i_channel]
+            
+            # add channel to dataframe
+            df.loc[i_row, channel_name] = analog[i_channel][0]
     
-    # Sava data in parent directory
-    emg_filename = os.path.join(trialFolder,'emg.csv')
-    analog_df.to_csv(emg_filename, index=False)
+    # save emg data to csv
+    emg_file_path = os.path.join(os.path.dirname(c3dFilePath),'emg.csv')
+    df.to_csv(emg_file_path)
+    print('emg data saved to ' + emg_file_path)
+    
+    return df
+    
+
 
 def selec_analog_labels (c3dFilePath):
     # Get the COM object of C3Dserver (https://pypi.org/project/pyc3dserver/)
