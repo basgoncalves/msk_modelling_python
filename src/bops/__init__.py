@@ -39,11 +39,20 @@ import screeninfo as si
 from tqdm import tqdm
 from PIL import ImageTk, Image
 
-#%% opensim
+#%% try import opensim
 try: 
     from trc import TRCData
 except:
     print('Could not load TRDData')
+
+# try import c3d
+try:
+    import c3d
+except:
+    print('Could not load c3d')
+    class c3d:
+        pass
+
 #%% modules withing
 from msk_modelling_python import *
 from . import bops
