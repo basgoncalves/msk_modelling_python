@@ -153,6 +153,7 @@ def find_current_line():
     frame = inspect.currentframe().f_back
     lineno = frame.f_lineno
     return lineno
+
 def print_loading_bar(completion_ratio):
     """Prints a visual loading bar indicating progress.
 
@@ -173,8 +174,7 @@ def print_loading_bar(completion_ratio):
     progress_bar = completed_char * completed_sections + remaining_char * remaining_sections
 
     # Print the progress bar and optional percentage
-    print(f"\rProgress: [{progress_bar}] {completion_ratio:.2%}", end="")
-
+    print(f"\rProgress: [{progress_bar}] {completion_ratio:.2%}", end="")      
 
 ## FOLDERS
 def select_folder(prompt='Please select your folder', staring_path=''):
@@ -209,6 +209,18 @@ def create_folder(folder_path = ''):
         print(f"Folder {folder_path} already exists.")
     
     return folder_path
+
+def create_subfolders(main_dir, subfolder_name):
+    for folder in os.listdir(main_dir):
+        
+        folder_path = os.path.join(main_dir, folder)
+        
+        if not os.path.isdir(folder_path):
+            continue
+        else:
+            sub_folder_path = os.path.join(folder_path, subfolder_name)
+            print(sub_folder_path)
+            create_folder(sub_folder_path)
 
 def input_popup(prompt='Enter the path: ', title='Input'):
     root = tk.Tk()
