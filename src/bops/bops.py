@@ -2926,7 +2926,7 @@ class test_bops(unittest.TestCase):
     def test_opensim(self):
         print('testing opensim ... ')
         import opensim as osim
-        self.assertTrue(osim.__version__ == '4.2')
+        self.assertTrue(osim.__version__ > '4.2')
 
     ###### TESTS FAILING ######
     # def test_loop_through_folders(self):
