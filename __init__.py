@@ -17,12 +17,17 @@ if __testing__:
 import sys
 import os
 import time
+
+# import src modules first
 from msk_modelling_python import src
 from msk_modelling_python.src import osim
 from msk_modelling_python.src.classes import *
 from msk_modelling_python.src.bops import bops 
 from msk_modelling_python.src.bops import ceinms
 from msk_modelling_python.src.utils import general_utils as ut
+from msk_modelling_python.src.plot import *
+
+# import ui modules (not finished yet...)
 from msk_modelling_python import ui
 
 

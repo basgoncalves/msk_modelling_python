@@ -1,7 +1,5 @@
-Things to implement:
+to implement:
 
-- Tree map for better understanding relationships 
-- cmd commands using -bops <command> 
-- bops command to add to venv (instead of pip install)
+-  GUI for batch processing
 
 
