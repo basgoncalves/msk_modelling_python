@@ -61,6 +61,7 @@ class ProjectPaths:
         self.results = os.path.join(self.main,'results')
         self.models = os.path.join(self.main,'models')
         self.setup_files_path = os.path.join(self.main,'setupFiles')
+        
         self.settings_json = os.path.join(self.main,'settings.json')
 
         try:
@@ -164,9 +165,9 @@ class Session:
      
 class Trial:
     '''
-    Class to store trial information and file paths
+    Class to store trial information and file paths, and export files to OpenSim format
     '''
-    def __init__(self, trial_path):
+    def __init__(self, trial_path):        
         self.path = trial_path
         self.name = os.path.basename(os.path.normpath(trial_path))
         self.og_c3d = os.path.join(os.path.dirname(trial_path), self.name + '.c3d')
@@ -186,6 +187,8 @@ class Trial:
         self.so_force = os.path.join(trial_path,'static_optimization_force.sto')
         self.so_activation = os.path.join(trial_path,'static_optimization_activation.sto')
         self.jra = os.path.join(trial_path,'joint_reacton_loads.sto')
+        
+        self.grf_xml = os.path.join(trial_path,'grf.xml')
         
         self.settings_json = os.path.join(self.path,'settings.json')
     
@@ -215,7 +218,6 @@ class Model:
         print('---')
 
 
-        
 def StartProject(project_folder=''):
     
     if not project_folder:
@@ -478,7 +480,7 @@ def create_trial_folder(c3dFilePath):
         
     return trialFolder 
 
-#%% ######################################################  import / save data  #########################################################
+#%% import / save data  
 def import_file(file_path):
     df = pd.DataFrame()
     if os.path.isfile(file_path):
@@ -647,8 +649,9 @@ def save_json_file(data, jsonFilePath):
 
     json_data = import_json_file(jsonFilePath)
     return json_data
-    
-def c3d_osim_export(c3dFilePath):
+
+#%% C3D export functions    
+def c3d_osim_export(c3dFilePath, replace = True):
     
     trialFolder = create_trial_folder(c3dFilePath)
     
@@ -669,7 +672,9 @@ def c3d_osim_export(c3dFilePath):
         markersFlat = markers.flatten()
         markersFilename = os.path.join(trialFolder,'markers.trc')
         stoAdapter = osim.STOFileAdapter()
-        stoAdapter.write(markersFlat, markersFilename)
+        
+        if not os.path.isfile(markersFilename) or replace:
+            stoAdapter.write(markersFlat, markersFilename)
         
         print('markers.trc exported to ' + trialFolder)
     except:
@@ -678,10 +683,19 @@ def c3d_osim_export(c3dFilePath):
     # save grf.mot
     try:
         forces = adapter.getForcesTable(tables)
+        
         forcesFlat = forces.flatten()
         forcesFilename = os.path.join(trialFolder,'grf.mot')
         stoAdapter = osim.STOFileAdapter()
-        stoAdapter.write(forcesFlat, forcesFilename)
+        
+        if not os.path.isfile(forcesFilename) or replace:
+            stoAdapter.write(forcesFlat, forcesFilename)
+        
+        # change heading names to match OpenSim
+        import pdb; pdb.set_trace()
+        forces_df = import_sto_data(forcesFilename)
+        
+        
         print('grf.mot exported to ' + trialFolder)
     except:
         print_warning(c3dFilePath + 'could not export grf.mot')
@@ -707,11 +721,19 @@ def c3d_osim_export_multiple(sessionPath='',replace=0):
         trial.exportC3D()
         print('c3d convert ' + trial.name)
         
-
-def c3d_analog_export(c3dFilePath,emg_labels='all'):
+def c3d_analog_export(c3dFilePath,emg_labels='all', replace = True):
+    
+    analog_file_path = os.path.join(os.path.dirname(c3dFilePath),'analog.csv')
+    
+    # if the file already exists, return the file
+    if os.path.isfile(analog_file_path) and not replace:
+        df = pd.read_csv(analog_file_path)
+        print('analog.csv already exists. File not replaced.')
+        return df
     
     print('Exporting analog data to csv ...')
     
+    # read c3d file
     reader = c3d.Reader(open(c3dFilePath, 'rb'))
 
     # get analog labels, trimmed and replace '.' with '_'
@@ -741,14 +763,11 @@ def c3d_analog_export(c3dFilePath,emg_labels='all'):
             df.loc[i_row, channel_name] = analog[i_channel][0]
     
     # save emg data to csv
-    analog_file_path = os.path.join(os.path.dirname(c3dFilePath),'analog.csv')
     df.to_csv(analog_file_path)
     print('analog.csv exported to ' + analog_file_path)  
     
     return df
     
-
-
 def selec_analog_labels (c3dFilePath):
     # Get the COM object of C3Dserver (https://pypi.org/project/pyc3dserver/)
     itf = c3d.c3dserver(msg=False)
@@ -1322,7 +1341,6 @@ class osimSetup:
         print('Osim module version: ' + osim.__version__)
         print('Osim module path: ' + osim.__file__)
         
-
     def create_analysis_tool(coordinates_file, modelpath, results_directory, force_set_files=None):
         # Get mot data to determine time range
         motData = osim.Storage(coordinates_file)
@@ -1566,6 +1584,17 @@ class osimSetup:
             model1.printToXML(output_model_path)
             print(f'Model saved to: {output_model_path}')
 
+    def create_grf_xml(grf_file, output_file):     
+
+        # Create the OpenSim ExternalLoads object
+        external_loads = osim.ExternalLoads()
+
+        # Set the external loads file
+        external_loads.setDataFileName(grf_file)
+        external_loads.printToXML(output_file)
+        
+        print(f'External loads XML file saved to: {output_file}')
+         
     # Operations    
     def sum_body_mass(model_path):
         '''

@@ -101,8 +101,6 @@ class TrialPaths:
         self.ceinms_results_forces = os.path.join(self.ceinms_results,'MuscleForces.sto')
         self.ceinms_results_activations = os.path.join(self.ceinms_results,'Activations.sto')
 
-
-
 class osimSetup:
     def __init__(self):
         pass
@@ -351,7 +349,7 @@ class osimSetup:
         print(f'The total mass of the model is: {mass} kg')
         return mass       
 
-class Trial:
+class TrialSimple:
     def __init__(self,path):
         self.path = path    
         if not os.path.isfile(path):
@@ -390,7 +388,7 @@ class Task:
             self.__dict__[folder] = msk.Trial(folderPath)
             self.trials = self.__dict__.keys()
             
-class Subject:
+class SubjectSimple:
     # For each subject, create a class that contains the Task objects
     # check example folder structure: C:\Project\Subject\Task\Trial
     def __init__(self, path):

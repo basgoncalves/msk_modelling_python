@@ -8,7 +8,6 @@ import inspect
 import tkinter.messagebox as mbox
 from msk_modelling_python.src.classes import cmd_function
 
-
 #%% Description
 # This module contains a set o utility functions that can be run from the command line
 # The functions are defined as classes so that we can print the names of the functions
