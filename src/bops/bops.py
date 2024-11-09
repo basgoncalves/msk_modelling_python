@@ -2855,9 +2855,9 @@ def pop_warning(message = 'Error in code. '):
 def platypus_pic_path(imageType = 'happy'):
     dir_bops = get_dir_bops()
     if imageType == 'happy':
-        image_path = os.path.join(dir_bops,'src\platypus.jpg')
+        image_path = os.path.join(dir_bops,'utils\platypus.jpg')
     else:
-        image_path = os.path.join(dir_bops,'src\platypus_sad.jpg')
+        image_path = os.path.join(dir_bops,'utils\platypus_sad.jpg')
     return image_path
 
 def print_happy_platypus():             
