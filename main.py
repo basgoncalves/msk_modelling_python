@@ -20,12 +20,14 @@ def run(update_version=False):
 if __name__ == "__main__":
   
   update_version =  False
-  # run(update_version)
+  run(update_version)
   # ui.batch_run_example()
   
   
-
+  # Implement in the future
   print('next step to fix: SO and ID gui and batch')
+  print('files to fix:')
+  print('C:\Git\python-envs\msk_modelling\Lib\site-packages\msk_modelling_python\src\plot\basics.py')
   
   # Create GUI
   

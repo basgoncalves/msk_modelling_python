@@ -2,6 +2,94 @@ import pandas as pd
 from tkinter import Tk, filedialog
 import matplotlib.pyplot as plt
 import os
+import unittest
+
+# the functions below assume that the CSV files have the same structure unless otherwise specified
+# the first column in the CSV files should be named "time" or "frame"
+
+class DataSet:
+    # dataset is assumed to be 
+    def __init__(self, files=[]):
+        import pandas as pd
+
+        if not files:
+            self.files = select_multiple_files()
+        else:
+            self.files = files
+        
+        self.trials = []
+        self.trial_names = []
+        for file in self.files:            
+            self.trials.append(TimeSeries(file))
+
+    
+    def add_TimeSeries(self, file):
+        if not os.path.isfile(file):
+            print("Error: File does not exist")
+        self.trials.append(TimeSeries(file))
+                  
+    
+    def plot_lines(self, show=True):
+        
+        for trial in self.trials:
+            trial.plot_line(show=False)
+        
+        if show:
+            plt.show()
+    
+    def correlation_matrix(self, show=True):
+        import seaborn as sns
+        sns.heatmap(self.df.corr(), annot=True)
+        
+        # save the plot
+        plt.savefig(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'correlation_matrix.png'))
+        
+        if show:
+            plt.show()
+
+    def show(self):
+        plt.show()
+
+class TimeSeries():
+    def __init__(self, file_path):
+        self.name = os.path.splitext(os.path.basename(file_path))[0]
+        self.file_path = file_path
+        self.read_csv(file_path)
+        
+    def read_csv(self, file):
+        try:
+            self.df = pd.read_csv(file)
+            self.num_frames = len(self.data)
+            self.num_columns = len(self.data.columns)
+            self.columns = self.data.columns
+            
+            if self.columns[0].lower() in ["time", "frame"]:
+                self.time = self.df[self.columns[0]]
+                self.data = self.df.drop(columns=[self.columns[0]])
+                self.header = self.columns[1]
+            else:
+                self.time = self.df["time"]
+                self.data = self.df.drop(columns=["time"])
+                self.header = self.df.columns[0]
+                
+            self.correlation_matrix = self.data.corr()
+            
+        except:
+            self.data = None
+            self.header = None
+            self.num_frames = None
+        
+            print("Error: Could not read the CSV file")
+    
+    def plot_line(self, show=True):
+        plt.plot(self.df[self.header], label=f"{self.name}")
+        plt.xlabel("X-axis")
+        plt.ylabel("Y-axis")
+        plt.legend()
+        plt.savefig(os.path.join(os.path.dirname(os.path.abspath(__file__)), f'{self.name}.png'))
+        if show:
+            plt.show()
+
 
 def select_file(initialdir=os.path.dirname(os.path.abspath(__file__))):
     # select single file. Default directory is the directory of the script
@@ -55,19 +143,88 @@ def plot_multiple_curves(files):
     plt.legend()
     plt.show()
 
+def spider(files):
+    # Read the CSV files
+    
+    for file in files:
+        df = pd.read_csv(file)
+        header = df.columns[0]
+        if header.lower() in ["time", "frame"]:
+            plt.plot(df[header], label=f"{file}_{header}")
+        else:
+            print(f"The first column in {file} should be named 'time' or 'frame.'")
+    plt.xlabel("X-axis")
+    plt.ylabel("Y-axis")
+    plt.legend()
+    
+    
+    return None
+    
+    
+# Testing the functions using unittest module when the script is run directly
+class test_basics(unittest.TestCase):
+    # for each function assign True or false to run the test
+    
+    def test_plot_curves(self, run = False):
+        if run:
+            print('testing plot_curves ... ')
+            file1 = select_file()
+            plot_curves(file1, file1)
+                    
+    def test_plot_multiple_curves(self, run = False):
+        if run:
+            print('testing plot_multiple_curves ... ')
+            files = select_multiple_files()
+            plot_multiple_curves(files)
+  
+    def test_spider(self, run = False):
+        if run:
+            print('testing spider ... ')
+            files = select_multiple_files()
+            spider(files)
+
+    def show_plot(self, run = False):
+        if run:
+            plt.show()
+            
+    def test_DataSet(self, run = True):
+        if run:
+            print('testing DataSet ... ')   
+            data = DataSet()
+            data.plot_lines(show=False)
+            data.correlation_matrix(show=False)
+            data.show()
+            
 
 
 if __name__ == "__main__":
     
-    # # Example usage
-    # file1 = select_file()
-    # file2 = select_file()
-    # plot_curves(file1, file2)
+    output = unittest.main(exit=False)
+    # test_file = False
+    # test_multiple_files = False
+    # test_spider = True
+    
+    # if test_file:
+    #     file1 = select_file()
+    #     file2 = select_file()
+    #     plot_curves(file1, file2)
+    # else:
+    #     pass
+    
+    # if test_multiple_files:
+    #     files = select_multiple_files()
+    #     plot_multiple_curves(files)
+    # else:
+    #     pass
+    
 
-    # Example usage for multiple files
-    files = select_multiple_files()
-    plot_multiple_curves(files)
-
-
+    # # test spider plot
+    # if test_spider:
+    #     file1 = select_file()
+    #     file2 = select_file()
+    #     spider(file1, file2)
+    # else:
+    #     pass
+    
 
 # END
