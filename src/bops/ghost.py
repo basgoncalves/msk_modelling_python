@@ -12,6 +12,7 @@ class Ghost:
         self.module_path = msk.__file__
         self.module_dir = os.path.dirname(self.module_path)
         self.data_dir = os.path.join(self.module_dir, 'data')
+        self.template_data_path = os.path.join(self.data_dir, 'template_data.csv') 
         
     def create_template_osim_subject(parent_dir=''):
     
@@ -44,14 +45,17 @@ class Ghost:
         # Save the DataFrame to a CSV file in the specified folder path
         if not os.path.exists(folder_path):
             os.makedirs(folder_path)
-        file_path = os.path.join(folder_path, 'template_dataset.csv')
-        df.to_csv(file_path, index=False)
-
+        
+        if not os.path.isdir(self.template_data_path):
+            df.to_csv(self.template_data_path, index=False)
+        
+        
         return df
     
     def get_template_dataset(self):
         current_file_path = os.path.dirname(os.path.abspath(__file__))
-        df = create_template_dataset(self.data_dir)
+        df = self.create_template_dataset(self.data_dir)
+        return df
         
 
 def unit_test():

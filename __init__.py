@@ -1,18 +1,5 @@
 
 
-__version__ = '0.1.5'
-__testing__ = True
-
-if __testing__:
-    print("msk_modelling_python package loaded.")
-    print(f"Version: {__version__}")  
-    print("Testing mode is on.")
-    print("To turn off testing mode, set __testing__ to False.") 
-    
-    print("Python version: 3.8.10")
-    print("For the latest version, visit " + r'GitHub\basgoncalves\msk_modelling_python')
-    
-
 #%% load all the packages needed
 import sys
 import os
@@ -30,6 +17,20 @@ import msk_modelling_python.src.plot as plot
 # import ui modules (not finished yet...)
 from msk_modelling_python import ui
 
+
+settings = bops.get_bops_settings()
+__version__ = bops.ge
+__testing__ = settings['testing']
+
+if __testing__:
+    print("msk_modelling_python package loaded.")
+    print(f"Version: {__version__}")  
+    print("Testing mode is on.")
+    print("To turn off testing mode, set __testing__ to False.") 
+    
+    print("Python version: 3.8.10")
+    print("For the latest version, visit " + r'GitHub\basgoncalves\msk_modelling_python')
+    
 
 
 #%% Description
@@ -92,7 +93,6 @@ def update_version(level=3, module=__file__, invert=False):
     
     ut.pop_warning(f'msk_modelling_python udpated \n old version: {current_version} \n version to {updated_version} \n')
     
-
 def log_error(error_message, error_log_path=''):
     if not error_log_path:
         current_file_path = os.path.dirname(os.path.abspath(__file__))
@@ -121,7 +121,7 @@ def mir():
 
 
 #%% RUN
-
+# run the main code of the module
 def run(**kwargs):
     '''
     Run the main code of the module. 
@@ -138,7 +138,7 @@ def run(**kwargs):
     '''
     print("Running main code from msk_modelling_python")
     
-    # %% argument verification. check if the arguments are valid keep them (if additional arguments are added, update the list below)
+    # argument verification. check if the arguments are valid keep them (if additional arguments are added, update the list below)
     valid_args = ['update_version', 'example']
     
     for key in kwargs:
@@ -149,7 +149,7 @@ def run(**kwargs):
     if kwargs == {}:
         ut.pop_warning("No valid arguments passed. Please pass the arguments as keyword arguments.")
     
-    # %% arguments handling / implementation of command arguments
+    # arguments handling / implementation of command arguments
     for key in kwargs:
         print(f"Argument: {key} = {kwargs[key]}")
         

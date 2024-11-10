@@ -7,11 +7,16 @@ from msk_modelling_python.src.bops import *
 if __name__ == "__main__":
   
   
-  
-  msk.update_version(3, msk, invert=True)
   settings = msk.bops.get_bops_settings()
-  print(settings.keys())
-  # ui.batch_run_example()
+  
+  
+  if settings['gui']:
+    ui.batch_run_example()
+  
+  if settings['update']:
+    msk.update_version(3, msk, invert=False)
+  
+  
   
   
   

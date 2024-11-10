@@ -3,10 +3,6 @@ import sys
 
 try:
     import opensim as osim
-    
-    # if msk.__testing__:
-    #     print('Imported opensim')
-    print('Imported opensim')
 except: 
     class osim:
         pass     

@@ -2,10 +2,14 @@
 // function bops.settings.get_settings() will return the settings as a dictionary
 
 {
+  "version": "0.1.6",
+  "testing": false,
+  "update": false,
+  "gui": false,
   "current_project_folder": "c:\\Git\\Opencap_squat_validation",
   "jsonfile": "C:\\Git\\python-envs\\msk_modelling\\Lib\\site-packages\\msk_modelling_python\\src\\bops\\settings.json",
   "example_data": "C:\\Git\\research_data\\Projects\\test_project",
-  "osimexe": null,
+  "osim_exe": null,
 
   "bops": {
     "installtion": "/path/to/project",

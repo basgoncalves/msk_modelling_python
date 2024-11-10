@@ -325,7 +325,6 @@ def get_trial_list(sessionPath='',full_dir=False):
     return trial_list
 
 # Project functions
-
 def get_bops_settings():
     '''
     Function to get the settings from the bops directory. If the settings do not exist, it will create a new settings.json file in the project folder.
@@ -348,12 +347,13 @@ def get_bops_settings():
         bops_settings = None
         return bops_settings
            
-    # check if all variables are in the settings
+    # check if all variables are in the settings [OPTIONAL]
     valid_vars = ['current_project_folder','subjects','emg_labels','analog_labels','filters']
     for var in valid_vars:
         if var not in bops_settings:
             bops_settings[var] = None
             print(f'{var} not in settings. File might be corrupted.')
+            print('Please ensure that the settings.json file is contains the variables: ' + ', '.join(valid_vars))
     
     return bops_settings
     
