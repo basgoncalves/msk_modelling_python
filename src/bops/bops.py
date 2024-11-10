@@ -2826,6 +2826,14 @@ def pop_warning(message = 'Error in code. '):
 #%% ######################################################### BOPS TESTING #################################################################
 
 class Platypus:
+    '''
+    Platypus class to test the bops package
+    usage:
+        platypus = Platypus() # create an instance of the Platypus class
+        platypus.run_tests() # run all tests
+        platypus.print_happy() # print a happy platypus
+        platypus.print_sad() # print a sad platypus
+    '''
     def __init__(self):
         self.name = 'Platypus'
 
@@ -2847,10 +2855,18 @@ class Platypus:
         
     def print_sad(self):
         show_image(self.platypus_pic_path('sad'))
+        
+    def run_tests(self):
+        print('running tests ... ')
+        try:
+            self.output = unittest.main(exit=False)
+        except:
+            self.output = None
+            
 
 class test_bops(unittest.TestCase):
     
-    ##### TESTS WORKING ######
+    ##### TESTS NOT WORKING ######
     def test_import_opensim(self):
         print('testing import opensim ... ')
         import opensim as osim
@@ -2949,9 +2965,10 @@ if __name__ == '__main__':
     add_bops_to_python_path()
     
     print('runnung all tests ...')
-    output = unittest.main(exit=False)
+    
     platypus = Platypus()
-    if output.result.errors or output.result.failures:
+    platypus.run_tests()
+    if platypus.output == None or platypus.output.result.errors or platypus.output.result.failures:
         platypus.print_sad()
     else:
         print('no errors')
