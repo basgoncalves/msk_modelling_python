@@ -324,7 +324,9 @@ def get_trial_list(sessionPath='',full_dir=False):
 
     return trial_list
 
-def get_bops_settings(project_folder = ''):
+# Project functions
+
+def get_bops_settings():
     '''
     Function to get the settings from the bops directory. If the settings do not exist, it will create a new settings.json file in the project folder.
     
@@ -333,43 +335,52 @@ def get_bops_settings(project_folder = ''):
     # get settings from bops directory
     current_dir = os.path.dirname(os.path.realpath(__file__))   
     jsonfile = os.path.join(current_dir,'settings.json')
-    
-    # if user asks for example path 
-    if project_folder == 'example' or project_folder == '':
-        c3dFilePath = get_testing_file_path()
-        project_folder = os.path.abspath(os.path.join(c3dFilePath, '../../../../..'))
-    
+    c3dFilePath = get_testing_file_path()
+    project_folder = os.path.abspath(os.path.join(c3dFilePath, '../../../../..'))
+
     # try opening settings.json (or create a new dictionary if it does not exist)
     try:
         with open(jsonfile, 'r') as f:
             bops_settings = json.load(f)
             bops_settings['jsonfile'] = jsonfile # update jsonfile path to ensure it is saved in the settings from new root
     except:
-        print('bops settings do not exist.')  
-        bops_settings = dict()
+        print('Could not open settings.json. ')
+        bops_settings = None
+        return bops_settings
            
-    # create a new settings.json if file does not exist or if project folder is different
-    if not bops_settings or not os.path.isdir(bops_settings['current_project_folder']):
-        print('creating new bops "settings.json"... \n \n')       
-                
-        # if project folder do not exist, select new project
-        while not os.path.isdir(project_folder):
-            pop_warning(f'Project folder does not exist on {project_folder}. Please select a new project folder')                                           
-            project_folder = select_folder('Please select project directory') 
-        
-        # create new settings.json in the project folder
-        create_project_settings(project_folder=project_folder)
+    # check if all variables are in the settings
+    valid_vars = ['current_project_folder','subjects','emg_labels','analog_labels','filters']
+    for var in valid_vars:
+        if var not in bops_settings:
+            bops_settings[var] = None
+            print(f'{var} not in settings. File might be corrupted.')
     
+    return bops_settings
+    
+def select_project(project_folder=''): 
+    
+    bops_settings = get_bops_settings()
+       
+    if not project_folder:
+        project_folder = select_folder('Please select project directory')
+        create_project_settings(project_folder)
+    elif os.path.isdir(project_folder):    
+        create_project_settings(project_folder=project_folder) # create new settings.json in the project folder
+    else:
+        print('project folder does not exist')
+        project_folder = select_folder('Please select project directory')
+        create_project_settings(project_folder)
+
     # if project folder is not the same as the one in settings, update settings
     if os.path.isdir(project_folder) and not bops_settings['current_project_folder'] == project_folder:
         bops_settings['current_project_folder'] = project_folder
         save_bops_settings(bops_settings)
         
         # open settings to return variable    
-        with open(jsonfile, 'r') as f:
+        with open(bops_settings.jsonfile, 'r') as f:
             bops_settings = json.load(f)
-        
-        bops_settings = import_json_file(jsonfile)
+    
+    bops_settings = import_json_file(jsonfile)
             
     return bops_settings
 
@@ -2709,6 +2720,10 @@ def add_markers_to_settings():
     save_bops_settings(settings)
 
 def get_testing_file_path(file_type = 'c3d'):
+    
+    settings = get_bops_settings()
+    
+    
     bops_dir = get_dir_bops()
     dir_simulations =  os.path.join(bops_dir, 'ExampleData\simulations')
     if not os.path.exists(dir_simulations):
@@ -2863,6 +2878,12 @@ class Platypus:
         except:
             self.output = None
             
+        if platypus.output == None or platypus.output.result.errors or platypus.output.result.failures:
+            platypus.print_sad()
+        else:
+            print('no errors')
+            platypus.print_happy()
+            
 
 class test_bops(unittest.TestCase):
     
@@ -2968,11 +2989,7 @@ if __name__ == '__main__':
     
     platypus = Platypus()
     platypus.run_tests()
-    if platypus.output == None or platypus.output.result.errors or platypus.output.result.failures:
-        platypus.print_sad()
-    else:
-        print('no errors')
-        platypus.print_happy()
+    
     
     
 # end

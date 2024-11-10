@@ -3,31 +3,35 @@ from tkinter import Tk, filedialog
 import matplotlib.pyplot as plt
 import os
 import unittest
+import msk_modelling_python as msk
+import seaborn as sns
 
 # the functions below assume that the CSV files have the same structure unless otherwise specified
 # the first column in the CSV files should be named "time" or "frame"
 
 class DataSet:
-    # dataset is assumed to be 
+    # dataset is assumed to be a list of TimeSeries objects
+    # each TimeSeries object is assumed to have a pandas dataframe with the first column named "time" or "frame"
+    # usage: data = DataSet(files=[file1, file2, file3])
+    
     def __init__(self, files=[]):
-        import pandas as pd
-
+        
+        self.module_path = os.path.dirname(os.path.abspath(__file__))
+        
         if not files:
             self.files = select_multiple_files()
+        elif files == 'template':
+            self.files = [os.path.join(self.module_path, 'data', 'template1.csv'), os.path.join(self.module_path, 'data', 'template2.csv')]
         else:
             self.files = files
         
         self.trials = []
         self.trial_names = []
         for file in self.files:            
-            self.trials.append(TimeSeries(file))
-
+            if not os.path.basename(file).endswith(".csv"): # check if the file is a CSV file
+                Warning(f"File {file} is not a CSV file. Further errors may occur.")
     
-    def add_TimeSeries(self, file):
-        if not os.path.isfile(file):
-            print("Error: File does not exist")
-        self.trials.append(TimeSeries(file))
-                  
+            self.trials.append(TimeSeries(file))                  
     
     def plot_lines(self, show=True):
         
@@ -38,14 +42,17 @@ class DataSet:
             plt.show()
     
     def correlation_matrix(self, show=True):
-        import seaborn as sns
-        sns.heatmap(self.df.corr(), annot=True)
         
-        # save the plot
-        plt.savefig(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'correlation_matrix.png'))
+        try:
+            sns.heatmap(self.df.corr(), annot=True)
+            
+            # save the plot
+            plt.savefig(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'correlation_matrix.png'))
+            if show:
+                plt.show()
+        except:
+            msk.ut.pop_warning("Error: Could not plot the correlation matrix")
         
-        if show:
-            plt.show()
 
     def show(self):
         plt.show()
@@ -54,6 +61,7 @@ class TimeSeries():
     def __init__(self, file_path):
         self.name = os.path.splitext(os.path.basename(file_path))[0]
         self.file_path = file_path
+        self.print = False
         self.read_csv(file_path)
         
     def read_csv(self, file):
@@ -74,22 +82,33 @@ class TimeSeries():
                 
             self.correlation_matrix = self.data.corr()
             
+            if self.print:
+                print(f"Data from {file} has been read successfully")
+            
         except:
             self.data = None
             self.header = None
             self.num_frames = None
-        
-            print("Error: Could not read the CSV file")
+
+            if self.print:
+                print("Error: Could not read the CSV file")
     
     def plot_line(self, show=True):
+        import pdb; pdb.set_trace()
+        
         plt.plot(self.df[self.header], label=f"{self.name}")
         plt.xlabel("X-axis")
         plt.ylabel("Y-axis")
         plt.legend()
         plt.savefig(os.path.join(os.path.dirname(os.path.abspath(__file__)), f'{self.name}.png'))
         if show:
-            plt.show()
-
+            try:
+                plt.show(block=False)
+                plt.gcf().canvas.manager.window.attributes('-topmost', 1)
+                plt.gcf().canvas.manager.window.attributes('-topmost', 0)
+            except:
+                plt.show()
+                Warning("waring! Could not show the plot using the canvas method")
 
 def select_file(initialdir=os.path.dirname(os.path.abspath(__file__))):
     # select single file. Default directory is the directory of the script

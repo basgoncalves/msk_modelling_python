@@ -6,6 +6,7 @@ from tkinter import messagebox
 from msk_modelling_python import *
 import msk_modelling_python as msk
 from msk_modelling_python import bops
+from . import default_ui_examples 
 
 
 class Element:
@@ -170,8 +171,19 @@ class GUI:
     def quit(self):
         self.root.quit()
 
-#%% OpenSim GUI
+# OpenSim GUI
 class App(ctk.CTk):
+    '''
+    Class to create a GUI for the Opensim analysis tool. The GUI includes input fields for the Opensim model and the setup files for the analysis tools.
+    
+    Example:
+        app = App()
+        app.add(type = 'osim_input', osim_model=trial_paths.model_torsion, setup_ik_path=trial_paths.setup_ik,
+                setup_id_path=trial_paths.setup_id, setup_so_path=trial_paths.setup_so, setup_jra_path=trial_paths.setup_jra)
+        app.add(type = 'exit_button')   
+        app.autoscale()
+        app.start()
+    '''
         
     def __init__(self, *args, **kwargs):
         super().__init__()
@@ -238,42 +250,35 @@ class App(ctk.CTk):
             button = ctk.CTkButton(button_frame, text=button_text, command=command_list[i])
             button.pack(side="left", padx=padx, pady=pady)
     
-    def increase_max_isometric_force(self, model_path):
-        
-        # pop up gui to enter new value
-        new_value = None
-        has_confirm = False
-        while not type(new_value) == int:
-            new_value = ctk.CTkInputDialog(title="Update Fmax", text="Enter the scale factor to use:")
-            
-            # tick box to confirm the action of plotting the data
-            if not has_confirm:
-                self.confirm_var = tk.IntVar()
-                confirm = ctk.CTkCheckBox(self, text="Confirm", variable=self.confirm_var)
-                confirm.pack(padx=self.padx, pady=self.pady)
-                has_confirm = True
-            
-            new_value = new_value.get_input()
-            if new_value == 'Cancel' or new_value is None:
-                return
-            
-            # check if the input is a number
-            try:
-                new_value = int(new_value.get_input())
-            except:
-                new_value = None
-        
-        # update the model
-        new_osim_model = bops.osimSetup.increase_max_isometric_force(model_path, new_value, self.confirm_var.get())
-        
-        # update the model in the GUI
-        self.entry_osim_model = new_osim_model
-        
-        return new_osim_model
-         
+    #%% Element handling functions
+    
     # function to add elements to the GUI based on the type. osim_input is the default type and includes all input fields for the opensim analysis tools
     def add(self, type = 'osim_input', osim_model = False, setup_ik_path = '', 
             setup_id_path = '', setup_so_path = '', setup_jra_path = '', **kwargs):
+        '''
+        Add elements to the GUI. The default type is 'osim_input' which includes input fields for the Opensim analysis tools.
+        
+        usage (default):
+            app = App()
+            app.add('label', text='label')
+            app.add('button', command=lambda: print("Button clicked"))
+            app.add('entry', text='entry')
+            app.add('exit_button')
+            
+        
+        
+        usage (OpenSim example advanced):
+            trial_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "example_data", "walking", "trial1")
+            
+            app.add(type = 'osim_input', osim_model=trial_paths.model_torsion, setup_ik_path=trial_paths.setup_ik,
+                    setup_id_path=trial_paths.setup_id, setup_so_path=trial_paths.setup_so, setup_jra_path=trial_paths.setup_jra)
+        '''
+        
+        valid_types = ['label', 'button', 'entry', 'osim_input', 'exit_button']
+        if type not in valid_types:
+            print(f"Error: type '{type}' not recognized")
+            return
+        
         
         if type == 'label':
             if 'text' in kwargs:
@@ -362,9 +367,76 @@ class App(ctk.CTk):
             self.button_quit = ctk.CTkButton(self, text="Quit", command=self.quit)
             self.button_quit.pack(padx=self.padx, pady=self.pady)
 
+        
         # if no valid type is given, print an error
         else:
             print("Error: no valid input")
+    
+     # function to autoscale the window to fit all elements
+    
+    
+    def autoscale(self, centered=True):
+        '''
+        Autoscale the window to fit all elements. 
+        usage:
+            app.autoscale()
+        
+        arguments:
+            centered: boolean to center the window on the screen
+        '''
+        self.update_idletasks()
+        self.geometry(f"{self.winfo_reqwidth()}x{self.winfo_reqheight()}")
+        if centered:
+            self.center()
+
+    # function to center the window on the screen 
+    def center(self):
+        '''
+        Center the window on the screen.
+        '''
+        self.update_idletasks()
+        width = self.winfo_reqwidth()
+        height = self.winfo_reqheight()
+        x = (self.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.winfo_screenheight() // 2) - (height // 2)
+        self.geometry(f'{width}x{height}+{x}+{y}')
+
+    
+    
+    
+    #%% OpenSim functions
+    def increase_max_isometric_force(self, model_path):
+        
+        # pop up gui to enter new value
+        new_value = None
+        has_confirm = False
+        while not type(new_value) == int:
+            new_value = ctk.CTkInputDialog(title="Update Fmax", text="Enter the scale factor to use:")
+            
+            # tick box to confirm the action of plotting the data
+            if not has_confirm:
+                self.confirm_var = tk.IntVar()
+                confirm = ctk.CTkCheckBox(self, text="Confirm", variable=self.confirm_var)
+                confirm.pack(padx=self.padx, pady=self.pady)
+                has_confirm = True
+            
+            new_value = new_value.get_input()
+            if new_value == 'Cancel' or new_value is None:
+                return
+            
+            # check if the input is a number
+            try:
+                new_value = int(new_value.get_input())
+            except:
+                new_value = None
+        
+        # update the model
+        new_osim_model = bops.osimSetup.increase_max_isometric_force(model_path, new_value, self.confirm_var.get())
+        
+        # update the model in the GUI
+        self.entry_osim_model = new_osim_model
+        
+        return new_osim_model
          
     # function to run the file with the system default application     
     def run_system_deault(self):
@@ -418,23 +490,8 @@ class App(ctk.CTk):
             return
         os.system(setup_file)  
  
-    # function to autoscale the window to fit all elements
-    def autoscale(self, centered=True):
-        self.update_idletasks()
-        self.geometry(f"{self.winfo_reqwidth()}x{self.winfo_reqheight()}")
-        if centered:
-            self.center()
-
-    # function to center the window on the screen 
-    def center(self):
-        self.update_idletasks()
-        width = self.winfo_reqwidth()
-        height = self.winfo_reqheight()
-        x = (self.winfo_screenwidth() // 2) - (width // 2)
-        y = (self.winfo_screenheight() // 2) - (height // 2)
-        self.geometry(f'{width}x{height}+{x}+{y}')
-    
-    # function to start the GUI
+       
+    # %% function to start the GUI
     def start(self):
         self.mainloop()
 
@@ -459,7 +516,6 @@ def run_example():
     return app
 
 def batch_run_example():
-    #%%
     project_path = msk.ut.select_folder("Select project folder")
         
     project = msk.Project(project_path)
@@ -471,11 +527,7 @@ def batch_run_example():
             print(f"Trial: {task}")
             import pdb; pdb.set_trace()
             trial = project.__dict__[subject].__dict__[task]
-            
 
-            
-        
-    #%%
     
     return project
 
@@ -485,6 +537,7 @@ def batch_run_example():
 
 #%%
 def complex_gui():
+    # Create a complex GUI with multiple elements   
     ctk.set_appearance_mode("System")  # Modes: "System" (standard), "Dark", "Light"
     ctk.set_default_color_theme("blue")  # Themes: "blue" (standard), "green", "dark-blue"
 

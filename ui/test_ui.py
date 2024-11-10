@@ -1,1 +1,0 @@
-import opensim as osim
