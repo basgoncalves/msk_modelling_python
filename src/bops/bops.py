@@ -276,6 +276,24 @@ def get_dir_bops():
 def get_dir_simulations():
     return os.path.join(get_current_project_folder(),'simulations')
 
+def add_bops_to_python_path():        
+
+    # Directory to be added to the path
+    directory_to_add = get_dir_bops()
+
+    # Get the site-packages directory
+    site_packages_dir = os.path.dirname(os.path.dirname(os.__file__))
+    custom_paths_file = os.path.join(site_packages_dir, 'custom_paths.pth')
+
+    # Check if the custom_paths.pth file already exists
+    if not os.path.exists(custom_paths_file):
+        with open(custom_paths_file, 'w') as file:
+            file.write(directory_to_add)
+        
+        print(f"Added '{directory_to_add}' to custom_paths.pth")
+    else:
+        print(f"'{custom_paths_file}' already exists")
+        
 def get_subject_folders(dir_simulations = ''):
     if dir_simulations:
         return [f.path for f in os.scandir(dir_simulations) if f.is_dir()] # (for all subdirectories) [x[0] for x in os.walk(dir_simulations())]
@@ -307,25 +325,30 @@ def get_trial_list(sessionPath='',full_dir=False):
     return trial_list
 
 def get_bops_settings(project_folder = ''):
+    '''
+    Function to get the settings from the bops directory. If the settings do not exist, it will create a new settings.json file in the project folder.
+    
+    '''
     
     # get settings from bops directory
-    jsonfile = os.path.join(get_dir_bops(),'settings.json')
+    current_dir = os.path.dirname(os.path.realpath(__file__))   
+    jsonfile = os.path.join(current_dir,'settings.json')
     
     # if user asks for example path 
-    if project_folder == 'example':
+    if project_folder == 'example' or project_folder == '':
         c3dFilePath = get_testing_file_path()
         project_folder = os.path.abspath(os.path.join(c3dFilePath, '../../../../..'))
-   
+    
     # try opening settings.json (or create a new dictionary if it does not exist)
     try:
         with open(jsonfile, 'r') as f:
             bops_settings = json.load(f)
-            bops_settings['jsonfile'] = jsonfile
+            bops_settings['jsonfile'] = jsonfile # update jsonfile path to ensure it is saved in the settings from new root
     except:
         print('bops settings do not exist.')  
         bops_settings = dict()
            
-    # create a new settings.json if file 
+    # create a new settings.json if file does not exist or if project folder is different
     if not bops_settings or not os.path.isdir(bops_settings['current_project_folder']):
         print('creating new bops "settings.json"... \n \n')       
                 
@@ -345,6 +368,8 @@ def get_bops_settings(project_folder = ''):
         # open settings to return variable    
         with open(jsonfile, 'r') as f:
             bops_settings = json.load(f)
+        
+        bops_settings = import_json_file(jsonfile)
             
     return bops_settings
 
@@ -636,8 +661,14 @@ def import_trc_file(trcFilePath):
     return trc_data, trc_dataframe
 
 def import_json_file(jsonFilePath):
-    with open(jsonFilePath, 'r') as f:
-        data = json.load(f)
+    
+    try:
+        with open(jsonFilePath, 'r') as f:
+            data = json.load(f)
+    except:
+        print_warning('Error reading ' + jsonFilePath)
+        data = dict()
+        
     return data
 
 def save_json_file(data, jsonFilePath):
@@ -2652,66 +2683,7 @@ def plot_from_txt(file_path='', xlabel=' ', ylabel=' ', title=' ', save_path='')
     
     return fig, ax
 
-#%% ####################################################  Error prints  ##################################################################
-
-def play_animation():
-    import turtle
-    import random
-    turtle.bgcolor('black')
-    turtle.colormode(255)
-    turtle.speed(0)
-    for x in range(500): 
-        r,b,g=random.randint(0,255),random.randint(0,255),random.randint(0,255)
-        turtle.pencolor(r,g,b)
-        turtle.fd(x+50)
-        turtle.rt(91)
-    turtle.exitonclick()
-
-def play_random_walk():
-    #https://matplotlib.org/stable/gallery/animation/random_walk.html
-    import matplotlib.animation as animation
-
-    # Fixing random state for reproducibility
-    np.random.seed(19680801)
-
-    def random_walk(num_steps, max_step=0.05):
-        """Return a 3D random walk as (num_steps, 3) array."""
-        start_pos = np.random.random(3)
-        steps = np.random.uniform(-max_step, max_step, size=(num_steps, 3))
-        walk = start_pos + np.cumsum(steps, axis=0)
-        return walk
-
-
-    def update_lines(num, walks, lines):
-        for line, walk in zip(lines, walks):
-            # NOTE: there is no .set_data() for 3 dim data...
-            line.set_data(walk[:num, :2].T)
-            line.set_3d_properties(walk[:num, 2])
-        return lines
-
-
-    # Data: 40 random walks as (num_steps, 3) arrays
-    num_steps = 30
-    walks = [random_walk(num_steps) for index in range(40)]
-
-    # Attaching 3D axis to the figure
-    fig = plt.figure()
-    ax = fig.add_subplot(projection="3d")
-
-    # Create lines initially without data
-    lines = [ax.plot([], [], [])[0] for _ in walks]
-
-    # Setting the axes properties
-    ax.set(xlim3d=(0, 1), xlabel='X')
-    ax.set(ylim3d=(0, 1), ylabel='Y')
-    ax.set(zlim3d=(0, 1), zlabel='Z')
-
-    # Creating the Animation object
-    ani = animation.FuncAnimation(
-        fig, update_lines, num_steps, fargs=(walks, lines), interval=100)
-
-    plt.show()
-
+#%% ####################################################    ##################################################################
 #%% ####################################################  Error prints  ##################################################################
 def exampleFunction():
     pass
@@ -2852,20 +2824,29 @@ def pop_warning(message = 'Error in code. '):
   
 
 #%% ######################################################### BOPS TESTING #################################################################
-def platypus_pic_path(imageType = 'happy'):
-    dir_bops = get_dir_bops()
-    if imageType == 'happy':
-        image_path = os.path.join(dir_bops,'utils\platypus.jpg')
-    else:
-        image_path = os.path.join(dir_bops,'utils\platypus_sad.jpg')
-    return image_path
 
-def print_happy_platypus():             
-    print('all packages are installed and bops is ready to use!!') 
-    show_image(platypus_pic_path('happy'))
-      
-def print_sad_platypus():
-    show_image(platypus_pic_path('sad'))
+class Platypus:
+    def __init__(self):
+        self.name = 'Platypus'
+
+    def greet(self):
+        print(f"Hello, my name is {self.name}!")
+        
+    def platypus_pic_path(self, imageType = 'happy'):
+        dir_bops = get_dir_bops()
+        if imageType == 'happy':
+            image_path = os.path.join(dir_bops,'utils\platypus.jpg')
+        else:
+            image_path = os.path.join(dir_bops,'utils\platypus_sad.jpg')
+            
+        return image_path
+
+    def print_happy(self):             
+        print('all packages are installed and bops is ready to use!!') 
+        show_image(self.platypus_pic_path('happy'))
+        
+    def print_sad(self):
+        show_image(self.platypus_pic_path('sad'))
 
 class test_bops(unittest.TestCase):
     
@@ -2965,41 +2946,16 @@ if __name__ == '__main__':
     
     clear_terminal()
     uni_vie_print()
-    
-    def add_bops_to_python_path():        
-        import os
-
-        # Directory to be added to the path
-        directory_to_add = get_dir_bops()
-
-        # Get the site-packages directory
-        site_packages_dir = os.path.dirname(os.path.dirname(os.__file__))
-        custom_paths_file = os.path.join(site_packages_dir, 'custom_paths.pth')
-
-        # Check if the custom_paths.pth file already exists
-        if not os.path.exists(custom_paths_file):
-            with open(custom_paths_file, 'w') as file:
-                file.write(directory_to_add)
-                print(f"Added '{directory_to_add}' to custom_paths.pth")
-        else:
-            with open(custom_paths_file, 'r') as file:
-                paths = file.read().splitlines()
-            if directory_to_add not in paths:
-                with open(custom_paths_file, 'a') as file:
-                    file.write('\n' + directory_to_add)
-                    print(f"Added '{directory_to_add}' to custom_paths.pth")
-            else:
-                print(f"'{directory_to_add}' already exists in custom_paths.pth")
-
     add_bops_to_python_path()
     
     print('runnung all tests ...')
     output = unittest.main(exit=False)
+    platypus = Platypus()
     if output.result.errors or output.result.failures:
-        print_sad_platypus()
+        platypus.print_sad()
     else:
         print('no errors')
-        print_happy_platypus()
+        platypus.print_happy()
     
     
 # end
