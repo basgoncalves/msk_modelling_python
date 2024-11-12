@@ -148,9 +148,12 @@ def print_option_names():
     for option in options:
         print(option)
 
-def pop_warning(message='Warning: ', title='Warning'):
-    # create a ctk window for a warning
-    mbox.showwarning(title, message)
+def print_warning(message = 'Error in code. '):
+    from colorama import Fore, Style
+    print(Fore.YELLOW + "WARNING: " + message + Style.RESET_ALL)
+
+def pop_warning(message='Warning: '):
+    msk.ui.show_warning(message)
 
 def find_current_line():
     frame = inspect.currentframe().f_back
@@ -201,19 +204,18 @@ def time_to_load():
     print(f"Time elapsed: {final_time - initial_time} seconds.")
 
 ## FOLDERS
-def select_folder(prompt='Please select your folder', staring_path=''):
-    if not staring_path: # if empty
-        staring_path = os.getcwd()
-    root = tk.Tk()
-    root.withdraw()  # Hide the main window
-    selected_folder = askdirectory(initialdir=staring_path,title=prompt)
+def select_folder(prompt='Please select your folder', staring_path=''):    
+    try:
+        selected_folder = ctk.filedialog.askdirectory(initialdir=staring_path, title=prompt)
+    except Exception as e:
+        print("Error: Could not select the folder")
+        print(e)
+        return None
+    
     return selected_folder
 
 def select_file():
-    root = tk.Tk()
-    root.withdraw()  # Hide the main window
-
-    file_path = tk.filedialog.askopenfilename(title="Select a file")
+    file_path = ctk.filedialog.askopenfilename(title="Select a file")
 
     if file_path:
         pass

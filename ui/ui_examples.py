@@ -22,8 +22,7 @@ def get_ui_settings(settings_type = 'Default'):
     
     return settings
 
-def show_warning(message, settings_type = 'Default'):
-    
+def show_warning(message, settings_type = 'Default'):  
     root = ctk.CTk()
     root.title("Warning")
         
@@ -42,7 +41,9 @@ def show_warning(message, settings_type = 'Default'):
     
     root.mainloop()
 
-
+def select_folder(prompt='Please select your folder', starting_path=''):
+    selected_folder = ctk.filedialog.askdirectory(initialdir=starting_path, title=prompt)
+    return selected_folder
 
 class test_default_ui_examples(unittest.TestCase):
     

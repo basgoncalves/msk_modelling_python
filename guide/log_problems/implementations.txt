@@ -3,3 +3,4 @@ to implement:
 -  GUI for batch processing
 
 
+1. Change bops functions like select_file etc... to utils 

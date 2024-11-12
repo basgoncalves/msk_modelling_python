@@ -6,8 +6,8 @@ from tkinter import messagebox
 from msk_modelling_python import *
 import msk_modelling_python as msk
 from msk_modelling_python import bops
-from . import ui_examples 
-from .ui_examples import get_ui_settings, show_warning
+from msk_modelling_python.ui import ui_examples 
+from msk_modelling_python.ui.ui_examples import get_ui_settings, show_warning
 
 class Element:
         def __init__(self, root=None, type='', location=[], size=[], name="element", value=None, command=None, text=""):
@@ -665,6 +665,8 @@ if __name__ == "__main__":
     # test code 
     try:
         app = msk.bops.run_example()
+        msk.bops.Platypus().print_happy()
+        
     except Exception as e:
         print(f"An error occurred: {e}")
         raise e

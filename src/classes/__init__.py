@@ -403,7 +403,7 @@ class SubjectSimple:
 class Project:
     # For each project, create a class that contains the Subject objects
     # check example folder structure: C:\Project\Subject\Task\Trial
-    def __init__(self, projectPath):
+    def __init__(self, projectPath=''):        
         self.path = projectPath
         self.dataPath = os.path.join(projectPath, 'Data')
         
