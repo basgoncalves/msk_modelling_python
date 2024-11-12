@@ -414,7 +414,7 @@ class Project:
         for subject in os.listdir(self.dataPath):
             subjectPath = os.path.join(self.dataPath, subject)
             if os.path.isdir(subjectPath):
-                self.__dict__[subject] = msk.Subject(subjectPath)    
+                self.__dict__[subject] = msk.SubjectSimple(subjectPath)    
                 self.subjects.append(subject)
     
 

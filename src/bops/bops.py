@@ -380,7 +380,7 @@ def select_project(project_folder=''):
         with open(bops_settings.jsonfile, 'r') as f:
             bops_settings = json.load(f)
     
-    bops_settings = import_json_file(jsonfile)
+    bops_settings = get_bops_settings()
             
     return bops_settings
 
