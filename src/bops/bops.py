@@ -334,27 +334,38 @@ def get_bops_settings():
     # get settings from bops directory
     current_dir = os.path.dirname(os.path.realpath(__file__))   
     jsonfile = os.path.join(current_dir,'settings.json')
-    c3dFilePath = get_testing_file_path()
-    project_folder = os.path.abspath(os.path.join(c3dFilePath, '../../../../..'))
 
     # try opening settings.json (or create a new dictionary if it does not exist)
     try:
+        
         with open(jsonfile, 'r') as f:
             bops_settings = json.load(f)
-            bops_settings['jsonfile'] = jsonfile # update jsonfile path to ensure it is saved in the settings from new root
-    except:
-        print('Could not open settings.json. ')
+        
+        bops_settings['jsonfile'] = jsonfile # update jsonfile path to ensure it is saved in the settings from new root
+            
+    except Exception as e:
+        
+        ut.debug_print( jsonfile + ' could not be loaded')
+        print(e)    
+        print('Could not open settings.json. ') 
+        print('Check path ' + jsonfile)
+        exit()
+        
         bops_settings = None
         return bops_settings
            
     # check if all variables are in the settings [OPTIONAL]
-    valid_vars = ['current_project_folder','subjects','emg_labels','analog_labels','filters']
-    for var in valid_vars:
-        if var not in bops_settings:
-            bops_settings[var] = None
-            print(f'{var} not in settings. File might be corrupted.')
-            print('Please ensure that the settings.json file is contains the variables: ' + ', '.join(valid_vars))
-    
+    try:
+        valid_vars = ['current_project_folder','subjects','emg_labels','analog_labels','filters']
+        for var in valid_vars:
+            if var not in bops_settings:
+                bops_settings[var] = None
+                print(f'{var} not in settings. File might be corrupted.')
+                print('Please ensure that the settings.json file is contains the variables: ' + ', '.join(valid_vars))
+    except:
+        if msk.__testing__:
+            print('Error checking settings variables')
+            
     return bops_settings
     
 def select_project(project_folder=''): 
@@ -515,6 +526,12 @@ def create_trial_folder(c3dFilePath):
         os.makedirs(trialFolder)
         
     return trialFolder 
+
+
+# Testing functions and paths
+
+
+
 
 #%% import / save data  
 def import_file(file_path):
@@ -2426,6 +2443,44 @@ def subjet_select_gui():
     button1.pack(pady=12,padx=10)
 
     root.mainloop()
+
+# function to run the example        
+def run_example():
+    app = ui.App()
+    
+    # example data path for walking trial 1
+    trial_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "example_data", "walking", "trial1")
+    trial_paths = msk.TrialPaths(trial_path)
+        
+    app.add(type = 'osim_input', osim_model=trial_paths.model_torsion, setup_ik_path=trial_paths.setup_ik, 
+            setup_id_path=trial_paths.setup_id, setup_so_path=trial_paths.setup_so, setup_jra_path=trial_paths.setup_jra)
+    
+    # add exit button
+    app.add(type = 'exit_button')
+    
+    app.autoscale()
+    
+    app.start()    
+    
+    return app
+
+def batch_run_example():
+    project_path = msk.ut.select_folder("Select project folder")
+        
+    project = msk.Project(project_path)
+    print("Project loaded")
+    
+    for subject in project.subjects:
+        print(f"Subject: {subject}")
+        for task in project.__dict__[subject].tasks:
+            print(f"Trial: {task}")
+            import pdb; pdb.set_trace()
+            trial = project.__dict__[subject].__dict__[task]
+
+    
+    return project
+
+   
 
 
 #%% ########################################################  Plotting  ####################################################################
