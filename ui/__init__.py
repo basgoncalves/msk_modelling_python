@@ -6,8 +6,8 @@ from tkinter import messagebox
 from msk_modelling_python import *
 import msk_modelling_python as msk
 from msk_modelling_python import bops
-from . import default_ui_examples 
-
+from . import ui_examples 
+from .ui_examples import get_ui_settings, show_warning
 
 class Element:
         def __init__(self, root=None, type='', location=[], size=[], name="element", value=None, command=None, text=""):
@@ -495,44 +495,7 @@ class App(ctk.CTk):
     def start(self):
         self.mainloop()
 
-# function to run the example        
-def run_example():
-    app = App()
-    
-    # example data path for walking trial 1
-    trial_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "example_data", "walking", "trial1")
-    trial_paths = msk.TrialPaths(trial_path)
-        
-    app.add(type = 'osim_input', osim_model=trial_paths.model_torsion, setup_ik_path=trial_paths.setup_ik, 
-            setup_id_path=trial_paths.setup_id, setup_so_path=trial_paths.setup_so, setup_jra_path=trial_paths.setup_jra)
-    
-    # add exit button
-    app.add(type = 'exit_button')
-    
-    app.autoscale()
-    
-    app.start()    
-    
-    return app
-
-def batch_run_example():
-    project_path = msk.ut.select_folder("Select project folder")
-        
-    project = msk.Project(project_path)
-    print("Project loaded")
-    
-    for subject in project.subjects:
-        print(f"Subject: {subject}")
-        for task in project.__dict__[subject].tasks:
-            print(f"Trial: {task}")
-            import pdb; pdb.set_trace()
-            trial = project.__dict__[subject].__dict__[task]
-
-    
-    return project
-
-    
-    
+ 
     
 
 #%%
@@ -701,7 +664,7 @@ if __name__ == "__main__":
     
     # test code 
     try:
-        app = run_example()
+        app = msk.bops.run_example()
     except Exception as e:
         print(f"An error occurred: {e}")
         raise e

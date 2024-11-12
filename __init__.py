@@ -18,9 +18,9 @@ import msk_modelling_python.src.plot as plot
 from msk_modelling_python import ui
 
 
-settings = bops.get_bops_settings()
-__version__ = bops.ge
-__testing__ = settings['testing']
+# settings = bops.get_bops_settings()
+__version__ = '0.1.6'
+__testing__ = True
 
 if __testing__:
     print("msk_modelling_python package loaded.")

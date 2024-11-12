@@ -7,6 +7,9 @@ import pandas as pd
 import inspect
 import tkinter.messagebox as mbox
 from msk_modelling_python.src.classes import cmd_function
+import customtkinter as ctk
+import msk_modelling_python as msk
+
 
 #%% Description
 # This module contains a set o utility functions that can be run from the command line
@@ -146,6 +149,7 @@ def print_option_names():
         print(option)
 
 def pop_warning(message='Warning: ', title='Warning'):
+    # create a ctk window for a warning
     mbox.showwarning(title, message)
 
 def find_current_line():
@@ -174,6 +178,27 @@ def print_loading_bar(completion_ratio):
 
     # Print the progress bar and optional percentage
     print(f"\rProgress: [{progress_bar}] {completion_ratio:.2%}", end="")      
+
+def debug_print(message = 'Debugging ...', output = None):
+    # Example usage:
+    # debug_print('Debugging ...', output)
+    
+    from msk_modelling_python import __testing__
+    if __testing__ == True:
+        msk.ui.show_warning(message)
+        if output:
+            return output
+        
+def time_to_load():
+    import time
+    # find time between now and ...
+    initial_time = time.time()
+    import msk_modelling_python as msk
+    
+    # finish counting time
+    final_time = time.time()
+
+    print(f"Time elapsed: {final_time - initial_time} seconds.")
 
 ## FOLDERS
 def select_folder(prompt='Please select your folder', staring_path=''):

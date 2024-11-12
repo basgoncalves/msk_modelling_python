@@ -26,9 +26,7 @@ def show_warning(message, settings_type = 'Default'):
     
     root = ctk.CTk()
     root.title("Warning")
-    
-    settings = get_ui_settings(settings_type)
-    
+        
     screen = si.get_monitors()[0]
     width = 300
     height = 150
@@ -36,7 +34,7 @@ def show_warning(message, settings_type = 'Default'):
     y = (screen.height - height) // 2
     root.geometry(f"{width}x{height}+{x}+{y}")
     
-    label = ctk.CTkLabel(root, text=message, fg_color=settings['fg_color'], bg_color=settings['bg_color'], font=settings['font'])
+    label = ctk.CTkLabel(root, text=message, wraplength=280)
     label.pack(pady=20)
     
     button = ctk.CTkButton(root, text="OK", command=root.destroy)
