@@ -1,11 +1,14 @@
 import sys
 import os
+import math
 import tkinter as tk
 from tkinter.filedialog import askdirectory
 import pandas as pd
 import inspect
 import tkinter.messagebox as mbox
 from msk_modelling_python.src.classes import cmd_function
+import customtkinter as ctk
+import msk_modelling_python as msk
 
 
 #%% Description
@@ -24,7 +27,7 @@ from msk_modelling_python.src.classes import cmd_function
 #%% Start
 
 #%% Functions to be turned into Options
-def speed_test():
+def speed_test_def():
     import speedtest
     
     print("Running speed test ...")
@@ -37,19 +40,19 @@ def speed_test():
     upload_speed = round(speed_test.upload()/1e6)
     print("Your Upload speed is", upload_speed,'Mb')
 
-def get_current_dir():
+def get_current_dir_def():
     print("for .py")
     print("dir_path = os.path.dirname(os.path.realpath(__file__))")
     print("for ipynb")
     print("dir_path = os.getcwd()")
 
-def python_path():
+def python_path_def():
     print(sys.executable)
 
 def print_python_libs():
     print(os.path.join(os.path.dirname(sys.executable),'Lib','site-packages'))
 
-def files_above_100mb():
+def files_above_100mb_def():
     
     current_path = os.getcwd()
 
@@ -74,7 +77,7 @@ def files_above_100mb():
     # Display the resulting DataFrame
     print(size_bytes)
 
-def create_template():
+def create_template_def():
     import os
 
     def create_folder(directory):
@@ -145,57 +148,79 @@ def print_option_names():
     for option in options:
         print(option)
 
-def pop_warning(message='Warning: ', title='Warning'):
-    mbox.showwarning(title, message)
+def print_warning(message = 'Error in code. '):
+    '''Example:
+    import msk_modelling_python as msk
+    try:
+        # run code
+    except Excepetion as e:
+        ut.print_warning('Error in code. ')
+        if msk.__testing__: 
+           raise e 
+    '''
+    from colorama import Fore, Style
+    print(Fore.YELLOW + "WARNING: " + message + Style.RESET_ALL)
+
+def pop_warning(message='Warning: '):
+    msk.ui.show_warning(message)
 
 def find_current_line():
     frame = inspect.currentframe().f_back
     lineno = frame.f_lineno
     return lineno
 
-## FOLDERS
-def select_folder(prompt='Please select your folder', staring_path=''):
-    if not staring_path: # if empty
-        staring_path = os.getcwd()
-    root = tk.Tk()
-    root.withdraw()  # Hide the main window
-    selected_folder = askdirectory(initialdir=staring_path,title=prompt)
-    return selected_folder
+def print_loading_bar(completion_ratio):
+    """Prints a visual loading bar indicating progress.
 
-def select_file():
-    root = tk.Tk()
-    root.withdraw()  # Hide the main window
+    Args:
+        completion_ratio (float): A value between 0.0 (no progress) and 1.0 (complete).
+    """
 
-    file_path = tk.filedialog.askopenfilename(title="Select a file")
+    # Define bar length and characters
+    bar_length = 20  # Adjust for desired visual length
+    completed_char = '='
+    remaining_char = ' '
 
-    if file_path:
-        pass
-    else:
-        raise ValueError('No file selected')    
+    # Calculate completed and remaining sections
+    completed_sections = int(math.floor(completion_ratio * bar_length))
+    remaining_sections = bar_length - completed_sections
 
-    return file_path
+    # Build the progress bar string
+    progress_bar = completed_char * completed_sections + remaining_char * remaining_sections
 
-def create_folder(folder_path = ''):
-    if not folder_path:
-        folder_path = select_folder()
-        pop_warning(f"Creaing folder at {folder_path}")
-           
-    if not os.path.exists(folder_path):
-        os.makedirs(folder_path)
-    else:
-        print(f"Folder {folder_path} already exists.")
+    # Print the progress bar and optional percentage
+    print(f"\rProgress: [{progress_bar}] {completion_ratio:.2%}", end="")      
+
+def debug_print(message = 'Debugging ...', output = None):
+    # use to print debug messages but only when testing mode is on    
+    from msk_modelling_python import __testing__
+    if __testing__ == True:
+        msk.ui.show_warning(message)
+        if output:
+            return output
+        
+def time_to_load():
+    import time
+    # find time between now and ...
+    initial_time = time.time()
+    import msk_modelling_python as msk
     
-    return folder_path
+    # finish counting time
+    final_time = time.time()
+
+    print(f"Time elapsed: {final_time - initial_time} seconds.")
+
+## FOLDERS
+
+
+
 
 def input_popup(prompt='Enter the path: ', title='Input'):
     root = tk.Tk()
     root.withdraw()  
     return sd.askstring(title, prompt)
 
-def copy(src, dest):
-    shutil.copy(src, dest)
-
-#%% Errors
+#%% Print template messages 
 def print_error_message():
     print("please select one of the following options:")
     print_option_names()
@@ -233,11 +258,11 @@ def select_option_to_run():
         sys.exit(1)
 
 #%% Convert functions to options
-python_path = cmd_function(python_path)
-speed_test = cmd_function(speed_test)
-get_current_dir = cmd_function(get_current_dir)
-files_above_100mb = cmd_function(files_above_100mb)
-create_template = cmd_function(create_template)
+python_path = cmd_function(python_path_def)
+speed_test = cmd_function(speed_test_def)
+get_current_dir = cmd_function(get_current_dir_def)
+files_above_100mb = cmd_function(files_above_100mb_def)
+create_template = cmd_function(create_template_def)
 
 
 #%% Run if the script is executed

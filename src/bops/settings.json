@@ -1,8 +1,15 @@
 {
-  "current_project_folder": "C:/Users/Bas/Desktop/msk_db",
-  "jsonfile": "C:/Git/python-envs/msk_modelling/Lib/site-packages/msk_modelling_python/src/settings.json",
+  "__version__": "0.1.6",
+  "__testing__": false,
+  "update": true,
+  "gui": false,
+  "current_project_folder": "c:\\Git\\Opencap_squat_validation",
+  "jsonfile": "C:\\Git\\python-envs\\msk_modelling\\Lib\\site-packages\\msk_modelling_python\\src\\bops\\settings.json",
+  "example_data": "C:\\Git\\research_data\\Projects\\test_project",
+  "osim_exe": false,
+
   "bops": {
-    "installtion": "/path/to/project",
+    "installation": "/path/to/project",
     "type": "biomechanics",
     "filters": {
       "filter1": "value1",

@@ -2,7 +2,7 @@
 from msk_modelling_python.src.bops import *
 import msk_modelling_python.src.ceinms_setup as cs
 import msk_modelling_python.src.bops as bp
-from msk_modelling_python.src.plotting import plot_ceinms as pltc
+from msk_modelling_python.src.plot import plot_ceinms as pltc
 from msk_modelling_python.src.muscle_modelling import replace_markerset as rm
 
 def example_run_single_file(subject_name = 'Athlete_03', trial_name = 'sq_90'):

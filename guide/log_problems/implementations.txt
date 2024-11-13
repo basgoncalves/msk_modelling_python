@@ -1,7 +1,7 @@
-Things to implement:
+to implement:
 
-- Tree map for better understanding relationships 
-- cmd commands using -bops <command> 
-- bops command to add to venv (instead of pip install)
+-  GUI for batch processing
 
 
+1. Change bops functions like select_file etc... to utils 
+2. SO and ID gui and batch

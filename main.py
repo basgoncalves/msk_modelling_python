@@ -1,35 +1,79 @@
 from msk_modelling_python import *
 import msk_modelling_python as msk
-from msk_modelling_python.ui import Element, GUI
-from msk_modelling_python.src.bops import *
+from PIL import Image, ImageTk
+import customtkinter as ctk
 
-def run(update_version=False):
-  print("Running main code from msk_modelling_python")
-  
-  # implement gui functions
-  gui = msk.ui.run_example()
-  
-  # implement version update if needed
-  if update_version:
-    msk.update_version(3, msk, invert=False)
-    print(f"New version: {msk.__version__}")
-  else:
-    print(f"Current version: {msk.__version__}")
 
+def create_ui_with_3_buttons():
+  # Create a Tkinter window
+  window = ctk.CTk()
+  
+  window.title("Platypus")
+  
+  # Create a Tkinter button
+  button = ctk.CTkButton(window, text="Click me!")
+  button.pack()
+  
+  # Create a Tkinter button
+  button2 = ctk.CTkButton(window, text="Click me too!")
+  button2.pack()
+  
+  # Create a Tkinter button
+  button3 = ctk.CTkButton(window, text="quit", command=window.destroy)
+  button3.pack()
+  
+  # Run the Tkinter event loop
+  window.mainloop()
 
 if __name__ == "__main__":
+  try:
+    print('Running main.py')
+    settings = msk.bops.get_bops_settings()
+    
+    if settings['gui']:
+      msk.bops.run_example()
+      # create_ui_with_3_buttons()
+      pass
+    
+    if settings['update']:
+      msk.update_version(3, msk, invert=False)
+    
+    
+    
+    print('Check implementations.txt for future upcoming implementations')
+    print('.\msk_modelling_python\guide\log_problems\implementations.txt')
+    print('Check the log file for any errors')
+    print('.\msk_modelling_python\guide\log_problems\log.txt')
+    
+    msk.bops.Platypus().happy()
   
-  update_version =  False
-  # run(update_version)
-  ui.batch_run_example()
+  except Exception as e:
+    print("Error: ", e)
+    msk.log_error(e)
+    msk.bops.Platypus().sad()
+  
+  
+  
+  
+  
+  
+# # END
 
-  print('next step to fix: SO and ID gui and batch')
-  
-  # Create GUI
-  
-  
-  
-  
-  
-# END
-  
+    
+
+# if __name__ == "__main__":
+#   settings = msk.bops.get_bops_settings()
+#   e = 'test'
+#   msk.log_error(e)
+#   image_path = r'C:\Git\python-envs\msk_modelling\Lib\site-packages\msk_modelling_python\src\bops\utils\platypus_sad.jpg'
+#   show_image(image_path)
+      
+
+
+
+
+
+
+
+
+

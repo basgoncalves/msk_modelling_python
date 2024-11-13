@@ -5,8 +5,7 @@ import matplotlib.pyplot as plt
 import math
 import numpy as np
 from sklearn.metrics import mean_squared_error
-import ceinms_setup as cs
-import bops as bp
+import msk_modelling_python as msk
 
 
 def mmfn():
@@ -101,8 +100,8 @@ def plot_two_df(df1,df2,axs, xlabel = ' ', ylabel=' '):
                     ha='right', va='top', transform=ax.transAxes)
 
 def compare_moments(id_path, ceinms_path,save_folder):
-    mom_id = bp.import_sto_data(id_path)
-    mom_ceinms = bp.import_sto_data(ceinms_path)
+    mom_id = msk.bops.import_sto_data(id_path)
+    mom_ceinms = msk.bops.import_sto_data(ceinms_path)
 
     mom_id = mom_id.drop(columns=['time'])
     mom_ceinms = mom_ceinms.drop(columns=['time'])
@@ -159,16 +158,16 @@ def compare_moments(id_path, ceinms_path,save_folder):
 def compare_two_df(df1,df2, columns_to_compare='all',xlabel=' ',ylabel=' ', legend=['data1', 'data2'],save_path=''):
     
     if type(df1) == str and os.path.isfile(df1):
-        df1 = bp.import_sto_data(df1)
+        df1 = msk.bops.import_sto_data(df1)
 
     if type(df2) == str and os.path.isfile(df2):
-        df2 = bp.import_sto_data(df2)
+        df2 = msk.bops.import_sto_data(df2)
 
     if len(df1) != len(df2):
         print('number of rows does not match between df1 and df2')
         print('interpolating data')
-        df1 = bp.time_normalise_df(df1)
-        df2 = bp.time_normalise_df(df2)
+        df1 = msk.bops.time_normalise_df(df1)
+        df2 = msk.bops.time_normalise_df(df2)
     
     if columns_to_compare == 'all':
         columns_to_compare = df1.columns
@@ -181,7 +180,7 @@ def compare_two_df(df1,df2, columns_to_compare='all',xlabel=' ',ylabel=' ', lege
         axs = []
         return fig, axs 
     else:
-        ncols, nrows = bp.calculate_axes_number(N)
+        ncols, nrows = msk.bops.calculate_axes_number(N)
 
     # remove columns that are not in the variable columns_to_compare
     try:
@@ -210,7 +209,7 @@ def compare_two_df(df1,df2, columns_to_compare='all',xlabel=' ',ylabel=' ', lege
     fig.set_tight_layout(True)
 
     if save_path:
-        bp.save_fig(fig, save_path)
+        msk.bops.save_fig(fig, save_path)
     
     return fig, axs
 
@@ -290,8 +289,8 @@ def plot_muscle_work_per_leg(df): # plot muscle work as bar chart split by right
 def plot_muscle_work_two_trials(sto_path1,sto_path2): # plot muscle work as bar chart for two seperate trials
 
     # load and time normalise data
-    df1 = bp.time_normalise_df(bp.import_sto_data(sto_path1))
-    df2 = bp.time_normalise_df(bp.import_sto_data(sto_path2))
+    df1 = msk.bops.time_normalise_df(msk.bops.import_sto_data(sto_path1))
+    df2 = msk.bops.time_normalise_df(msk.bops.import_sto_data(sto_path2))
 
     # Transpose the DataFrames for easier plotting
     df1 = df1.T.reset_index()
@@ -321,5 +320,8 @@ def plot_muscle_work_two_trials(sto_path1,sto_path2): # plot muscle work as bar 
 
 def muscles_to_plot():
     return []
+
+
+
 
 # END
