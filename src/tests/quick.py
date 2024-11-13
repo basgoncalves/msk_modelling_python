@@ -1,36 +1,73 @@
-import tkinter as tk
+from msk_modelling_python import *
 import msk_modelling_python as msk
-import os
-
-project_path = r"C:\Git\charizard"
-data_path = os.path.join(project_path, 'data')
-osimModel_path = os.path.join(project_path, 'osimModel')
+from PIL import Image, ImageTk
+import customtkinter as ctk
 
 
-project = msk.Project(project_path)
-print(project.subjects)
+def show_image(image_path):
+  # Create a Tkinter window
+  window = ctk.CTk()
+  # Load the image using PIL
+  image_object = Image.open(image_path)
+  # Create a Tkinter PhotoImage from the PIL image
+  photo = ImageTk.PhotoImage(image_object)
+  
+  label = ctk.CTkLabel(window, image=photo)
+  label.image = photo
+  label.pack()
 
-exit()
+  # Run the Tkinter event loop
+  window.mainloop()
 
-# Athlete data = folders in the data folder
-athlethes = os.listdir(data_path)
+if __name__ == "__main__":
+  try:
+    print('Running main.py')
+    settings = msk.bops.get_bops_settings()
 
-for ath in athlethes:
-    # create a task object for each task
-    ath_path = os.path.join(data_path, ath)
-    tasks = os.listdir(ath_path)
     
-    for task in tasks:
-        task_path = os.path.join(ath_path, task)
-        msk.Task(task_path)
+    
+    if settings['gui']:
+      msk.bops.run_example()
+    
+    if settings['update']:
+      msk.update_version(3, msk, invert=False)
+    
+    
+    
+    
+    
+    print('Check implementations.txt for future upcoming implementations')
+    print('.\msk_modelling_python\guide\log_problems\implementations.txt')
+    print('Check the log file for any errors')
+    print('.\msk_modelling_python\guide\log_problems\log.txt')
+    print('')
+    print('fix also: ')
+    print('C:\Git\python-envs\msk_modelling\Lib\site-packages\msk_modelling_python\src\plot\basics.py')
+    
+    # msk.bops.Platypus().happy()
+    file = r'C:\Git\python-envs\msk_modelling\Lib\site-packages\msk_modelling_python\src\bops\utils\platypus.jpg'
+    show_image(file)
+  
+  except Exception as e:
+    # print("Error: ", e)
+    # msk.log_error(e)
+    
+    image_path = r'C:\Git\python-envs\msk_modelling\Lib\site-packages\msk_modelling_python\src\bops\utils\platypus_sad.jpg'
+    show_image(image_path)
+    # msk.bops.Platypus().sad()
+  
+  
+  
+  
+  
+  
+# # END
 
 
-task_path = r"C:\Git\python-envs\msk_modelling\Lib\site-packages\msk_modelling_python\example_data\db_movements\running"
-task = msk.Task(task_path)
-
-msk.osimData(os.path.join(task_path, 'average'))
 
 
-if isinstance(task.s009.muscleForces, msk.bp.pd.DataFrame):
-    print("Muscle Forces exist for subject 9")
+
+
+
+
 

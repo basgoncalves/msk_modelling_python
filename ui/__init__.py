@@ -7,7 +7,7 @@ from msk_modelling_python import *
 import msk_modelling_python as msk
 from msk_modelling_python import bops
 from msk_modelling_python.ui import ui_examples 
-from msk_modelling_python.ui.ui_examples import get_ui_settings, show_warning
+from msk_modelling_python.ui.ui_examples import get_ui_settings, show_warning, select_folder, create_folder, select_file
 
 class Element:
         def __init__(self, root=None, type='', location=[], size=[], name="element", value=None, command=None, text=""):
@@ -364,7 +364,7 @@ class App(ctk.CTk):
         
         # exit button
         elif type == 'exit_button':
-            self.button_quit = ctk.CTkButton(self, text="Quit", command=self.quit)
+            self.button_quit = ctk.CTkButton(self, text="Quit", command=self.destroy)
             self.button_quit.pack(padx=self.padx, pady=self.pady)
 
         
@@ -372,9 +372,12 @@ class App(ctk.CTk):
         else:
             print("Error: no valid input")
     
-     # function to autoscale the window to fit all elements
     
+    def close(self):
+        self.quit()
+        self.destroy()
     
+    # function to autoscale the window to fit all elements
     def autoscale(self, centered=True):
         '''
         Autoscale the window to fit all elements. 
@@ -401,6 +404,39 @@ class App(ctk.CTk):
         y = (self.winfo_screenheight() // 2) - (height // 2)
         self.geometry(f'{width}x{height}+{x}+{y}')
 
+    # function to split the window into two frames and get two elements as output
+    def split(self, element1, element2, orientation='vertical'):
+        '''
+        Split the window into two frames and return the two elements.
+        
+        usage:
+            element1, element2 = app.split(element1, element2, orientation='vertical')
+        
+        arguments:
+            element1: first element to split
+            element2: second element to split
+            orientation: orientation of the split ('vertical' or 'horizontal')
+        '''
+        
+        if orientation == 'vertical':
+            frame1 = ctk.CTkFrame(self)
+            frame1.pack(fill='both', expand=True)
+            element1.pack(in_=frame1, fill='both', expand=True)
+            
+            frame2 = ctk.CTkFrame(self)
+            frame2.pack(fill='both', expand=True)
+            element2.pack(in_=frame2, fill='both', expand=True)
+            
+        elif orientation == 'horizontal':
+            frame1 = ctk.CTkFrame(self)
+            frame1.pack(side='left', fill='both', expand=True)
+            element1.pack(in_=frame1, fill='both', expand=True)
+            
+            frame2 = ctk.CTkFrame(self)
+            frame2.pack(side='right', fill='both', expand=True)
+            element2.pack(in_=frame2, fill='both', expand=True)
+        
+        return frame1, frame2
     
     
     
@@ -665,7 +701,7 @@ if __name__ == "__main__":
     # test code 
     try:
         app = msk.bops.run_example()
-        msk.bops.Platypus().print_happy()
+        msk.bops.Platypus().happy()
         
     except Exception as e:
         print(f"An error occurred: {e}")

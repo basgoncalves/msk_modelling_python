@@ -4,6 +4,7 @@
 # DOI: 10.1080/10255842.2020.1867978
 
 __version__ = '0.0.3'
+__testing__ = False
 
 from msk_modelling_python.src.utils import general_utils as ut
 from msk_modelling_python.src.bops import *
@@ -46,6 +47,9 @@ def is_setup_file(file_path, type = 'OpenSimDocument', print_output=False):
     
 # %% ######################################################  Classes  ###################################################################
 class ProjectPaths:
+    '''
+    
+    '''
     def __init__(self, project_folder=''):
 
         if project_folder == 'example':
@@ -54,7 +58,7 @@ class ProjectPaths:
 
         elif not project_folder or not os.path.isdir(project_folder):
             ut.pop_warning(f'Project folder does not exist on {project_folder}. Please select a new project folder')
-            project_folder = select_folder('Please select project directory')
+            project_folder = msk.ui.select_folder('Please select project directory')
             return
         
         self.main = project_folder
@@ -69,7 +73,7 @@ class ProjectPaths:
             self.subject_list = [f for f in os.listdir(self.simulations) if os.path.isdir(os.path.join(self.simulations, f))]
         except:
             self.subject_list = []
-            ut.select_file(message = 'No subjects in the current project folder')     
+            msk.ui.select_file(message = 'No subjects in the current project folder')     
 
         # create a dictionary of setup files
         self.setup_files = dict()
@@ -96,8 +100,11 @@ class ProjectPaths:
             self.subject_paths.append(os.path.join(self.simulations, subject))
                     
     def add_template_subject(self):
-        ghost.create_template_osim_subject(parent_dir=self.main)
-
+        print('Not implemented ...')
+        if msk.__testing__:
+            ghost.create_template_osim_subject(parent_dir=self.main)
+        return None
+    
     def create_settings_json(self):
         save_json_file(self.__dict__, self.settings_json)
         print('settings.json created in ' + self.main)
@@ -175,7 +182,7 @@ class Trial:
         self.c3d = os.path.join(trial_path,'c3dfile.c3d')
         
         if not os.path.isdir(trial_path):
-            ut.create_folder(trial_path)
+            msk.ui.create_folder(trial_path)
         
         if not os.path.isfile(self.og_c3d):
             shutil.copyfile(self.og_c3d, self.c3d)
@@ -205,6 +212,8 @@ class Trial:
     def exportC3D(self):
         c3d_osim_export(self.og_c3d) 
 
+    def create_grf_xml(self):
+        msk.bops.create_grf_xml(self.grf, self.grf_xml)
 class Model:
     def __init__(self, model_path):
         self.osim_object = osim.Model(model_path)
@@ -336,21 +345,19 @@ def get_bops_settings():
     current_dir = os.path.dirname(os.path.realpath(__file__))   
     jsonfile = os.path.join(current_dir,'settings.json')
 
-    # try opening settings.json (or create a new dictionary if it does not exist)
-    try:
-        
+    # open settings.json (or create a new dictionary if it does not exist)
+    try:   
         with open(jsonfile, 'r') as f:
             bops_settings = json.load(f)
         
-        bops_settings['jsonfile'] = jsonfile # update jsonfile path to ensure it is saved in the settings from new root
-            
-    except Exception as e:
+        # update jsonfile path to ensure it is saved in the settings from new root           
+        bops_settings['jsonfile'] = jsonfile 
         
-        ut.debug_print( jsonfile + ' could not be loaded')
+    except Exception as e:
+        ut.debug_print(jsonfile + ' could not be loaded')
         print(e)    
         print('Could not open settings.json. ') 
         print('Check path ' + jsonfile)
-        exit()
         
         bops_settings = None
         return bops_settings
@@ -720,10 +727,24 @@ def c3d_osim_export(c3dFilePath, replace = True):
     
     # upadate c3d file path
     c3dFilePath = new_c3d_file
-    
+
+    # save analog.csv
+    try:
+        settings = get_bops_settings()
+        analog_df = c3d_analog_export(c3dFilePath)
+        
+    except Exception as e:
+        ut.print_warning(c3dFilePath + 'could not export emg.mot')
+        print(e)
+        
     # import c3d file data to a table
-    adapter = osim.C3DFileAdapter()
-    tables = adapter.read(c3dFilePath)
+    try:
+        adapter = osim.C3DFileAdapter()
+        tables = adapter.read(c3dFilePath)
+    except Exception as e:
+        ut.print_warning(c3dFilePath + ' could not be read')
+        if msk.__testing__:
+            print(e)
 
     # save markers.trc
     try:
@@ -736,13 +757,14 @@ def c3d_osim_export(c3dFilePath, replace = True):
             stoAdapter.write(markersFlat, markersFilename)
         
         print('markers.trc exported to ' + trialFolder)
-    except:
-        print_warning(c3dFilePath + ' could not export markers.trc')
+    except Exception as e:
+        ut.print_warning(c3dFilePath + ' could not export markers.trc')
+        if msk.__testing__:
+            print(e)
 
     # save grf.mot
     try:
         forces = adapter.getForcesTable(tables)
-        
         forcesFlat = forces.flatten()
         forcesFilename = os.path.join(trialFolder,'grf.mot')
         stoAdapter = osim.STOFileAdapter()
@@ -751,22 +773,16 @@ def c3d_osim_export(c3dFilePath, replace = True):
             stoAdapter.write(forcesFlat, forcesFilename)
         
         # change heading names to match OpenSim
-        import pdb; pdb.set_trace()
-        forces_df = import_sto_data(forcesFilename)
-        
-        
-        print('grf.mot exported to ' + trialFolder)
-    except:
-        print_warning(c3dFilePath + 'could not export grf.mot')
-
-    # save analog.csv
-    try:
-        settings = get_bops_settings()
-        c3d_analog_export(c3dFilePath)
+        array = forcesFlat.getMatrix().to_numpy()
+        force_labels = forcesFlat.getColumnLabels()
+        analog_labels = analog_df.columns
         
     except Exception as e:
-        print_warning(c3dFilePath + 'could not export emg.mot')
-        print(e)
+        ut.print_warning(c3dFilePath + 'could not export grf.mot')
+        if msk.__testing__:
+            print(e)
+
+    return force_labels
 
 def c3d_osim_export_multiple(sessionPath='',replace=0):
 
@@ -875,6 +891,92 @@ def writeTRC(c3dFilePath, trcFilePath):
 
         print('trc file saved')
 
+def create_grf_xml(grf_file, output_file= '', apply_force_body_name='calcn_r', force_expressed_in_body_name='ground'):     
+    '''Create an external loads XML file from a GRF file.
+    Usage:
+    import msk_modelling_python as msk
+    msk.bops.create_grf_xml(grf_file, output_file= '', apply_force_body_name='calcn_r', force_expressed_in_body_name='ground')    
+    
+    '''       
+    # create empty ExternalLoads object and set the data file name
+    try:
+        external_loads = osim.ExternalLoads()
+        external_loads.setDataFileName(grf_file) 
+        if output_file == '':
+            output_file = os.path.dirname(grf_file) + '/grf.xml'
+        external_loads.printToXML(output_file)
+
+    except Exception as e:
+        msk.ut.debug_print('Could not create external loads for ' + grf_file)
+        if msk.__testing__: 
+            msk.bops.Platypus().sad()
+                        
+    # add external forces based on the GRF file
+    try:
+        xml = msk.bops.readXML(output_file)
+        forces = msk.bops.import_sto_data(grf_file)
+        columns = forces.columns.drop('time')
+        
+        # num forces as the number of columns in the GRF file containing f[number]_
+        num_forces = len([col for col in columns if col.startswith('f') and col.endswith('1')])
+
+        external_loads_tag = xml.find('ExternalLoads')
+        objects_tag = xml.find('ExternalLoads/objects')
+        
+        # Add new ExternalForce elements
+        for i in range(num_forces):
+            new_force = ET.Element('ExternalForce')
+            new_force.set('name', f'externalforce_{i}')  # Adjust names as needed
+
+            def create_element(tag, text):
+                element = ET.Element(tag)
+                element.text = text
+                return element
+            
+            def indent(elem, level=0):
+                '''
+                Input: 
+                elem - XML element
+                level - integer representing the level of indentation
+                '''
+                
+                i = "\n" + level * "  "
+                if len(elem):
+                    if not elem.text or not elem.text.strip():
+                        elem.text = i + "  "
+                    for child in elem:
+                        indent(child, level + 1)
+                    if not elem.tail or not elem.tail.strip():
+                        elem.tail = i
+                else:
+                    if level and (not elem.tail or not elem.tail.strip()):
+                        elem.tail = i
+                if level and (not elem.tail or not elem.tail.strip()):
+                    elem.tail = i
+                    
+            # Add child elements with desired attributes for each force
+            new_force.append(create_element('applied_to_body', apply_force_body_name))
+            new_force.append(create_element('force_expressed_in_body', force_expressed_in_body_name))
+            new_force.append(create_element('force_identifier', f'f{i}_'))
+            new_force.append(create_element('point_identifier', f'p{i}_'))
+            new_force.append(create_element('torque_identifier', f'm{i}_'))
+            
+            indent(new_force, level=5)
+            objects_tag.insert(i, new_force)
+
+        # Save the updated XML file
+        xml.write(output_file, encoding='utf-8', xml_declaration=True, )
+
+        
+        print(f'External loads XML file saved to: {output_file}')
+    except Exception as e:
+        ut.print_warning('error adding forces to grf.xml: ' + output_file + '\n' + str(e))
+        msk.ut.debug_print('error adding forces to grf.xml: ' + output_file)
+        if msk.__testing__: 
+            msk.bops.Platypus().sad() 
+            
+
+
 # sto functions
 
 def write_sto_file(dataframe, file_path): # not working yet
@@ -923,17 +1025,14 @@ def readXML(xml_file_path):
             element.set('attribute_name', 'new_attribute_value')
             element.text = 'new_text_value'
 
-    # Add new elements
-    new_element = ET.Element('new_element')
-    new_element.text = 'new_element_text'
-    root.append(new_element)
 
     return tree
 
-def writeXML(tree,xml_file_path):    
-    tree.write(xml_file_path)
-
 def get_tag_xml(xml_file_path, tag_name):
+    '''
+    Function to extract the value of a specified tag from an XML file.
+    Usage: get_tag_xml('file.xml', 'tag_name')
+    '''
     try:
         # Load the XML file
         tree = ET.parse(xml_file_path)
@@ -994,12 +1093,6 @@ def inputList(prompt, options):
             return choice-1
         except ValueError:
             print("Invalid choice. Please enter a number between 1 and ", len(options))
-
-def xml_write(file, data, root_name, pref):
-    root = ET.Element(root_name)
-    dict_to_xml(data, root)
-    tree = ET.ElementTree(root)
-    tree.write(file, xml_declaration=True, encoding='UTF-8', method="xml", short_empty_elements=False, indent=pref['indent'])
 
 def dict_to_xml(data, parent):
     for key, value in data.items():
@@ -2464,7 +2557,7 @@ def run_example():
     
     return app
 
-def batch_run_example():
+def run_example_batch():
     project_path = msk.ut.select_folder("Select project folder")
         
     project = msk.Project(project_path)
@@ -2607,20 +2700,6 @@ def create_example_emg_plot(c3dFilePath=False):
     plt.tight_layout()
 
     return fig     
-
-def show_image(image_path):
-    # Create a Tkinter window
-    window = tk.Tk()
-    # Load the image using PIL
-    image = Image.open(image_path)
-    # Create a Tkinter PhotoImage from the PIL image
-    photo = ImageTk.PhotoImage(image)
-    
-    # Create a Tkinter label to display the image
-    label = tk.Label(window, image=photo)
-    label.pack()
-    # Run the Tkinter event loop
-    window.mainloop()
 
 def calculate_axes_number(num_plots):
     if num_plots  > 2:
@@ -2778,9 +2857,8 @@ def get_testing_file_path(file_type = 'c3d'):
     
     settings = get_bops_settings()
     
-    
-    bops_dir = get_dir_bops()
-    dir_simulations =  os.path.join(bops_dir, 'ExampleData\simulations')
+    msk_dir = msk.__path__[0]
+    dir_simulations =  os.path.join(msk_dir, 'example_data\\running')
     if not os.path.exists(dir_simulations):
         raise_exception(dir_simulations + ' does not exist. ', hard=False)
         return None
@@ -2902,23 +2980,47 @@ class Platypus:
         self.dir_bops = get_dir_bops()
         self.mood = 'sad'
         self.output = None
+        self.image_path = None
+        self.photo = None
         
     def greet(self):
         print(f"Hello, my name is {self.name}!")
         
-    def happy(self):
-        print('all packages are installed and bops is ready to use!!') 
-        self.image_path = os.path.join(self.dir_bops,'utils\platypus.jpg')
-        show_image(self.image_path)
-        
-        self.mood = 'happy'
+    def happy(self, message = ''):
+        try:
+            print(message) 
+            self.image_path = os.path.join(self.dir_bops,'utils\platypus.jpg')
+            self.show_image()
+            self.mood = 'happy'
+        except Exception as e:
+            self.mood = 'sad'
+            print('happy platypus image not found in ' + self.image_path)
+            print(e)
         
     def sad(self):
-        self.image_path = os.path.join(self.dir_bops,'utils\platypus_sad.jpg')
-        show_image(self.image_path)
-        self.mood = 'sad'
-         
-
+        try:
+            self.image_path = os.path.join(self.dir_bops,'utils\platypus_sad.jpg')
+            self.show_image()
+            self.mood = 'sad'
+        except Exception as e:  
+            print('sad platypus image not found in ' + self.image_path)
+            print(e)
+        
+    def show_image(self):
+        # Create a Tkinter window
+        window = tk.Tk()
+        # Load the image using PIL
+        image = Image.open(self.image_path)
+        # Create a Tkinter PhotoImage from the PIL image
+        photo = ImageTk.PhotoImage(image)
+        
+        label = tk.Label(window, image=photo)
+        label.image = photo
+        label.pack()
+        
+        # Run the Tkinter event loop
+        window.mainloop()
+        
 class test_bops(unittest.TestCase):
     
     ##### TESTS NOT WORKING ######
@@ -2938,9 +3040,14 @@ class test_bops(unittest.TestCase):
     def test_platypus(self):
         print('testing platypus ... ')
         platypus = Platypus()
+        self.assertRaises(Exception, platypus.happy())
         self.assertEqual(type(platypus),Platypus)
         
-        
+    def test_create_grf_xml(self):
+        print('testing create_grf_xml ... ')
+        c3dFilePath = get_testing_file_path('c3d')
+        create_grf_xml(c3dFilePath)
+            
         
     not_working = False
     if not_working:                        
@@ -3031,10 +3138,12 @@ class test_bops(unittest.TestCase):
     
 
 #%% ######################################################### BOPS MAIN ####################################################################
-if __name__ == '__main__':
-    print('runnung all tests ...')
-    
-    
+if __name__ == '__main__':   
+    if bops.__testing__:
+        print('runnung all tests ...')
+        unittest.main()
+        
+    Platypus().happy()
     
     
     

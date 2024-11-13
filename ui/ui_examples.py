@@ -4,6 +4,20 @@ import customtkinter as ctk
 import screeninfo as si
 import unittest
 
+# Examples of UI functions that can be used in the msk_modelling_python package
+# These functions can be used to create a UI for the user to interact with the package
+
+def print_colour(message, colour='black'):
+    if colour == 'black':
+        print(f"\033[30m{message}\033[0m")
+    elif colour == 'red':
+        print(f"\033[31m{message}\033[0m")
+    elif colour == 'green':
+        print(f"\033[32m{message}\033[0m")
+    elif colour == 'yellow':
+        print(f"\033[33m{message}\033[0m")
+    elif colour == 'blue':
+        print(f"\033[34m{message}\033[0m")
 
 def get_ui_settings(settings_type = 'Default'):
     
@@ -41,10 +55,53 @@ def show_warning(message, settings_type = 'Default'):
     
     root.mainloop()
 
-def select_folder(prompt='Please select your folder', starting_path=''):
-    selected_folder = ctk.filedialog.askdirectory(initialdir=starting_path, title=prompt)
+def select_folder(prompt='Please select your folder', staring_path=''):    
+    try:
+        selected_folder = ctk.filedialog.askdirectory(initialdir=staring_path, title=prompt)
+    except Exception as e:
+        print_colour("Error: Could not select the folder", 'yellow')
+        print(e)
+        return None
+    
     return selected_folder
 
+def select_file(prompt='Please select your file', staring_path=''):
+    file_path = ctk.filedialog.askopenfilename(title="Select a file")
+    
+    if not file_path: raise ValueError('No file selected')
+
+    return file_path
+
+def create_folder(folder_path = ''):
+    if not folder_path:
+        folder_path = select_folder()
+        show_warning(f"Creaing folder at {folder_path}")
+           
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
+    else:
+        print(f"Folder {folder_path} already exists.")
+    
+    return folder_path
+
+def create_subfolders(main_dir, subfolder_name):
+    for folder in os.listdir(main_dir):
+        
+        folder_path = os.path.join(main_dir, folder)
+        
+        if not os.path.isdir(folder_path):
+            continue
+        else:
+            sub_folder_path = os.path.join(folder_path, subfolder_name)
+            print(sub_folder_path)
+            create_folder(sub_folder_path)
+
+
+# BOPS specific functions
+
+
+
+# TESTS
 class test_default_ui_examples(unittest.TestCase):
     
     ##### TESTS WORKING ######
@@ -53,6 +110,7 @@ class test_default_ui_examples(unittest.TestCase):
         self.assertTrue(True)
 
 if __name__ == '__main__':
+    # Run the tests
     unittest.main()
    
 

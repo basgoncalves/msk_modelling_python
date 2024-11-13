@@ -1,2 +1,1 @@
-from . import hello
-from . import test
+from . import quick

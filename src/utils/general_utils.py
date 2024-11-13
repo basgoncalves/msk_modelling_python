@@ -149,6 +149,15 @@ def print_option_names():
         print(option)
 
 def print_warning(message = 'Error in code. '):
+    '''Example:
+    import msk_modelling_python as msk
+    try:
+        # run code
+    except Excepetion as e:
+        ut.print_warning('Error in code. ')
+        if msk.__testing__: 
+           raise e 
+    '''
     from colorama import Fore, Style
     print(Fore.YELLOW + "WARNING: " + message + Style.RESET_ALL)
 
@@ -183,9 +192,7 @@ def print_loading_bar(completion_ratio):
     print(f"\rProgress: [{progress_bar}] {completion_ratio:.2%}", end="")      
 
 def debug_print(message = 'Debugging ...', output = None):
-    # Example usage:
-    # debug_print('Debugging ...', output)
-    
+    # use to print debug messages but only when testing mode is on    
     from msk_modelling_python import __testing__
     if __testing__ == True:
         msk.ui.show_warning(message)
@@ -204,56 +211,16 @@ def time_to_load():
     print(f"Time elapsed: {final_time - initial_time} seconds.")
 
 ## FOLDERS
-def select_folder(prompt='Please select your folder', staring_path=''):    
-    try:
-        selected_folder = ctk.filedialog.askdirectory(initialdir=staring_path, title=prompt)
-    except Exception as e:
-        print("Error: Could not select the folder")
-        print(e)
-        return None
-    
-    return selected_folder
 
-def select_file():
-    file_path = ctk.filedialog.askopenfilename(title="Select a file")
 
-    if file_path:
-        pass
-    else:
-        raise ValueError('No file selected')    
 
-    return file_path
-
-def create_folder(folder_path = ''):
-    if not folder_path:
-        folder_path = select_folder()
-        pop_warning(f"Creaing folder at {folder_path}")
-           
-    if not os.path.exists(folder_path):
-        os.makedirs(folder_path)
-    else:
-        print(f"Folder {folder_path} already exists.")
-    
-    return folder_path
-
-def create_subfolders(main_dir, subfolder_name):
-    for folder in os.listdir(main_dir):
-        
-        folder_path = os.path.join(main_dir, folder)
-        
-        if not os.path.isdir(folder_path):
-            continue
-        else:
-            sub_folder_path = os.path.join(folder_path, subfolder_name)
-            print(sub_folder_path)
-            create_folder(sub_folder_path)
 
 def input_popup(prompt='Enter the path: ', title='Input'):
     root = tk.Tk()
     root.withdraw()  
     return sd.askstring(title, prompt)
 
-#%% Errors
+#%% Print template messages 
 def print_error_message():
     print("please select one of the following options:")
     print_option_names()
