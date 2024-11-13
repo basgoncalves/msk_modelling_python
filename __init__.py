@@ -20,7 +20,7 @@ import msk_modelling_python.src.plot as plot
 from msk_modelling_python import ui
 
 
-__version__ = '0.1.6'
+__version__ = '0.1.7'
 __testing__ = False
 
 if __testing__:
