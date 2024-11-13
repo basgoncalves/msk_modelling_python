@@ -1,6 +1,21 @@
-# msk_modelling_python (beta)
-Basilio Goncalves, PhD, Univiersity of Vienna
-first release 2024
+# msk_modelling_python (pre-release)
+Basilio Goncalves, PhD, Univiersity of Vienna, 2024
+
+
+## Pre-requisites for installation
+
+1. Download a code interpreter (I recommend visual studio code, but use your prefered one)
+https://code.visualstudio.com/download
+	
+2. Download and install python (suggest 3.8) - make sure it is the correct bit version
+https://www.python.org/downloads/release/python-380/
+	
+3. Download and install OpenSim (suggest >=4.3)
+https://simtk.org/frs/?group_id=91
+
+4. Install Rapid Env Editor (optional)
+https://www.rapidee.com/en/about	
+
 
 ## Usage 
 
@@ -10,8 +25,12 @@ python -m venv myenv
 ```
 2. copy this module "msk_modelling_python" to 
 ```
-.\myenv\Lib\site-packages\
+.\myenv\Lib\site-packages\msk_modelling_python
  ```
+
+Note: ensure the name of the package is exactly "msk_modelling_python"
+
+
 3. Run opensim setup from instalation folder - see https://simtk-confluence.stanford.edu:8443/display/OpenSim/Scripting+in+Python 
 
 ```sh
@@ -78,26 +97,6 @@ Inspired by the MATLAB version of BOPS (Batch OpenSim Processing Scripts) - http
     ```markdown
     functions to create user interface
     ```
-
-## Installation
-
-1. Download a code interpreter (I recommend visual studio code, but do whatever)
-https://code.visualstudio.com/download
-	
-2. Install Rapid Env Editor (optinonal)
-https://www.rapidee.com/en/about
-	
-3. Download and install python (suggest 3.8) - make sure it is the correct bit version
-https://www.python.org/downloads/release/python-380/
-	
-4. Download and install OpenSim (suggest >=4.3)
-https://simtk.org/frs/?group_id=91
-	
-5. Configure OpenSim and Python by running bops.py
-    for manual setup of opensim go to https://simtk-confluence.stanford.edu:8443/display/OpenSim/Scripting+in+Python
-
-6. Install ezc3d 
-    see ..\guide\steps_install_ezc3d_python.txt
 
 ## Examples
 
