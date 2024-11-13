@@ -143,11 +143,6 @@ def create_template_def():
         exit()
 
 #%% Functions (NOT AN OPTION)
-def print_option_names():
-    options = [name for name in globals() if isinstance(globals()[name], Option)]
-    for option in options:
-        print(option)
-
 def print_warning(message = 'Error in code. '):
     '''Example:
     import msk_modelling_python as msk
@@ -212,13 +207,6 @@ def time_to_load():
 
 ## FOLDERS
 
-
-
-
-def input_popup(prompt='Enter the path: ', title='Input'):
-    root = tk.Tk()
-    root.withdraw()  
-    return sd.askstring(title, prompt)
 
 #%% Print template messages 
 def print_error_message():
