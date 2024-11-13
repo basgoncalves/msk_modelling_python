@@ -101,7 +101,8 @@ def log_error(error_message, error_log_path=''):
     
     try:
         with open(error_log_path, 'a') as file:
-            file.write(error_message + '\n')
+            date = time.strftime("%Y-%m-%d %H:%M:%S")
+            file.write(f"{date}: {error_message}\n")
     except:
         print("Error: Could not log the error")
         return
