@@ -12,7 +12,7 @@ from msk_modelling_python.src.bops import bops
 from msk_modelling_python.src.bops import ceinms
 from msk_modelling_python.src.utils import general_utils as ut
 import msk_modelling_python.src.plot as plot
-from msk_modelling_python import ui # import ui modules (not finished yet...)
+from msk_modelling_python.src import ui # import ui modules (not finished yet...)
 
 __version__ = '0.1.7'
 __testing__ = False
