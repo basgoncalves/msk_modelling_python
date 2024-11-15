@@ -1,13 +1,12 @@
 {
   "__version__": "0.1.6",
   "__testing__": false,
-  "update": true,
+  "update": false,
   "gui": false,
   "current_project_folder": "c:\\Git\\Opencap_squat_validation",
   "jsonfile": "C:\\Git\\python-envs\\msk_modelling\\Lib\\site-packages\\msk_modelling_python\\src\\bops\\settings.json",
   "example_data": "C:\\Git\\research_data\\Projects\\test_project",
   "osim_exe": false,
-
   "bops": {
     "installation": "/path/to/project",
     "type": "biomechanics",
@@ -33,6 +32,12 @@
         "IK": true,
         "ID": true,
         "SO": true
+      },
+      "run": {
+        "scale": false,
+        "IK": false,
+        "ID": false,
+        "SO": false
       }
     }
   },
@@ -76,5 +81,9 @@
     "ceinms_results": "C:\\Git\\research_data\\Projects\\test_project\\Simulations\\P01\\pre\\dynamic04_l\\ceinms_results",
     "ceinms_results_forces": "C:\\Git\\research_data\\Projects\\test_project\\Simulations\\P01\\pre\\dynamic04_l\\ceinms_results\\MuscleForces.sto",
     "ceinms_results_activations": "C:\\Git\\research_data\\Projects\\test_project\\Simulations\\P01\\pre\\dynamic04_l\\ceinms_results\\Activations.sto"
-  }
+  },
+  "emg_labels": { },
+  "analog_labels": { },
+  "subjects": { },
+  "filters": { }
 }

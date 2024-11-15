@@ -54,8 +54,7 @@ except:
         pass
 
 #%% modules withing
-from msk_modelling_python import *
-from . import bops
+from msk_modelling_python.src.bops import bops
 from msk_modelling_python.src.bops import stats
 
 
@@ -66,7 +65,7 @@ if __name__ == "__main__":
     print(f"Current version: {bops.__version__}")
 
     stats.test()
-    bops.print_warning('test')
+    bops.Platypus().run_tests()
     bops.is_setup_file(r"C:\Git\python-envs\msk_modelling\Lib\site-packages\msk_modelling_python\example_data\walking\trial1\setup_id.xml", print_output=True)
     
     

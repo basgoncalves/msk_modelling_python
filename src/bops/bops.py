@@ -43,204 +43,7 @@ def is_setup_file(file_path, type = 'OpenSimDocument', print_output=False):
     elif print_output and not is_setup:
         print(f"{file_path} is not a setup file")
         
-    return is_setup
-    
-# %% ######################################################  Classes  ###################################################################
-class ProjectPaths:
-    '''
-    
-    '''
-    def __init__(self, project_folder=''):
-
-        if project_folder == 'example':
-            c3dFilePath = get_testing_file_path()
-            project_folder = os.path.abspath(os.path.join(c3dFilePath, '../../../../..'))
-
-        elif not project_folder or not os.path.isdir(project_folder):
-            ut.pop_warning(f'Project folder does not exist on {project_folder}. Please select a new project folder')
-            project_folder = msk.ui.select_folder('Please select project directory')
-            return
-        
-        self.main = project_folder
-        self.simulations = os.path.join(self.main,'simulations')
-        self.results = os.path.join(self.main,'results')
-        self.models = os.path.join(self.main,'models')
-        self.setup_files_path = os.path.join(self.main,'setupFiles')
-        
-        self.settings_json = os.path.join(self.main,'settings.json')
-
-        try:
-            self.subject_list = [f for f in os.listdir(self.simulations) if os.path.isdir(os.path.join(self.simulations, f))]
-        except:
-            self.subject_list = []
-            msk.ui.select_file(message = 'No subjects in the current project folder')     
-
-        # create a dictionary of setup files
-        self.setup_files = dict()
-        self.setup_files['scale'] = os.path.join(self.setup_files_path, 'setup_Scale.xml')
-        self.setup_files['ik'] = os.path.join(self.setup_files_path, 'setup_ik.xml')
-        self.setup_files['id'] = os.path.join(self.setup_files_path, 'setup_id.xml')
-        self.setup_files['so'] = os.path.join(self.setup_files_path, 'setup_so.xml')
-        self.setup_files['jrf'] = os.path.join(self.setup_files_path, 'setup_jrf.xml')
-        
-        # analysis settings
-        self.emg_labels = ['all']
-        self.analog_labels = ['all']
-        
-        self.filters = dict()
-        self.filters['emg_band_pass'] = [40,450]
-        self.filters['emg_low_pass'] = [6]
-        self.filters['emg_order'] = [4]
-        self.filters['grf'] = None
-        self.filters['markers'] = 6
-
-        # create a list of subject paths
-        self.subject_paths = []
-        for subject in self.subject_list:
-            self.subject_paths.append(os.path.join(self.simulations, subject))
-                    
-    def add_template_subject(self):
-        print('Not implemented ...')
-        if msk.__testing__:
-            ghost.create_template_osim_subject(parent_dir=self.main)
-        return None
-    
-    def create_settings_json(self):
-        save_json_file(self.__dict__, self.settings_json)
-        print('settings.json created in ' + self.main)
-
-class Subject:
-    # class to store subject information
-    def __init__(self, subject_folder):
-        self.folder = subject_folder
-        self.id = os.path.basename(os.path.normpath(subject_folder))
-        self.session_paths = [f.path for f in os.scandir(subject_folder) if f.is_dir()]
-        self.settings_json = os.path.join(self.folder,'settings.json')
-        
-    def print(self):
-        print('Subject ID: ' + self.id)
-        print('Subject folder: ' + self.folder)
-    
-    def create_settings_json(self, overwrite=False):
-        
-        if os.path.isfile(self.settings_json) and not overwrite:
-            print('settings.json already exists')
-            return
-        
-        save_json_file(self.__dict__, self.settings_json)
-        print('subject settings.json created in ' + self.folder)
-
-    def get_session(self, session_name):
-        if session_name is int():
-            print('session name must be a string')
-            return 
-        else:
-            session = Session(os.path.join(self.folder, session_name))
-        return session
-
-class Session:
-    def __init__(self, session_path):
-        self.path = session_path
-        self.name = os.path.basename(os.path.normpath(session_path))
-        # get files in the session folder that are .c3d files
-        self.c3d_paths = [f.path for f in os.scandir(session_path) if f.is_file() and f.name.endswith('.c3d')]
-        
-        # trial paths and names only for the c3d files
-        self.trial_names = [os.path.basename(os.path.normpath(f)).replace('.c3d', '') for f in self.c3d_paths]
-        
-        self.settings_json = os.path.join(self.path,'settings.json')
-        
-    def create_settings_json(self, overwrite=False):        
-        if os.path.isfile(self.settings_json) and not overwrite:
-            print('settings.json already exists')
-            return
-        
-        settings_dict = self.__dict__
-        save_json_file(settings_dict, self.settings_json)
-        print('session settings.json created in ' + self.path)
-
-    def get_trial(self, trial_name):
-        
-        # if trial_name is an integer, use as index to get trial name
-        if trial_name is int():
-            trial_name = self.trial_names[trial_name]
-            trial = Trial(os.path.join(self.path, trial_name))
-            
-        else:
-            trial = Trial(os.path.join(self.path, trial_name))
-            
-        return trial
-     
-class Trial:
-    '''
-    Class to store trial information and file paths, and export files to OpenSim format
-    '''
-    def __init__(self, trial_path):        
-        self.path = trial_path
-        self.name = os.path.basename(os.path.normpath(trial_path))
-        self.og_c3d = os.path.join(os.path.dirname(trial_path), self.name + '.c3d')
-        self.c3d = os.path.join(trial_path,'c3dfile.c3d')
-        
-        if not os.path.isdir(trial_path):
-            msk.ui.create_folder(trial_path)
-        
-        if not os.path.isfile(self.og_c3d):
-            shutil.copyfile(self.og_c3d, self.c3d)
-        
-        self.trc = os.path.join(trial_path,'marker_experimental.trc')
-        self.grf = os.path.join(trial_path,'grf.mot')
-        self.emg = os.path.join(trial_path,'emg.csv')
-        self.ik = os.path.join(trial_path,'ik.mot')
-        self.id = os.path.join(trial_path,'inverse_dynamics.sto')
-        self.so_force = os.path.join(trial_path,'static_optimization_force.sto')
-        self.so_activation = os.path.join(trial_path,'static_optimization_activation.sto')
-        self.jra = os.path.join(trial_path,'joint_reacton_loads.sto')
-        
-        self.grf_xml = os.path.join(trial_path,'grf.xml')
-        
-        self.settings_json = os.path.join(self.path,'settings.json')
-    
-    def create_settings_json(self, overwrite=False):
-        if os.path.isfile(self.settings_json) and not overwrite:
-            print('settings.json already exists')
-            return
-        
-        settings_dict = self.__dict__
-        save_json_file(settings_dict, self.settings_json)
-        print('trial settings.json created in ' + self.path)
-    
-    def exportC3D(self):
-        c3d_osim_export(self.og_c3d) 
-
-    def create_grf_xml(self):
-        msk.bops.create_grf_xml(self.grf, self.grf_xml)
-class Model:
-    def __init__(self, model_path):
-        self.osim_object = osim.Model(model_path)
-        self.path = model_path
-        self.xml = ET.parse(model_path)
-        self.version = self.xml.getroot().get('Version') 
-    
-    def print(self):
-        print('---')
-        print('Model path: ' + self.path)
-        print('Model version: ' + self.version)
-        print('---')
-
-
-def StartProject(project_folder=''):
-    
-    if not project_folder:
-        project_folder = select_folder('Please select project directory')
-        new_project = True
-    else:
-        new_project = False
-    
-    create_new_project_folder(project_folder)
-    
-    
-    return ProjectPaths(project_folder)
-    
+    return is_setup  
     
 
 #%% ######################################################  General  #####################################################################
@@ -269,13 +72,7 @@ def select_folder(prompt='Please select your folder', staring_path=''):
     selected_folder = filedialog.askdirectory(initialdir=staring_path,title=prompt)
     return selected_folder
 
-def select_folder_multiple (prompt='Please select multiple folders', staring_path=''):
-    if not staring_path: # if empty
-        staring_path = os.getcwd()
 
-    tk().withdraw()
-    folder_list = tkfilebrowser.askopendirnames(initialdir=staring_path,title=prompt)
-    return folder_list
 
 def select_subjects():
    subject_names = get_subject_names()
@@ -3020,6 +2817,15 @@ class Platypus:
         
         # Run the Tkinter event loop
         window.mainloop()
+    
+    def run_tests(self):
+        print('running all tests ...')
+        unittest.main()
+        
+        if self.mood == 'sad':
+            self.sad()
+        else:
+            self.happy()
         
 class test_bops(unittest.TestCase):
     
