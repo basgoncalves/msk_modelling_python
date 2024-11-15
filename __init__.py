@@ -174,8 +174,9 @@ class test_msk(unittest.TestCase):
         msk.bops.Platypus().happy()
         self.assertTrue(True)
         
+    
 if __name__ == "__main__":
-    # unittest.main()
+    unittest.main()
     pass
     
 #%% END
