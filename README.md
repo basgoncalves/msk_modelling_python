@@ -29,19 +29,24 @@
      python -m venv <myenv>
      ```
      Note: use any name you want for <\myenv>
+---
 2. **Copy this Module "msk_modelling_python" to**
      ```
      .\<myenv>\Lib\site-packages\msk_modelling_python
      ```
      *Note: Ensure the name of the package is exactly "msk_modelling_python"*
+---
 
 3. **Run OpenSim Setup from Installation Folder**  
     See [OpenSim Scripting in Python](https://simtk-confluence.stanford.edu:8443/display/OpenSim/Scripting+in+Python)
      ```sh
+     .\<myenv>\Scripts\activate
      cd 'C:\OpenSim 4.5\sdk\Python'
      python setup_win_python38.py
-     python -m pip install .\<myenv>\Lib\site-packages\msk_modelling_python
+     python -m pip install .
      ```
+     Note: run commands from shell or terminal    
+---
 
 4. **Add the Path to the OpenSim Libraries to Your Environment Variables**  
     Add the following paths to your `PATH` variable:
@@ -50,27 +55,27 @@
      C:\OpenSim 4.5\lib
      ```
      Note: see for help https://answers.microsoft.com/en-us/windows/forum/all/change-system-variables-on-windows-11/f172c29e-fd9e-4f0b-949d-c4696bd656b8
-
+---
 5. **Verify the OpenSim Installation**
      ```python
      import opensim as osim
      model = osim.Model()
      print("OpenSim model created successfully!")
      ```
-
+---
 6. **Install requirements**
      ```powershell
      cd .\<myenv>\Lib\site-packages\msk_modelling_python
      pip install -r requirements.txt
      ```
-
+---
 7. **Testing msk_modelling_python**
      ```python
      import msk_modelling_python as mks
      msk.run()
      ```
      Note: to change the performance of msk.run() edit the settings file in .\msk_modelling_python\src\bops\settings.json
-
+---
 8. **Basic Usage**
      ```python
      import msk_modelling_python as msk
@@ -85,8 +90,8 @@
      # run IK
      trial = msk.Project
      ```
-
-7. **Use Example Scripts**
+---
+9. **Use Example Scripts**
      Use example scripts in the "ExampleScripts" directory to get started with common tasks and workflows.
 
 ---
