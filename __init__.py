@@ -127,7 +127,7 @@ def update(param = None):
         update_version(3, __file__, invert=False)
     
 #%% RUN
-def run():
+def run_bops():
     '''
     Run the main code of the module. 
         

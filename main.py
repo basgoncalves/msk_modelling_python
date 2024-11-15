@@ -6,7 +6,7 @@ Change settings on the .\settings.json file to change the behaviour of the modul
 import msk_modelling_python as msk
 
 if __name__ == "__main__":
-  msk.run()
+  msk.run_bops()
 # # END
 
 
