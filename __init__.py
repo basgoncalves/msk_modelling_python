@@ -1,24 +1,18 @@
-
-
-#%% load all the packages needed
 import sys
 import os
 import time
-
+import unittest
 # import src modules first
+import msk_modelling_python as msk
 from msk_modelling_python import src
 from msk_modelling_python.src import tests
 from msk_modelling_python.src import osim
-from msk_modelling_python.src.classes import *
+from msk_modelling_python.src import classes
 from msk_modelling_python.src.bops import bops 
 from msk_modelling_python.src.bops import ceinms
 from msk_modelling_python.src.utils import general_utils as ut
 import msk_modelling_python.src.plot as plot
-
-
-# import ui modules (not finished yet...)
-from msk_modelling_python import ui
-
+from msk_modelling_python import ui # import ui modules (not finished yet...)
 
 __version__ = '0.1.7'
 __testing__ = False
@@ -32,17 +26,18 @@ if __testing__:
     print("Python version: 3.8.10")
     print("For the latest version, visit " + r'GitHub\basgoncalves\msk_modelling_python')
     
-
-
-#%% Description
-#
-# This module is a collection of functions that can be used to run
-# update the version of a module, log errors, create folders, and load projects.
-   
-
 #%% FUNCTIONS
 def update_version(level=3, module=__file__, invert=False):
-    # Get the current version of the module and the path to the module
+    '''
+    Inputs:
+        level (int): The level of the version to increment (1, 2, or 3) assuming the version is in the format 'major.minor.patch'
+        module (module): The module to update the version of
+        invert (bool): If True, decrement the version instead of incrementing it
+    Usage:
+        import msk_modelling_python as msk
+        msk.update_version(3, msk, invert=False) # update the patch version of the module "msk" by incrementing it by 1    
+    '''
+    
     if module != __file__:
         try:
             print(f'Current module version: {module.__version__}')
@@ -71,7 +66,7 @@ def update_version(level=3, module=__file__, invert=False):
     # Join the version parts back into a string
     updated_version = '.'.join(map(str, version_parts))
     
-    # Read the current module file
+    # Read the current module file line per line
     try:
         with open(module_path, 'r') as file:
             lines = file.readlines()
@@ -80,7 +75,7 @@ def update_version(level=3, module=__file__, invert=False):
         print(module_path)
         return
     
-    # Update the version in the file    
+    # Find the line with __version__ and update it
     try:
         with open(module_path, 'w') as file:
             for line in lines:
@@ -94,6 +89,8 @@ def update_version(level=3, module=__file__, invert=False):
     
     ut.pop_warning(f'msk_modelling_python udpated \n old version: {current_version} \n version to {updated_version} \n')
     
+    return updated_version
+    
 def log_error(error_message, error_log_path=''):
     if not error_log_path:
         current_file_path = os.path.dirname(os.path.abspath(__file__))
@@ -106,21 +103,23 @@ def log_error(error_message, error_log_path=''):
     except:
         print("Error: Could not log the error")
         return
-            
-def load_project(project_path=''):
-    if not project_path:
-        project_path = ui.select_folder("Select project folder")
+
+def update(param = None):
+    '''
+    Update the module version.
     
-    print(bops.get_project_settings(project_path))
+    Parameters:
+        param (int): The level of the version to increment (1, 2, or 3) assuming the version is in the format 'major.minor.patch'
     
-    return project_path
-
-def mir():
-    print("My gf is the best ever!!")
-
-
+    Usage:
+        import msk_modelling_python as msk
+        msk.update(3) # update the patch version of the module "msk" by incrementing it by 1
+    '''
+    valid_params = []
+    if param == 'version':
+        update_version(3, __file__, invert=False)
+    
 #%% RUN
-# run the main code of the module
 def run(**kwargs):
     '''
     Run the main code of the module. 
@@ -135,7 +134,7 @@ def run(**kwargs):
         
         
     '''
-    print("Running main code from msk_modelling_python")
+    print("Running main code from msk_modelling_python ... ")
     
     # argument verification. check if the arguments are valid keep them (if additional arguments are added, update the list below)
     valid_args = ['update_version', 'example']
@@ -154,15 +153,29 @@ def run(**kwargs):
         
         if key == 'example' and kwargs[key] == True:
             print("Running example...")
-            gui = ui.run_example()
+            gui = bops.run_example()
         
         elif key == 'update_version' and kwargs[key] == True:
                 print("Updating version...")
-                update_version(3, msk, invert=False)
-                print(f"New version: {msk.__version__}") 
+                update_version(3, __file__, invert=False)
+                print(f"New version: {__version__}") 
         
-            
-    # implement version update if needed
-    
 
+class test_msk():
+    def test_update_version(self):
+        pass
+
+    def test_log_error(self):
+        pass
+
+    def test_load_project(self):
+        pass
+
+    def test_mir(self):
+        self.assertEqual(msk.mir(), "My gf is the best ever!!")
+        
+if __name__ == "__main__":
+    # unittest.main()
+    pass
+    
 #%% END
