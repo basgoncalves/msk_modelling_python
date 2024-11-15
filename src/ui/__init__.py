@@ -2,12 +2,9 @@ import os
 import tkinter as tk
 import customtkinter as ctk
 import screeninfo as si
-from tkinter import messagebox
-from msk_modelling_python import *
 import msk_modelling_python as msk
 from msk_modelling_python import bops
-from msk_modelling_python.ui import ui_examples 
-from msk_modelling_python.ui.ui_examples import get_ui_settings, show_warning, select_folder, create_folder, select_file
+from msk_modelling_python.src.ui.ui_examples import get_ui_settings, show_warning, select_folder, create_folder, select_file
 
 class Element:
         def __init__(self, root=None, type='', location=[], size=[], name="element", value=None, command=None, text=""):
