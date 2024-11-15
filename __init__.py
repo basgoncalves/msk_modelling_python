@@ -83,6 +83,13 @@ def update_version(level=3, module=__file__, invert=False):
                     file.write(f"__version__ = '{updated_version}'\n")
                 else:
                     file.write(line)
+        
+        # Update settings.json file with False update
+        settings = msk.bops.get_bops_settings()
+        settings['update'] = False
+        settings['__version__'] = updated_version
+        msk.bops.save_bops_settings(settings)
+            
     except:
         print("Error: Could not update the version")
         return
