@@ -1,8 +1,6 @@
-from msk_modelling_python import *
 import msk_modelling_python as msk
 from msk_modelling_python import osim
 import pyperclip
-import json
 import os
 import xml.etree.ElementTree as ET
 
@@ -39,6 +37,208 @@ class SubjectPaths:
         self.trial = TrialPaths(trial_path)
         self.results = os.path.join(self.main, 'results')
 
+class Project:
+    '''
+    
+    '''
+    def __init__(self, project_folder=''):
+
+        if project_folder == 'example':
+            c3dFilePath = get_testing_file_path()
+            project_folder = os.path.abspath(os.path.join(c3dFilePath, '../../../../..'))
+
+        elif not project_folder or not os.path.isdir(project_folder):
+            msk.ut.pop_warning(f'Project folder does not exist on {project_folder}. Please select a new project folder')
+            project_folder = msk.ui.select_folder('Please select project directory')
+            
+            if not os.path.isdir(project_folder):
+                msk.ut.pop_warning(f'Project folder does not exist on {project_folder}.')             
+                return
+        
+        self.main = project_folder
+        self.simulations = os.path.join(self.main,'simulations')
+        self.results = os.path.join(self.main,'results')
+        self.models = os.path.join(self.main,'models')
+        self.setup_files_path = os.path.join(self.main,'setupFiles')
+        
+        self.settings_json = os.path.join(self.main,'settings.json')
+
+        try:
+            self.subject_list = [f for f in os.listdir(self.simulations) if os.path.isdir(os.path.join(self.simulations, f))]
+        except:
+            self.subject_list = []
+            msk.ui.select_file(message = 'No subjects in the current project folder')     
+
+        # create a dictionary of setup files
+        self.setup_files = dict()
+        self.setup_files['scale'] = os.path.join(self.setup_files_path, 'setup_scale.xml')
+        self.setup_files['ik'] = os.path.join(self.setup_files_path, 'setup_ik.xml')
+        self.setup_files['id'] = os.path.join(self.setup_files_path, 'setup_id.xml')
+        self.setup_files['so'] = os.path.join(self.setup_files_path, 'setup_so.xml')
+        self.setup_files['jrf'] = os.path.join(self.setup_files_path, 'setup_jrf.xml')
+        
+        # analysis settings
+        self.emg_labels = ['all']
+        self.analog_labels = ['all']
+        
+        self.filters = dict()
+        self.filters['emg_band_pass'] = [40,450]
+        self.filters['emg_low_pass'] = [6]
+        self.filters['emg_order'] = [4]
+        self.filters['grf'] = None
+        self.filters['markers'] = 6
+
+        # create a list of subject paths
+        self.subject_paths = []
+        for subject in self.subject_list:
+            self.subject_paths.append(os.path.join(self.simulations, subject))
+                    
+    def add_template_subject(self):
+        print('Not implemented ...')
+        if msk.__testing__:
+            msk.bops.ghost.create_template_osim_subject(parent_dir=self.main)
+        return None
+    
+    def create_settings_json(self):
+        msk.ut.save_json_file(self.__dict__, self.settings_json)
+        print('settings.json created in ' + self.main)
+
+    def start(self, project_folder=''):
+    
+        if not project_folder:
+            project_folder = msk.ui.select_folder('Please select project directory')
+            new_project = True
+        else:
+            new_project = False
+        
+        msk.bops.create_new_project_folder(project_folder)
+        
+        self.main = project_folder
+        
+class Subject:
+    # class to store subject information
+    def __init__(self, subject_folder):
+        self.folder = subject_folder
+        self.id = os.path.basename(os.path.normpath(subject_folder))
+        self.session_paths = [f.path for f in os.scandir(subject_folder) if f.is_dir()]
+        self.settings_json = os.path.join(self.folder,'settings.json')
+        
+    def print(self):
+        print('Subject ID: ' + self.id)
+        print('Subject folder: ' + self.folder)
+    
+    def create_settings_json(self, overwrite=False):
+        
+        if os.path.isfile(self.settings_json) and not overwrite:
+            print('settings.json already exists')
+            return
+        
+        save_json_file(self.__dict__, self.settings_json)
+        print('subject settings.json created in ' + self.folder)
+
+    def get_session(self, session_name):
+        if session_name is int():
+            print('session name must be a string')
+            return 
+        else:
+            session = Session(os.path.join(self.folder, session_name))
+        return session
+
+
+  
+
+class Session:
+    def __init__(self, session_path):
+        self.path = session_path
+        self.name = msk.src.os.path.basename(os.path.normpath(session_path))
+        # get files in the session folder that are .c3d files
+        self.c3d_paths = [f.path for f in os.scandir(session_path) if f.is_file() and f.name.endswith('.c3d')]
+        
+        # trial paths and names only for the c3d files
+        self.trial_names = [os.path.basename(os.path.normpath(f)).replace('.c3d', '') for f in self.c3d_paths]
+        
+        self.settings_json = os.path.join(self.path,'settings.json')
+        
+    def create_settings_json(self, overwrite=False):        
+        if os.path.isfile(self.settings_json) and not overwrite:
+            print('settings.json already exists')
+            return
+        
+        settings_dict = self.__dict__
+        msk.bops.save_json_file(settings_dict, self.settings_json)
+        print('session settings.json created in ' + self.path)
+
+    def get_trial(self, trial_name):
+        
+        # if trial_name is an integer, use as index to get trial name
+        if trial_name is int():
+            trial_name = self.trial_names[trial_name]
+            trial = Trial(os.path.join(self.path, trial_name))
+            
+        else:
+            trial = Trial(os.path.join(self.path, trial_name))
+            
+        return trial
+
+class Trial:
+    '''
+    Class to store trial information and file paths, and export files to OpenSim format
+    '''
+    def __init__(self, trial_path):        
+        self.path = trial_path
+        self.name = os.path.basename(os.path.normpath(trial_path))
+        self.og_c3d = os.path.join(os.path.dirname(trial_path), self.name + '.c3d')
+        self.c3d = os.path.join(trial_path,'c3dfile.c3d')
+        
+        if not os.path.isdir(trial_path):
+            msk.ui.create_folder(trial_path)
+        
+        if not os.path.isfile(self.og_c3d):
+            msk.src.shutil.copyfile(self.og_c3d, self.c3d)
+        
+        self.trc = os.path.join(trial_path,'marker_experimental.trc')
+        self.grf = os.path.join(trial_path,'grf.mot')
+        self.emg = os.path.join(trial_path,'emg.csv')
+        self.ik = os.path.join(trial_path,'ik.mot')
+        self.id = os.path.join(trial_path,'inverse_dynamics.sto')
+        self.so_force = os.path.join(trial_path,'static_optimization_force.sto')
+        self.so_activation = os.path.join(trial_path,'static_optimization_activation.sto')
+        self.jra = os.path.join(trial_path,'joint_reacton_loads.sto')
+        
+        self.grf_xml = os.path.join(trial_path,'grf.xml')
+        
+        self.settings_json = os.path.join(self.path,'settings.json')
+    
+    def create_settings_json(self, overwrite=False):
+        if os.path.isfile(self.settings_json) and not overwrite:
+            print('settings.json already exists')
+            return
+        
+        settings_dict = self.__dict__
+        save_json_file(settings_dict, self.settings_json)
+        print('trial settings.json created in ' + self.path)
+    
+    def exportC3D(self):
+        c3d_osim_export(self.og_c3d) 
+
+    def create_grf_xml(self):
+        msk.bops.create_grf_xml(self.grf, self.grf_xml)
+
+class Model:
+    def __init__(self, model_path):
+        self.osim_object = osim.Model(model_path)
+        self.path = model_path
+        self.xml = ET.parse(model_path)
+        self.version = self.xml.getroot().get('Version') 
+    
+    def print(self):
+        print('---')
+        print('Model path: ' + self.path)
+        print('Model version: ' + self.version)
+        print('---')
+
+
+
 class TrialPaths:
     def __init__(self, trial_path = ''):
 
@@ -55,10 +255,9 @@ class TrialPaths:
         self.emg = os.path.join(self.path, 'emg.csv')
 
         # model paths
-        self.model_generic = os.path.join(self.path, 'generic.osim')
-        self.model_scaled = os.path.join(self.path, 'scaled.osim')
-        self.model_torsion = os.path.join(self.path, 'torsion_scaled.osim')
-
+        self.model_generic = None
+        self.model_scaled = None
+    
         # setup files
         self.grf_xml = os.path.join(self.path,'GRF.xml')
         self.setup_ik = os.path.join(self.path, 'setup_ik.xml')
@@ -101,6 +300,12 @@ class TrialPaths:
         self.ceinms_results_forces = os.path.join(self.ceinms_results,'MuscleForces.sto')
         self.ceinms_results_activations = os.path.join(self.ceinms_results,'Activations.sto')
 
+    def add_model_generic(self, model_path):
+        self.model_generic = model_path
+        
+    def add_model_scaled(self, model_path):
+        self.model_scaled = model_path
+
 class osimSetup:
     def __init__(self):
         pass
@@ -109,7 +314,6 @@ class osimSetup:
         print('Osim module version: ' + osim.__version__)
         print('Osim module path: ' + osim.__file__)
         
-
     def create_analysis_tool(coordinates_file, modelpath, results_directory, force_set_files=None):
         # Get mot data to determine time range
         motData = osim.Storage(coordinates_file)
@@ -349,86 +553,90 @@ class osimSetup:
         print(f'The total mass of the model is: {mass} kg')
         return mass       
 
-class TrialSimple:
-    def __init__(self,path):
-        self.path = path    
-        if not os.path.isfile(path):
-            print(f"Error not found: {path}")
-            
-        else:
-            print(f"Loading: {path}")
-            
-            if path.__contains__('angles.csv'):
-                self.angles = msk.bops.import_file(path)
+class SimpleProject:
+    '''
+    class for later to use in a simple project data structure
+    '''
+    class Trial:
+        def __init__(self,path):
+            self.path = path    
+            if not os.path.isfile(path):
+                print(f"Error not found: {path}")
                 
-            elif path.__contains__('muscle_forces.sto'):
-                new_path = path.replace('.sto','.csv')
-                msk.bops.shutil.copy(path,new_path)
-                self.muscleForces = msk.bops.import_file(new_path)
-                # remove time offset and time normalise
-                self.muscleForces['time'] = self.muscleForces['time'] - self.muscleForces['time'][0]
-                muscleForces_timeNorm = msk.bops.time_normalise_df(self.muscleForces)
-                muscleForces_timeNorm.to_csv(new_path.replace('.csv','_normalised.csv'), index=False)
+            else:
+                print(f"Loading: {path}")
                 
-            elif path.__contains__('muscle_forces.csv'):
-                self.muscleForces = msk.bops.import_file(path)
-                
-            elif path.__contains__('joint_loads.csv'):
-                self.jointLoads = msk.bops.import_file(path)
+                if path.__contains__('angles.csv'):
+                    self.angles = msk.bops.import_file(path)
+                    
+                elif path.__contains__('muscle_forces.sto'):
+                    new_path = path.replace('.sto','.csv')
+                    msk.bops.shutil.copy(path,new_path)
+                    self.muscleForces = msk.bops.import_file(new_path)
+                    # remove time offset and time normalise
+                    self.muscleForces['time'] = self.muscleForces['time'] - self.muscleForces['time'][0]
+                    muscleForces_timeNorm = msk.bops.time_normalise_df(self.muscleForces)
+                    muscleForces_timeNorm.to_csv(new_path.replace('.csv','_normalised.csv'), index=False)
+                    
+                elif path.__contains__('muscle_forces.csv'):
+                    self.muscleForces = msk.bops.import_file(path)
+                    
+                elif path.__contains__('joint_loads.csv'):
+                    self.jointLoads = msk.bops.import_file(path)
 
-class Task:
-    # For each task, create a class that contains the Trial objects
-    # check example folder structure: C:\Project\Subject\Task\Trial
-    def __init__(self, taskPath):
-        self.path = taskPath
-        self.folders = os.listdir(taskPath)
-        
-        for folder in self.folders:
-            folderPath = os.path.join(taskPath, folder)
-            self.__dict__[folder] = msk.Trial(folderPath)
-            self.trials = self.__dict__.keys()
+    class Task:
+        # For each task, create a class that contains the Trial objects
+        # check example folder structure: C:\Project\Subject\Task\Trial
+        def __init__(self, taskPath):
+            self.path = taskPath
+            self.folders = os.listdir(taskPath)
             
-class SubjectSimple:
-    # For each subject, create a class that contains the Task objects
-    # check example folder structure: C:\Project\Subject\Task\Trial
-    def __init__(self, path):
-        self.path = path
-        self.tasks = os.listdir(path)
+            for folder in self.folders:
+                folderPath = os.path.join(taskPath, folder)
+                self.__dict__[folder] = msk.Trial(folderPath)
+                self.trials = self.__dict__.keys()
+                
+    class Subject:
+        # For each subject, create a class that contains the Task objects
+        # check example folder structure: C:\Project\Subject\Task\Trial
+        def __init__(self, path):
+            self.path = path
+            self.tasks = os.listdir(path)
+            
+            for task in self.tasks:
+                taskPath = os.path.join(path, task)
+                if os.path.isdir(taskPath):
+                    self.__dict__[task] = msk.Task(taskPath)
+            
+    class Project:
+        # For each project, create a class that contains the Subject objects
+        # check example folder structure: C:\Project\Subject\Task\Trial
+        def __init__(self, projectPath=''):        
+            self.path = projectPath
+            self.dataPath = os.path.join(projectPath, 'Data')
+            
+            msk.bops.create_folder(self.dataPath)
+            
+            self.subjects = []
+            
+            for subject in os.listdir(self.dataPath):
+                subjectPath = os.path.join(self.dataPath, subject)
+                if os.path.isdir(subjectPath):
+                    self.__dict__[subject] = msk.SubjectSimple(subjectPath)    
+                    self.subjects.append(subject)
         
-        for task in self.tasks:
-            taskPath = os.path.join(path, task)
-            if os.path.isdir(taskPath):
-                self.__dict__[task] = msk.Task(taskPath)
-        
-class Project:
-    # For each project, create a class that contains the Subject objects
-    # check example folder structure: C:\Project\Subject\Task\Trial
-    def __init__(self, projectPath=''):        
-        self.path = projectPath
-        self.dataPath = os.path.join(projectPath, 'Data')
-        
-        msk.bops.create_folder(self.dataPath)
-        
-        self.subjects = []
-        
-        for subject in os.listdir(self.dataPath):
-            subjectPath = os.path.join(self.dataPath, subject)
-            if os.path.isdir(subjectPath):
-                self.__dict__[subject] = msk.SubjectSimple(subjectPath)    
-                self.subjects.append(subject)
-    
 
-def isTrial(var):
-    return isinstance(var, msk.Trial)
+    def isTrial(self,var):
+        return isinstance(var, self.Trial)
 
-def isTask(var):
-    return isinstance(var, msk.Task)
+    def isTask(self, var):
+        return isinstance(var, self.Task)
 
-def isSubject(var):
-    return isinstance(var, msk.Subject)
+    def isSubject(self, var):
+        return isinstance(var, self.Subject)
 
-def isProject(var):
-    return isinstance(var, msk.Project)
-    
+    def isProject(self, var):
+        return isinstance(var, self.Project)
+        
         
 #%% END

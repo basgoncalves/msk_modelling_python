@@ -1,5 +1,6 @@
 import os
 import sys
+import shutil
 
 try:
     import opensim as osim

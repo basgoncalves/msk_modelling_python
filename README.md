@@ -18,18 +18,20 @@
 4. **Install Rapid Env Editor (optional)**  
     [Rapid Env Editor](https://www.rapidee.com/en/about)
 
+5. **MOKKA (optional / only Windows users)**
+    [Open-source and cross-platform software to easily analyze biomechanical data](https://biomechanical-toolkit.github.io/mokka/)
 ---
 
 ## Usage
 
 1. **Create a Virtual Environment**
      ```sh
-     python -m venv myenv
+     python -m venv <myenv>
      ```
-
+     Note: use any name you want for <\myenv>
 2. **Copy this Module "msk_modelling_python" to**
      ```
-     .\myenv\Lib\site-packages\msk_modelling_python
+     .\<myenv>\Lib\site-packages\msk_modelling_python
      ```
      *Note: Ensure the name of the package is exactly "msk_modelling_python"*
 
@@ -38,34 +40,43 @@
      ```sh
      cd 'C:\OpenSim 4.5\sdk\Python'
      python setup_win_python38.py
-     python -m pip install .
+     python -m pip install .\<myenv>\Lib\site-packages\msk_modelling_python
      ```
 
 4. **Add the Path to the OpenSim Libraries to Your Environment Variables**  
     Add the following paths to your `PATH` variable:
      ```
-     C:\OpenSim 4.4\bin
-     C:\OpenSim 4.4\lib
+     C:\OpenSim 4.5\bin
+     C:\OpenSim 4.5\lib
      ```
+     Note: see for help https://answers.microsoft.com/en-us/windows/forum/all/change-system-variables-on-windows-11/f172c29e-fd9e-4f0b-949d-c4696bd656b8
 
-5. **Verify the Installation**
+5. **Verify the OpenSim Installation**
      ```python
      import opensim as osim
      model = osim.Model()
      print("OpenSim model created successfully!")
      ```
 
+6. **Install requirements**
+     ```
+     cd .\<myenv>\Lib\site-packages\msk_modelling_python
+     pip install -r requirements.txt
+     ```
+
 6. **Basic Usage**
      ```python
      import msk_modelling_python as msk
 
-     project_path = r'.\'
-     msk.bops.StartProject(project_path)
+     # test msk
+     msk.bops.Platypus().happy()
 
-     # Create a folder structure:
-     #   .\Project\Subject\Session\Trial1.c3d
-     #   .\Project\Subject\Session\Trial2.c3d
-     #   .\Project\Subject\Session\static.c3d
+     # export c3d
+     c3d_file_path = r'path\to\your\file.c3d'
+     msk.bops.export_c3d(c3d_file_path)
+
+     # run IK
+     trial = msk.Project
      ```
 
 7. **Use Example Scripts**

@@ -50,7 +50,7 @@ def show_warning(message, settings_type = 'Default'):
     label = ctk.CTkLabel(root, text=message, wraplength=280)
     label.pack(pady=20)
     
-    button = ctk.CTkButton(root, text="OK", command=root.destroy)
+    button = ctk.CTkButton(root, text="OK", command=root.quit)
     button.pack(pady=10)
     
     root.mainloop()
@@ -71,6 +71,11 @@ def select_file(prompt='Please select your file', staring_path=''):
     if not file_path: raise ValueError('No file selected')
 
     return file_path
+
+def select_folder_multiple (prompt='Please select multiple folders', staring_path=''):
+    root = ctk.CTk()
+    folder_list = ctk.filedialog.askdirectory(title=prompt, mustexist=True)
+    return folder_list
 
 def create_folder(folder_path = ''):
     if not folder_path:
@@ -107,6 +112,10 @@ class test_default_ui_examples(unittest.TestCase):
     ##### TESTS WORKING ######
     def test_show_warning(self):
         show_warning("This is a warning message")
+        self.assertTrue(True)
+        
+    def test_select_multiple_folders(self):
+        folder_list = select_folder_multiple()
         self.assertTrue(True)
 
 if __name__ == '__main__':

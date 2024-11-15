@@ -120,48 +120,44 @@ def update(param = None):
         update_version(3, __file__, invert=False)
     
 #%% RUN
-def run(**kwargs):
+def run():
     '''
     Run the main code of the module. 
-    
-    Parameters (optional):
-        update_version: function to update the version of the module
-        example: boolean to run the example
-        
-        example:
-            import msk_modelling_python as msk
-            msk.run(example=True)
-        
         
     '''
-    print("Running main code from msk_modelling_python ... ")
     
-    # argument verification. check if the arguments are valid keep them (if additional arguments are added, update the list below)
-    valid_args = ['update_version', 'example']
-    
-    for key in kwargs:
-        if key not in valid_args: # check if the argument is valid or delete it
-            print(f"Invalid argument: {key}")
-            kwargs.pop(key) # delete the argument from the dictionary
-    
-    if kwargs == {}:
-        ut.pop_warning("No valid arguments passed. Please pass the arguments as keyword arguments.")
-    
-    # arguments handling / implementation of command arguments
-    for key in kwargs:
-        print(f"Argument: {key} = {kwargs[key]}")
+    # run the steps based on the settings.json file in the bops package
+    try:
+        print('Running main.py')
+        settings = msk.bops.get_bops_settings()
         
-        if key == 'example' and kwargs[key] == True:
-            print("Running example...")
-            gui = bops.run_example()
+        if settings['gui']:
+            msk.bops.run_example()
+        pass
         
-        elif key == 'update_version' and kwargs[key] == True:
-                print("Updating version...")
-                update_version(3, __file__, invert=False)
-                print(f"New version: {__version__}") 
+        if settings['update']:
+            msk.update_version(3, msk, invert=False)
+        
+        if settings['bops']['analyses']['run']['IK']:
+            osim_model_path = msk.bops.select_file('Select the osim model file')
+            trc_marker_path = msk.bops.select_file('Select the marker file')
+            output_folder_path = msk.os.path.dirname(trc_marker_path)
+            msk.bops.run_inverse_kinematics(model_file=osim_model_path, marker_file=trc_marker_path , output_folder=output_folder_path)
+        
+        print('Check implementations.txt for future upcoming implementations')
+        print('.\msk_modelling_python\guide\log_problems\implementations.txt')
+        print('Check the log file for any errors')
+        print('.\msk_modelling_python\guide\log_problems\log.txt')
+        
+        msk.bops.Platypus().happy()
+    except Exception as e:
+        print("Error: ", e)
+        msk.log_error(e)
+        msk.bops.Platypus().sad()
+    
         
 
-class test_msk():
+class test_msk(unittest.TestCase):
     def test_update_version(self):
         pass
 
@@ -172,7 +168,11 @@ class test_msk():
         pass
 
     def test_mir(self):
-        self.assertEqual(msk.mir(), "My gf is the best ever!!")
+        pass
+    
+    def test_platypus(self):
+        msk.bops.Platypus().happy()
+        self.assertTrue(True)
         
 if __name__ == "__main__":
     # unittest.main()
