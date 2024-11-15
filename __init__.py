@@ -183,7 +183,13 @@ class test_msk(unittest.TestCase):
         
     
 if __name__ == "__main__":
-    unittest.main()
-    pass
+    try:
+        unittest.main()
+        msk.log_error('Tests passed for msk_modelling_python package')
+    except Exception as e:
+        print("Error: ", e)
+        msk.log_error(e)
+        msk.bops.Platypus().sad()
+    
     
 #%% END

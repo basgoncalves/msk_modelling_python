@@ -2806,6 +2806,7 @@ class Platypus:
     def show_image(self):
         # Create a Tkinter window
         window = tk.Tk()
+        
         # Load the image using PIL
         image = Image.open(self.image_path)
         # Create a Tkinter PhotoImage from the PIL image
@@ -2815,7 +2816,18 @@ class Platypus:
         label.image = photo
         label.pack()
         
-        # Run the Tkinter event loop
+        # center image on the screen
+        try:
+            window_width = window.winfo_reqwidth()
+            window_height = window.winfo_reqheight()
+            position_right = int((window.winfo_screenwidth()/2 - window_width*3)) 
+            position_down = int((window.winfo_screenheight()/2 - window_height*2))
+            window.geometry("+{}+{}".format(position_right, position_down))
+        except Exception as e:
+            msk.log_error('Error bops.Platypus: ' + e)
+            print('Could not center image on screen: ' + str(e))
+            
+        # Start the image loop
         window.mainloop()
     
     def run_tests(self):
@@ -2838,10 +2850,10 @@ class test_bops(unittest.TestCase):
         print('testing import opensim ... ')
         import opensim as osim
     
-    def test_ProjectPaths(self):
+    def test_Project(self):
         print('testing Project ... ')
-        project_paths = ProjectPaths()
-        # self.assertEqual(type(project_paths),ProjectPaths)
+        project = msk.classes.Project()
+        self.assertTrue(True)
     
     def test_platypus(self):
         print('testing platypus ... ')
