@@ -1,4 +1,5 @@
 import os
+import unittest
 import tkinter as tk
 import customtkinter as ctk
 import screeninfo as si
@@ -528,7 +529,20 @@ class App(ctk.CTk):
     def start(self):
         self.mainloop()
 
- 
+class test(unittest.TestCase):
+    def test_APP(self):
+        app = App()
+        self.assertTrue(app)
+        
+
+if __name__ == "__main__":
+    try:
+        msk.unittest.main()
+        msk.log_error('Tests passed for msk_modelling_python.src.ui')
+    except Exception as e:
+        print("Error: ", e)
+        msk.log_error(e)
+        msk.bops.Platypus().sad()
     
 
 #%%

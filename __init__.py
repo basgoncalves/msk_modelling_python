@@ -98,7 +98,7 @@ def update_version(level=3, module=__file__, invert=False):
     
     return updated_version
     
-def log_error(error_message, error_log_path=''):
+def log_error(error_message, error_log_path='' , ):
     if not error_log_path:
         current_file_path = os.path.dirname(os.path.abspath(__file__))
         error_log_path = os.path.join(current_file_path,"error_log.txt")
@@ -111,21 +111,6 @@ def log_error(error_message, error_log_path=''):
         print("Error: Could not log the error")
         return
 
-def update(param = None):
-    '''
-    Update the module version.
-    
-    Parameters:
-        param (int): The level of the version to increment (1, 2, or 3) assuming the version is in the format 'major.minor.patch'
-    
-    Usage:
-        import msk_modelling_python as msk
-        msk.update(3) # update the patch version of the module "msk" by incrementing it by 1
-    '''
-    valid_params = []
-    if param == 'version':
-        update_version(3, __file__, invert=False)
-    
 #%% RUN
 def run_bops():
     '''
@@ -181,7 +166,8 @@ class test_msk(unittest.TestCase):
         msk.bops.Platypus().happy()
         self.assertTrue(True)
         
-    
+    def test_run_bops(self):
+        run_bops()
 if __name__ == "__main__":
     try:
         unittest.main()

@@ -1,4 +1,17 @@
+import os 
+import unittest
 import msk_modelling_python as msk
+
+
+def run():
+    pass
+
+
+class test(unittest.TestCase):
+    def test_run(self):
+        self.assertRaises(Exception, run)
+        print("test_run passed!")
+        
 
 if __name__ == "__main__":
     try:
