@@ -131,7 +131,7 @@ This package includes a combination of other packages and custom functions to ma
 
 ## Examples
 
-Find examples under "ExampleScripts".
+Find examples under ".\example_data\example_modules".
 
 ---
 

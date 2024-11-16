@@ -26,7 +26,6 @@ if __testing__:
     print("Python version: 3.8.10")
     print("For the latest version, visit " + r'GitHub\basgoncalves\msk_modelling_python')
     
-#%% FUNCTIONS
 def update_version(level=3, module=__file__, invert=False):
     '''
     Inputs:
@@ -111,7 +110,6 @@ def log_error(error_message, error_log_path='' , ):
         print("Error: Could not log the error")
         return
 
-#%% RUN
 def run_bops():
     '''
     Run the main code of the module. 
@@ -168,6 +166,10 @@ class test_msk(unittest.TestCase):
         
     def test_run_bops(self):
         run_bops()
+        
+    def test_src(self):
+        src.test()
+            
 if __name__ == "__main__":
     try:
         unittest.main()
