@@ -144,9 +144,6 @@ class Subject:
             session = Session(os.path.join(self.folder, session_name))
         return session
 
-
-  
-
 class Session:
     def __init__(self, session_path):
         self.path = session_path
@@ -552,6 +549,109 @@ class osimSetup:
             mass += model.osim_object.getBodySet().get(i).getMass()
         print(f'The total mass of the model is: {mass} kg')
         return mass       
+
+    def sum_df_columns(df, groups = {}):
+        # Function to sum columns of a dataframe based on a dictionary of groups
+        # groups = {group_name: [column1, column2, column3]}
+        summed_df = pd.DataFrame()
+
+        if not groups:
+            groups = {'all': df.columns}
+
+        for group_name, group_columns in groups.items():
+            group_sum = df[group_columns].sum(axis=1)
+            summed_df[group_name] = group_sum
+
+        return summed_df
+
+        if not os.path.isfile(muscle_force_sto):
+            print_terminal_spaced('File not found:', muscle_force_sto)
+            return
+
+        if not os.path.isfile(model_path):
+            print_terminal_spaced('File not found:', model_path)
+            return
+        
+        if not os.path.isfile(muscle_length_sto):
+            print_terminal_spaced('File not found:', muscle_length_sto)
+            return
+        
+
+        # muscle_work 
+        muscle_work = calculate_muscle_work(muscle_length_sto,muscle_force_sto, save = False, save_path = None)
+        muscle_work.to_csv(os.path.join(os.path.dirname(muscle_force_sto),'MuscleWork.csv'), index=False)
+        
+        # force curce normalise to weight and save as csv
+        muscle_force = time_normalise_df(import_sto_data(muscle_force_sto))
+        muscle_force_normalised_to_weight = normalise_df(muscle_force,body_weight)
+        muscle_force_normalised_to_weight.to_csv(os.path.join(os.path.dirname(muscle_force_sto),'MuscleForces_normalised.csv'), index=False)
+
+        # muscle work normalised to weight and save as csv
+        muscle_work_normalised_to_weight = normalise_df(muscle_work,body_weight)
+        muscle_work_normalised_to_weight.to_csv(os.path.join(os.path.dirname(muscle_force_sto),'MuscleWork_normalised.csv'), index=False)
+
+        muscles_r_hip_flex = osimSetup.get_muscles_by_group_osim(model_path,['hip_flex_r','hip_add_r','hip_inrot_r'])
+        muscles_r_hip_ext = osimSetup.get_muscles_by_group_osim(model_path,['hip_ext_r','hip_abd_r','hip_exrot_r'])
+        muscles_r_knee_flex = osimSetup.get_muscles_by_group_osim(model_path,['knee_flex_r'])
+        muscles_r_knee_ext = osimSetup.get_muscles_by_group_osim(model_path,['knee_ext_r'])
+        muscles_r_ankle_df = osimSetup.get_muscles_by_group_osim(model_path,['ankle_df_r'])
+        muscles_r_ankle_pf = osimSetup.get_muscles_by_group_osim(model_path,['ankle_pf_r'])
+
+        muscles_l_hip_flex = osimSetup.get_muscles_by_group_osim(model_path,['hip_flex_l','hip_add_l','hip_inrot_l'])
+        muscles_l_hip_ext = osimSetup.get_muscles_by_group_osim(model_path,['hip_ext_l','hip_abd_l','hip_exrot_l'])
+        muscles_l_knee_flex = osimSetup.get_muscles_by_group_osim(model_path,['knee_flex_l'])
+        muscles_l_knee_ext = osimSetup.get_muscles_by_group_osim(model_path,['knee_ext_l'])
+        muscles_l_ankle_df = osimSetup.get_muscles_by_group_osim(model_path,['ankle_df_l'])
+        muscles_l_ankle_pf = osimSetup.get_muscles_by_group_osim(model_path,['ankle_pf_l'])
+
+        groups = {  'RightHipFlex': muscles_r_hip_flex['all_selected'],
+                    'RightHipExt': muscles_r_hip_ext['all_selected'],
+                    'RightKneeFlex': muscles_r_knee_flex['all_selected'],
+                    'RightKneeExt': muscles_r_knee_ext['all_selected'],
+                    'RightAnkleDF': muscles_r_ankle_df['all_selected'],
+                    'RightAnklePF': muscles_r_ankle_pf['all_selected'],
+                    'LeftHipFlex': muscles_l_hip_flex['all_selected'],
+                    'LeftHipExt': muscles_l_hip_ext['all_selected'],
+                    'LeftKneeFlex': muscles_l_knee_flex['all_selected'],
+                    'LeftKneeExt': muscles_l_knee_ext['all_selected'],
+                    'LeftAnkleDF': muscles_l_ankle_df['all_selected'],
+                    'LeftAnklePF': muscles_l_ankle_pf['all_selected']
+        }
+        # Perform grouping and summing for each group
+        muscle_work_summed = sum_df_columns(muscle_work_normalised_to_weight,groups)
+        # sum the work per group 
+        muscle_work_summed= muscle_work_summed.sum(axis=0)
+        return muscle_work_summed
+
+    def calculate_muscle_work(muscle_length_sto,muscle_force_sto, save = True, save_path = None):
+
+        try:
+            length = time_normalise_df(import_sto_data(muscle_length_sto))
+            force = time_normalise_df(import_sto_data(muscle_force_sto))
+        except:
+            print('Error importing files')
+            return
+        
+        work = pd.DataFrame()
+        
+        for muscle in length.columns:
+            if muscle == 'time':
+                work['time'] = length['time']
+            elif muscle in force.columns:
+                work_series = length[muscle] * force[muscle]
+                work[muscle] = work_series.sum(axis=0) 
+            else:
+                print('Muscle', muscle, 'not found in forces')
+        work = work.iloc[[0]]
+        if save and not save_path:
+            work.to_csv(os.path.join(os.path.dirname(muscle_force_sto),'results'),'muscle_work.csv')
+            print('Data saved to', os.path.join(os.path.dirname(muscle_force_sto),'results'),'muscle_work.csv')
+        elif save and save_path:
+            work.to_csv(save_path)
+            print('Data saved to', save_path)
+
+        return work
+
 
 class SimpleProject:
     '''

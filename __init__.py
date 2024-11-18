@@ -116,6 +116,13 @@ def run_bops():
         
     '''
     
+    
+    # run the tests
+    if bops.__testing__:
+        msk.test()
+        msk.ui.test()
+    
+    
     # run the steps based on the settings.json file in the bops package
     try:
         print('Running main.py')
@@ -147,7 +154,7 @@ def run_bops():
     
         
 
-class test_msk(unittest.TestCase):
+class test(unittest.TestCase):
     def test_update_version(self):
         pass
 
@@ -169,6 +176,10 @@ class test_msk(unittest.TestCase):
         
     def test_src(self):
         src.test()
+        
+    def test_ui(self):
+        msk.ui.test()
+        
             
 if __name__ == "__main__":
     try:
