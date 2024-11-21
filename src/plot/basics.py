@@ -181,7 +181,7 @@ def spider(files):
     
     
 # Testing the functions using unittest module when the script is run directly
-class test_basics(unittest.TestCase):
+class test(unittest.TestCase):
     # for each function assign True or false to run the test
     
     def test_plot_curves(self, run = False):
@@ -213,37 +213,12 @@ class test_basics(unittest.TestCase):
             data.plot_lines(show=False)
             data.correlation_matrix(show=False)
             data.show()
-            
-
+    
 
 if __name__ == "__main__":
     
     output = unittest.main(exit=False)
-    # test_file = False
-    # test_multiple_files = False
-    # test_spider = True
-    
-    # if test_file:
-    #     file1 = select_file()
-    #     file2 = select_file()
-    #     plot_curves(file1, file2)
-    # else:
-    #     pass
-    
-    # if test_multiple_files:
-    #     files = select_multiple_files()
-    #     plot_multiple_curves(files)
-    # else:
-    #     pass
-    
 
-    # # test spider plot
-    # if test_spider:
-    #     file1 = select_file()
-    #     file2 = select_file()
-    #     spider(file1, file2)
-    # else:
-    #     pass
     
 
 # END

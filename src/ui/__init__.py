@@ -2,6 +2,7 @@ import os
 import unittest
 import tkinter as tk
 import customtkinter as ctk
+import matplotlib.pyplot as plt
 import screeninfo as si
 import msk_modelling_python as msk
 from msk_modelling_python import bops
