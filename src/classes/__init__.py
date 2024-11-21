@@ -187,7 +187,7 @@ class Trial:
     name (str) - name of the trial folder
     og_c3d (str) - path to the original c3d file
     c3d (str) - path to the c3d file in the trial folder
-    trc (str) - path to the marker trc file
+    markers (str) - path to the marker trc file
     grf (str) - path to the ground reaction force mot file
     ...
     
@@ -197,15 +197,7 @@ class Trial:
     def __init__(self, trial_path):        
         self.path = trial_path
         self.name = os.path.basename(os.path.normpath(trial_path))
-        self.og_c3d = os.path.join(os.path.dirname(trial_path), self.name + '.c3d')
-        self.c3d = os.path.join(trial_path,'c3dfile.c3d')
-        
-        if not os.path.isdir(trial_path):
-            msk.ui.create_folder(trial_path)
-        
-        if not os.path.isfile(self.og_c3d):
-            msk.src.shutil.copyfile(self.og_c3d, self.c3d)
-        
+        self.c3d = os.path.join(os.path.dirname(trial_path), self.name + '.c3d')
         self.trc = os.path.join(trial_path,'marker_experimental.trc')
         self.grf = os.path.join(trial_path,'grf.mot')
         self.emg = os.path.join(trial_path,'emg.csv')
@@ -214,10 +206,22 @@ class Trial:
         self.so_force = os.path.join(trial_path,'static_optimization_force.sto')
         self.so_activation = os.path.join(trial_path,'static_optimization_activation.sto')
         self.jra = os.path.join(trial_path,'joint_reacton_loads.sto')
-        
         self.grf_xml = os.path.join(trial_path,'grf.xml')
-        
         self.settings_json = os.path.join(self.path,'settings.json')
+    
+    
+    def check_files(self):
+        '''
+        Output: True if all files exist, False if any file is missing
+        '''
+        files = self.__dict__.values()
+        all_files_exist = True
+        for file in files:
+            if not os.path.isfile(file):
+                print('File not found: ' + file)
+                all_files_exist = False
+                
+        return all_files_exist
     
     def create_settings_json(self, overwrite=False):
         if os.path.isfile(self.settings_json) and not overwrite:
