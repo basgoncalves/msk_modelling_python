@@ -22,7 +22,6 @@ class cmd_function:
         self.func(*args, **kwargs)
 
 #%% OSIM DATA CLASSES
-
 class SubjectPaths:
     def __init__(self, data_folder,subject_code='default',trial_name='trial1'):
 
@@ -44,7 +43,7 @@ class Project:
     def __init__(self, project_folder=''):
 
         if project_folder == 'example':
-            c3dFilePath = get_testing_file_path()
+            c3dFilePath = msk.bops.get_testing_file_path()
             project_folder = os.path.abspath(os.path.join(c3dFilePath, '../../../../..'))
 
         elif not project_folder or not os.path.isdir(project_folder):
@@ -133,7 +132,7 @@ class Subject:
             print('settings.json already exists')
             return
         
-        save_json_file(self.__dict__, self.settings_json)
+        msk.bops.save_json_file(self.__dict__, self.settings_json)
         print('subject settings.json created in ' + self.folder)
 
     def get_session(self, session_name):
@@ -180,6 +179,20 @@ class Session:
 class Trial:
     '''
     Class to store trial information and file paths, and export files to OpenSim format
+    
+    Inputs: trial_path (str) - path to the trial folder
+    
+    Attributes:
+    path (str) - path to the trial folder
+    name (str) - name of the trial folder
+    og_c3d (str) - path to the original c3d file
+    c3d (str) - path to the c3d file in the trial folder
+    trc (str) - path to the marker trc file
+    grf (str) - path to the ground reaction force mot file
+    ...
+    
+    Methods: use dir(Trial) to see all methods
+    
     '''
     def __init__(self, trial_path):        
         self.path = trial_path
@@ -212,11 +225,11 @@ class Trial:
             return
         
         settings_dict = self.__dict__
-        save_json_file(settings_dict, self.settings_json)
+        msk.bops.save_json_file(settings_dict, self.settings_json)
         print('trial settings.json created in ' + self.path)
     
     def exportC3D(self):
-        c3d_osim_export(self.og_c3d) 
+        msk.bops.c3d_osim_export(self.og_c3d) 
 
     def create_grf_xml(self):
         msk.bops.create_grf_xml(self.grf, self.grf_xml)
@@ -233,8 +246,6 @@ class Model:
         print('Model path: ' + self.path)
         print('Model version: ' + self.version)
         print('---')
-
-
 
 class TrialPaths:
     def __init__(self, trial_path = ''):
@@ -553,7 +564,7 @@ class osimSetup:
     def sum_df_columns(df, groups = {}):
         # Function to sum columns of a dataframe based on a dictionary of groups
         # groups = {group_name: [column1, column2, column3]}
-        summed_df = pd.DataFrame()
+        summed_df = msk.src.pd.DataFrame()
 
         if not groups:
             groups = {'all': df.columns}
@@ -626,13 +637,13 @@ class osimSetup:
     def calculate_muscle_work(muscle_length_sto,muscle_force_sto, save = True, save_path = None):
 
         try:
-            length = time_normalise_df(import_sto_data(muscle_length_sto))
-            force = time_normalise_df(import_sto_data(muscle_force_sto))
+            length = msk.bops.time_normalise_df(msk.bops.import_sto_data(muscle_length_sto))
+            force = msk.bops.time_normalise_df(msk.bops.import_sto_data(muscle_force_sto))
         except:
             print('Error importing files')
             return
         
-        work = pd.DataFrame()
+        work = msk.src.pd.DataFrame()
         
         for muscle in length.columns:
             if muscle == 'time':
@@ -651,7 +662,6 @@ class osimSetup:
             print('Data saved to', save_path)
 
         return work
-
 
 class SimpleProject:
     '''
@@ -737,6 +747,260 @@ class SimpleProject:
 
     def isProject(self, var):
         return isinstance(var, self.Project)
+    
+#%% Plotting 
+
+class Plot():
+    def create_sto_plot(stoFilePath=False):
+        # Specify the path to the .sto file
+        if not stoFilePath:
+            stoFilePath = msk.bops.get_testing_file_path('id')
+
+        # Read the .sto file into a pandas DataFrame
+        data = msk.bops.import_sto_data(stoFilePath)
+
+        # Get the column names excluding 'time'
+        column_names = [col for col in data.columns if col != 'time']
+
+        # Calculate the grid size
+        num_plots = len(column_names)
+        grid_size = int(num_plots ** 0.5) + 1
+
+        # Get the screen width and height
+        user32 = msk.src.ctypes.windll.user32
+        screensize = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+
+        fig_width = screensize[0] * 0.9
+        fig_height = screensize[1] * 0.9
+
+        # Create the subplots
+        fig, axs = msk.ui.plt.subplots(grid_size, grid_size, figsize=(10, 10))
+
+        # Flatten the axs array for easier indexing
+        axs = axs.flatten()
+
+        # Create a custom color using RGB values (r,g,b)
+        custom_color = (0.8, 0.4, 0.5)
+
+        num_cols = data.shape[1]
+        num_rows = int(msk.src.np.ceil(num_cols / 3))  # Adjust the number of rows based on the number of columns
+
+        # Iterate over the column names and plot the data
+        for i, column in enumerate(column_names):
+            ax = axs[i]
+            ax.plot(data['time'], data[column], color=custom_color, linewidth=1.5)
+            ax.set_title(column, fontsize=8)
+            
+            if i % 3 == 0:
+                ax.set_ylabel('Moment (Nm)',fontsize=9)
+                ax.set_yticks(msk.src.np.arange(-3, 4))
+
+            if i >= num_cols - 3:
+                ax.set_xlabel('time (s)', fontsize=8)
+                ax.set_xticks(msk.src.np.arange(0, 11, 2))
+            
+            ax.grid(True, linestyle='--', linewidth=0.5)
+            ax.tick_params(labelsize=8)
+
+        # Remove any unused subplots
+        if num_plots < len(axs):
+            for i in range(num_plots, len(axs)):
+                fig.delaxes(axs[i])
+
+        # Adjust the spacing between subplots
+        msk.ui.plt.tight_layout()
+
+        return fig
+
+    def create_example_emg_plot(c3dFilePath=False):
+        # Specify the path to the .sto file
+        if not c3dFilePath:
+            c3dFilePath = msk.bops.get_testing_file_path('c3d')
+
+        # Read the .sto file into a pandas DataFrame
+        data = msk.bops.import_c3d_analog_data(c3dFilePath)
+        data_filtered = msk.bops.emg_filter(c3dFilePath)
+
+        # Get the column names excluding 'time'
+        column_names = [col for col in data.columns if col != 'time']
+
+        # Calculate the grid size
+        num_plots = len(column_names)
+        grid_size = int(num_plots ** 0.5) + 1
+
+        # Get the screen width and height
+        user32 = msk.src.ctypes.windll.user32
+        screensize = user32.GetSystemMetrics(0), user32.GetSystemMetrics(1)
+        fig_width = screensize[0] * 0.9
+        fig_height = screensize[1] * 0.9
+
+        # Create the subplots
+        fig, axs = msk.plot.plt.subplots(grid_size, grid_size, figsize=(10, 10))
+
+        # Flatten the axs array for easier indexing
+        axs = axs.flatten()
+
+        # Create a custom color using RGB values (r,g,b)
+        custom_color = (0.8, 0.4, 0.5)
+
+        num_cols = data.shape[1]
+        num_rows = int(msk.src.np.ceil(num_cols / 3))  # Adjust the number of rows based on the number of columns
+
+        # Iterate over the column names and plot the data
+        for i, column in enumerate(column_names):
+            ax = axs[i]
+            ax.plot(data['time'], data[column], color=custom_color, linewidth=1.5)
+            ax.plot(data_filtered['time'], data_filtered[column], color=custom_color, linewidth=1.5)
+            ax.set_title(column, fontsize=8)
+            
+            if i % 3 == 0:
+                ax.set_ylabel('Moment (Nm)',fontsize=9)
+                ax.set_yticks(msk.src.np.arange(-3, 4))
+
+            if i >= num_cols - 3:
+                ax.set_xlabel('time (s)', fontsize=8)
+                ax.set_xticks(msk.src.np.arange(0, 11, 2))
+            
+            ax.grid(True, linestyle='--', linewidth=0.5)
+            ax.tick_params(labelsize=8)
+
+        # Remove any unused subplots
+        if num_plots < len(axs):
+            for i in range(num_plots, len(axs)):
+                fig.delaxes(axs[i])
+
+        # Adjust the spacing between subplots
+        msk.plot.plt.tight_layout()
+
+        return fig     
+
+    def calculate_axes_number(num_plots):
+        if num_plots  > 2:
+            ncols = msk.math.ceil(msk.math.sqrt(num_plots))
+            nrows = msk.math.ceil(num_plots / ncols)
+        else:
+            ncols = num_plots
+            nrows = 1
+
+        return ncols, nrows
+
+    def plot_line_df(df,sep_subplots = True, columns_to_plot='all',xlabel=' ',ylabel=' ', legend=['data1'],save_path='', title=''):
         
+        # Check if the input is a file path
+        if type(df) == str and os.path.isfile(df):
+            df = msk.bops.import_sto_data(df)
+            pass
+        
+        if columns_to_plot == 'all':
+            columns_to_plot = df.columns
+        
+        # Create a new figure and subplots
+        if sep_subplots:
+            ncols, nrows = msk.bops.calculate_axes_number(len(columns_to_plot))
+            fig, axs = msk.plot.plt.subplots(nrows, ncols, figsize=(15, 5))
+            
+            for row, ax_row in enumerate(axs):
+                for col, ax in enumerate(ax_row):
+                    ax_count = row * ncols + col
+
+                    heading = columns_to_plot[ax_count]    
+                    if heading not in df.columns:
+                        print(f'Heading not found: {heading}')
+                        continue    
+                    
+                    # Plot data
+                    ax.plot(df[heading])
+                    ax.set_title(f'{heading}')
+                    
+                    if row == 1:
+                        ax.set_xlabel(xlabel)
+                    if col == 0:
+                        ax.set_ylabel(ylabel)
+        
+            msk.plot.plt.legend(legend)
+            msk.plot.plt.xlabel(xlabel)
+            msk.plot.plt.ylabel(ylabel)
+            msk.plot.plt.title(title)
+        
+        else:
+            fig, axs = msk.plot.plt.subplots(1, 1, figsize=(15, 5))
+            for column in columns_to_plot:
+                axs.plot(df[column])
+                axs.set_title(f'{column}')
+                axs.set_xlabel(xlabel)
+                axs.set_ylabel(ylabel)
+            
+            msk.plot.plt.title(title)
+            axs.legend(columns_to_plot,ncols=2)
+        
+        fig.set_tight_layout(True)
+
+        if save_path:
+            msk.plot.save_fig(fig,save_path)
+        
+        return fig, axs
+
+    def plot_bar_df(df,transpose = False):
+
+        # Transpose the DataFrame to have rows as different bar series
+        if transpose:
+            df = df.transpose()
+
+        # Plot the bar chart
+        ax = df.plot(kind='bar', figsize=(10, 6), colormap='viridis')
+
+        # Customize the plot
+        ax.set_xlabel(' ')
+        ax.set_ylabel(' ')
+        ax.set_title(' ')
+        ax.set_xticklabels(ax.get_xticklabels(), rotation=45)
+
+        # Adjust subplot layout to make room for x-axis tick labels
+        plt.subplots_adjust(bottom=0.2)
+
+        return plt.gcf(), plt.gca()
+
+    def plot_line_list(data, labels = '', xlabel=' ', ylabel=' ', title=' ', save_path=''):
+        # Create a new figure
+        fig, ax = plt.subplots(figsize=(10, 6))
+
+        if not labels:
+            labels = [f'Data {i}' for i in range(len(data))]
+
+        # Plot the data
+        ax.plot(data, label=labels)
+
+        # Customize the plot
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        ax.set_title(title)
+        ax.legend()
+        
+
+        return fig, ax
+
+    def plot_from_txt(file_path='', xlabel=' ', ylabel=' ', title=' ', save_path=''):
+        
+        if not file_path:
+            file_path = select_file()
+        
+        # Read the data from the text file
+        data = msk.src.np.loadtxt(file_path)
+
+        # plot simple line plot
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.plot(data)
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        ax.set_title(title)
+                
+        fig.set_tight_layout(True)
+
+        if save_path:
+            save_fig(fig,save_path)
+        
+        return fig, ax
+
+    
         
 #%% END
