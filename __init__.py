@@ -98,7 +98,14 @@ def update_version(level=3, module=__file__, invert=False):
     
     return updated_version
     
-def log_error(error_message, error_log_path='' , ):
+def log_error(error_message, error_log_path=''):
+    '''
+    Log an error message to a file
+    
+    Inputs:
+        error_message (str): The error message to log
+        error_log_path (str): The path to the error log file (default is the error_log.txt file in the same directory as this file)
+    '''
     if not error_log_path:
         current_file_path = os.path.dirname(os.path.abspath(__file__))
         error_log_path = os.path.join(current_file_path,"error_log.txt")

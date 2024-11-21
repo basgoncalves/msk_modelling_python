@@ -36,3 +36,21 @@
 2024-11-20 15:58:52: msk tests all passsed!
 2024-11-20 16:01:12: msk tests all passsed!
 2024-11-20 16:18:43: msk tests all passsed!
+2024-11-21 15:43:58: msk tests all passsed!
+2024-11-21 15:48:03: msk tests all passsed!
+2024-11-21 15:48:21: msk tests all passsed!
+2024-11-21 15:48:31: msk tests all passsed!
+2024-11-21 15:48:39: msk tests all passsed!
+2024-11-21 15:49:00: msk tests all passsed!
+2024-11-21 15:49:09: msk tests all passsed!
+2024-11-21 15:51:54: msk tests all passsed!
+2024-11-21 23:59:58: msk tests all passsed!
+2024-11-22 00:03:05: msk tests all passsed!
+2024-11-22 00:03:22: msk tests all passsed!
+2024-11-22 00:03:57: msk tests all passsed!
+2024-11-22 00:03:57: Error in Marcel analysis, This is a test error message
+2024-11-22 00:04:14: msk tests all passsed!
+2024-11-22 00:04:14: Error in Marcel analysis, This is a test error message
+2024-11-22 00:05:32: msk tests all passsed!
+2024-11-22 00:06:00: msk tests all passsed!
+2024-11-22 00:06:00: Error in Marcel analysis setupmodule 'msk_modelling_python.src.bops.bops' has no attribute 'setup'
