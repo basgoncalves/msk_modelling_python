@@ -13,7 +13,7 @@ import msk_modelling_python as msk
 if __name__ == "__main__":
   try:
     msk.run_bops()
-    msk.log_error('Tests passed for msk_modelling_python package')
+    msk.log_error('main.py completed without errors')
   except Exception as e:
     print("Error: ", e)
     msk.log_error(e)

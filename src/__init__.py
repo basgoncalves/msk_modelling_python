@@ -1,7 +1,10 @@
 import os
 import sys
+import numpy as np
+import pandas as pd
 import shutil
 import unittest
+import ctypes
 
 try:
     import opensim as osim
@@ -24,7 +27,8 @@ class test(unittest.TestCase):
     def test_1(self):
         self.assertTrue(True)
           
-
+    # msk.log_error('src tests all passsed!')
+    
 if __name__ == "__main__":
     try:
         unittest.main()

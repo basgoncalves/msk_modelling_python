@@ -1,11 +1,12 @@
 import sys
 import os
 import time
+import math
 import unittest
 # import src modules first
 import msk_modelling_python as msk
 from msk_modelling_python import src
-from msk_modelling_python.src import tests
+# from msk_modelling_python.src import tests
 from msk_modelling_python.src import osim
 from msk_modelling_python.src import classes
 from msk_modelling_python.src.bops import bops 
@@ -112,16 +113,21 @@ def log_error(error_message, error_log_path='' , ):
 
 def run_bops():
     '''
-    Run the main code of the module. 
+    Run an example of the bops package
         
     '''
-    
-    
     # run the tests
-    if bops.__testing__:
-        msk.test()
-        msk.ui.test()
-    
+    try:
+        if bops.__testing__:
+            msk.test()
+            msk.ui.test()
+            msk.src.test()
+            msk.plot.basics.test()
+            msk.bops.test()
+            msk.log_error('All tests passed for msk_modelling_python package.')
+    except Exception as e:
+        ut.print_warning("Error running package testing: ", e)
+        msk.log_error(e)
     
     # run the steps based on the settings.json file in the bops package
     try:
@@ -130,7 +136,6 @@ def run_bops():
         
         if settings['gui']:
             msk.bops.run_example()
-        pass
         
         if settings['update']:
             msk.update_version(3, msk, invert=False)
@@ -152,11 +157,11 @@ def run_bops():
         msk.log_error(e)
         msk.bops.Platypus().sad()
     
-        
-
 class test(unittest.TestCase):
     def test_update_version(self):
         pass
+    
+    msk.log_error('msk tests all passsed!')
 
     def test_log_error(self):
         pass

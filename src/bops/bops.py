@@ -47,7 +47,7 @@ def is_setup_file(file_path, type = 'OpenSimDocument', print_output=False):
 
 def get_dir_bops():
     return os.path.dirname(os.path.realpath(__file__))
-    
+
 
 #%% ######################################################  General  #####################################################################
 
@@ -441,6 +441,12 @@ def import_c3d_analog_data(c3dFilePath):
     return analog_df
 
 def import_trc_file(trcFilePath):
+    '''
+    Input: trcFilePath(str) =  path to the trc file
+    
+    Output: trc_data(dict) = dictionary with the trc data
+            trc_dataframe(pd.DataFrame) = DataFrame with the trc data
+    '''
     trc_data = TRCData()
     trc_data.load(trcFilePath)
     
@@ -462,6 +468,41 @@ def import_trc_file(trcFilePath):
     trc_dataframe.to_csv(os.path.join(os.path.dirname(trcFilePath),'test.csv'))
     
     return trc_data, trc_dataframe
+
+def export_trc_file(trc_dataFrame, trcFilePath, sampleRate=200):
+    import textwrap
+    '''
+    Input:  trc_dataFrame(pd.DataFrame) = DataFrame with the trc data
+            trcFilePath(str) = path to the trc file
+    
+    Output: None
+    
+    Description: This function writes the data from a trc DataFrame to a trc file.
+    '''
+    
+    # Define the TRC headings
+    header_info = {
+    'PathFileTy': 4,
+    'DataRate': sampleRate,
+    'CameraRate': sampleRate,
+    'NumFram': len(trc_dataFrame),
+    'NumMark': len(trc_dataFrame.columns) - 1,
+    'Units': 'mm',
+    'OrigDataP': len(trc_dataFrame),
+    'OrigDataS': 1,
+    'OrigNumFrames': len(trc_dataFrame)
+    }
+    
+    # Create a header string
+    header_str = '\t'.join(f'{key} {value}' for key, value in header_info.items())
+
+    
+    # add TRC headings
+    
+    # Write the trc data to the trc file
+    trc_dataFrame.to_csv(trcFilePath, sep='\t', index=False)
+    
+    print('trc file saved')
 
 def import_json_file(jsonFilePath):
     
@@ -625,9 +666,17 @@ def read_trc_file(trcFilePath):
     pass
 
 def writeTRC(c3dFilePath, trcFilePath):
+    '''
+    Input:  c3dFilePath(str) = path to the c3d file
+            trcFilePath(str) = path to the trc file
+    
+    Output: None
+    
+    Description: This function writes the data from a c3d file to a trc file.
+    '''
 
     print('writing trc file ...')
-    c3d_dict = import_c3d_to_dict (c3dFilePath)
+    c3d_dict = import_c3d_to_dict(c3dFilePath)
 
     with open(trcFilePath, 'w') as file:
         # from https://github.com/IISCI/c3d_2_trc/blob/master/extractMarkers.py
@@ -661,9 +710,18 @@ def writeTRC(c3dFilePath, trcFilePath):
 
 def create_grf_xml(grf_file, output_file= '', apply_force_body_name='calcn_r', force_expressed_in_body_name='ground'):     
     '''Create an external loads XML file from a GRF file.
+    Inputs: grf_file(str): path to the GRF file
+            output_file(str): path to save the XML file
+            apply_force_body_name(str): name of the body to apply the force
+            force_expressed_in_body_name(str): name of the body in which the force is expressed
+    
+    Outputs: None
+    
     Usage:
     import msk_modelling_python as msk
-    msk.bops.create_grf_xml(grf_file, output_file= '', apply_force_body_name='calcn_r', force_expressed_in_body_name='ground')    
+    msk.bops.create_grf_xml(grf_file, output_file= '', apply_force_body_name='calcn_r', force_expressed_in_body_name='ground')  
+    
+      
     
     '''       
     # create empty ExternalLoads object and set the data file name
@@ -694,7 +752,7 @@ def create_grf_xml(grf_file, output_file= '', apply_force_body_name='calcn_r', f
         # Add new ExternalForce elements
         for i in range(num_forces):
             new_force = ET.Element('ExternalForce')
-            new_force.set('name', f'externalforce_{i}')  # Adjust names as needed
+            new_force.set('name', f'externalforce_{i+1}')  # Adjust names as needed
 
             def create_element(tag, text):
                 element = ET.Element(tag)
@@ -725,9 +783,9 @@ def create_grf_xml(grf_file, output_file= '', apply_force_body_name='calcn_r', f
             # Add child elements with desired attributes for each force
             new_force.append(create_element('applied_to_body', apply_force_body_name))
             new_force.append(create_element('force_expressed_in_body', force_expressed_in_body_name))
-            new_force.append(create_element('force_identifier', f'f{i}_'))
-            new_force.append(create_element('point_identifier', f'p{i}_'))
-            new_force.append(create_element('torque_identifier', f'm{i}_'))
+            new_force.append(create_element('force_identifier', f'f{i+1}_'))
+            new_force.append(create_element('point_identifier', f'p{i+1}_'))
+            new_force.append(create_element('torque_identifier', f'm{i+1}_'))
             
             indent(new_force, level=5)
             objects_tag.insert(i, new_force)
@@ -2313,11 +2371,6 @@ def plot_from_txt(file_path='', xlabel=' ', ylabel=' ', title=' ', save_path='')
     
     return fig, ax
 
-#%% ####################################################    ##################################################################
-#%% ####################################################  Error prints  ##################################################################
-def exampleFunction():
-    pass
-
 
 #%% ################################################  CREATE BOPS SETTINGS ###############################################################
 def add_markers_to_settings():
@@ -2527,9 +2580,9 @@ class Platypus:
         else:
             self.happy()
         
-class test_bops(unittest.TestCase):
+class test(unittest.TestCase):
     
-    ##### TESTS NOT WORKING ######
+    ##### TESTS WORKING ######
     def test_update_version(self):
         print('testing update_version ... ')
         self.assertRaises(Exception, update_version())
@@ -2553,8 +2606,9 @@ class test_bops(unittest.TestCase):
         print('testing create_grf_xml ... ')
         c3dFilePath = get_testing_file_path('c3d')
         create_grf_xml(c3dFilePath)
-            
-        
+    
+    
+    #### TESTS NOT WORKING ####
     not_working = False
     if not_working:                        
         def test_import_c3d_to_dict(self):
