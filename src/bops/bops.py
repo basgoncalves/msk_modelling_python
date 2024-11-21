@@ -303,11 +303,6 @@ def create_trial_folder(c3dFilePath):
     return trialFolder 
 
 
-# Testing functions and paths
-
-
-
-
 #%% import / save data  
 def import_file(file_path):
     df = pd.DataFrame()
