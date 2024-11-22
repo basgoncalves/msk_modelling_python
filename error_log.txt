@@ -54,3 +54,12 @@
 2024-11-22 00:05:32: msk tests all passsed!
 2024-11-22 00:06:00: msk tests all passsed!
 2024-11-22 00:06:00: Error in Marcel analysis setupmodule 'msk_modelling_python.src.bops.bops' has no attribute 'setup'
+2024-11-22 00:19:24: msk tests all passsed!
+2024-11-22 00:23:56: msk tests all passsed!
+2024-11-22 00:24:27: msk tests all passsed!
+2024-11-22 00:59:21: msk tests all passsed!
+2024-11-22 00:59:21: Error in Marcel analysis: test files not found
+2024-11-22 00:59:21: Error in Marcel analysis setup: [Errno 2] No such file or directory: 'C:\\Git\\research_documents\\students\\marcel_BSc_vienna\\conventional_dl_80kg02.c3d'
+2024-11-22 00:59:21: Error in Marcel analysis inverse kinematics: [Errno 2] No such file or directory: 'C:\\Git\\research_documents\\students\\marcel_BSc_vienna\\data\\pilot01\\sumo_dl_80kg01\\marker_experimental.trc'
+2024-11-22 00:59:21: Error in Marcel analysis inverse dynamics: run_ID() missing 1 required positional argument: 'resultsDir'
+2024-11-22 00:59:21: Error in Marcel analysis static optimization: run_SO() takes 3 positional arguments but 5 were given
