@@ -1,5 +1,6 @@
 import os
 import shutil
+import numpy as np
 
 
 def extract_files_by_type(src_folder, file_extensions):
@@ -9,9 +10,25 @@ def extract_files_by_type(src_folder, file_extensions):
     # Create the destination folder name
     dest_folder = f"{src_folder}_extracted"
     
+    list_skip = list(np.linspace(0, 58, 1))
+    list_skip = [f"{i:03}" for i in range(1, 59)]
+    
     # Walk through the source folder
     for root, dirs, files in os.walk(src_folder):
-        print(f"Processing folder: {root}")
+        
+        stop_root = False
+        for skip in list_skip:
+            compare_path = os.path.join(src_folder, skip)
+            if compare_path in root:
+                print(f"Skipping {root}")
+                stop_root = True
+                continue
+            
+        if stop_root:
+            continue
+        
+        print(f"Extracting files from {root}")
+        
         for file in files:
             if any(file.endswith(ext) for ext in extensions):
                 # Create the corresponding destination folder structure
