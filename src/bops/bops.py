@@ -1322,6 +1322,14 @@ def scale_model(originalModelPath,targetModelPath,trcFilePath,setupScaleXML):
     print()
 
 def run_IK(osim_modelPath, trc_file, resultsDir):
+    '''
+    Function to run Inverse Kinematics using the OpenSim API.
+    
+    Inputs:
+            osim_modelPath(str): path to the OpenSim model file
+            trc_file(str): path to the TRC file
+            resultsDir(str): path to the directory where the results will be saved
+    '''
 
     # Load the TRC file
     tuple_data = import_trc_file(trc_file)
@@ -1576,11 +1584,21 @@ def run_MA(osim_modelPath, ik_mot, grf_xml, resultsDir):
     maTool.run()
 
 def run_SO(modelpath, trialpath, actuators_file_path):
+    '''
+    Function to run Static Optimization using the OpenSim API.
+    
+    Inputs:
+            modelpath(str): path to the OpenSim model file
+            trialpath(str): path to the trial folder
+            actuators_file_path(str): path to the actuators file
+            
+    '''
     os.chdir(trialpath)
 
+    trial = Trial(trialpath)    
     # create directories
     results_directory = os.path.relpath(trialpath, trialpath)
-    coordinates_file = os.path.join(trialpath, "IK.mot")
+    coordinates_file =  os.path.relpath(trialpath, trial.ik)
     modelpath_relative = os.path.relpath(modelpath, trialpath)
 
     # create a local copy of the actuator file path and update name
@@ -1607,7 +1625,7 @@ def run_SO(modelpath, trialpath, actuators_file_path):
     so.setMaxIterations(25)
 
     analyzeTool_SO = osimSetup.create_analysis_tool(coordinates_file,modelpath_relative,results_directory)
-    analyzeTool_SO.getAnalysisSet().cloneAndAppend (so)
+    analyzeTool_SO.getAnalysisSet().cloneAndAppend(so)
     analyzeTool_SO.getForceSetFiles().append(actuators_file_path)
     analyzeTool_SO.setReplaceForceSet(False)
     OsimModel.addAnalysis(so)
@@ -1623,9 +1641,18 @@ def run_SO(modelpath, trialpath, actuators_file_path):
     analyzeTool_SO.run()
 
 def runJRA(modelpath, trial_path, setup_file_path):
+    '''
+    Function to run Joint Reaction Analysis using the OpenSim API.
+    
+    Inputs:
+            modelpath(str): path to the OpenSim model file
+            trial_path(str): path to the trial folder
+            setup_file_path(str): path to the setup file
+    '''
     os.chdir(trial_path)
-    results_directory = [trial_path]
-    coordinates_file = [trial_path, 'ik.mot']
+    trial_paths = Trial(trial_path)
+    results_directory = os.path.relpath(trial_path, trial_path)
+    coordinates_file = os.path.relpath(trial_path, trial_paths.ik)
     _, trialName = os.path.split(trial_path)
 
     # start model
@@ -1641,7 +1668,7 @@ def runJRA(modelpath, trial_path, setup_file_path):
     # start joint reaction analysis
     jr = osim.JointReaction(setup_file_path)
     jr.setName('joint reaction analysis')
-    jr.set_model(osimModel)
+    jr.setModel(osimModel)
 
     inFrame = osim.ArrayStr()
     onBody = osim.ArrayStr()
