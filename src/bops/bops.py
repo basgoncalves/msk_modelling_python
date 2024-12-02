@@ -448,7 +448,6 @@ def import_trc_file(trcFilePath):
     # convert data to DataFrame 
     data_dict = {}
     headers = list(trc_data.keys())
-    
     # only include columns from "Time" to "Markers" (i.e. labeled markers)
     data = list(trc_data.values())[headers.index('Time'):headers.index('Markers')-1]
     headers = headers[headers.index('Time'):headers.index('Markers')-1]
@@ -456,7 +455,14 @@ def import_trc_file(trcFilePath):
     for col_idx in range(1,len(data)):
         col_name = headers[col_idx]
         col_data = data[col_idx]
-        data_dict[col_name] = col_data
+        col_dict = {'x': [], 'y': [], 'z': []}
+        for i in range(len(col_data)):
+            col_dict['x'].append(col_data[i][0])
+            col_dict['y'].append(col_data[i][1])
+            col_dict['z'].append(col_data[i][2])
+            
+            
+        data_dict[col_name] = col_dict
 
     # convert data to DataFrame 
     trc_dataframe = pd.DataFrame(data_dict)
@@ -1332,6 +1338,7 @@ def run_IK(osim_modelPath, trc_file, resultsDir):
     '''
 
     # Load the TRC file
+    import pdb; pdb.set_trace()
     tuple_data = import_trc_file(trc_file)
     df = pd.DataFrame.from_records(tuple_data, columns=[x[0] for x in tuple_data])
     column_names = [x[0] for x in tuple_data]
@@ -1342,7 +1349,7 @@ def run_IK(osim_modelPath, trc_file, resultsDir):
     state = osimModel.initSystem()
 
     # Define the time range for the analysis
-    import pdb; pdb.set_trace()
+    
     initialTime = TRCData.getIndependentColumn()
     finalTime = TRCData.getLastTime()
 
