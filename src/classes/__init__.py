@@ -196,9 +196,9 @@ class Trial:
     '''
     def __init__(self, trial_path):        
         self.path = trial_path
-        self.name = os.path.basename(os.path.normpath(trial_path))
+        self.name = os.path.basename(trial_path)
         self.c3d = os.path.join(os.path.dirname(trial_path), self.name + '.c3d')
-        self.markers = os.path.join(trial_path,'marker_experimental.trc')
+        self.markers = os.path.join(trial_path,'markers_experimental.trc')
         self.grf = os.path.join(trial_path,'grf.mot')
         self.emg = os.path.join(trial_path,'emg.csv')
         self.ik = os.path.join(trial_path,'ik.mot')

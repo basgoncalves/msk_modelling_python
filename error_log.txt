@@ -63,3 +63,31 @@
 2024-11-22 00:59:21: Error in Marcel analysis inverse kinematics: [Errno 2] No such file or directory: 'C:\\Git\\research_documents\\students\\marcel_BSc_vienna\\data\\pilot01\\sumo_dl_80kg01\\marker_experimental.trc'
 2024-11-22 00:59:21: Error in Marcel analysis inverse dynamics: run_ID() missing 1 required positional argument: 'resultsDir'
 2024-11-22 00:59:21: Error in Marcel analysis static optimization: run_SO() takes 3 positional arguments but 5 were given
+2024-11-22 01:03:38: msk tests all passsed!
+2024-11-22 01:03:38: Error in Marcel analysis files not found in C:\Git\research_documents\students\marcel_BSc_vienna\data\pilot01\sumo_dl_80kg01
+2024-11-22 01:03:38: Error in Marcel analysis setup: [Errno 2] No such file or directory: 'C:\\Git\\research_documents\\students\\marcel_BSc_vienna\\conventional_dl_80kg02.c3d'
+2024-11-22 01:03:38: Error in Marcel analysis inverse kinematics: All arrays must be of the same length
+2024-11-22 01:03:38: Error in Marcel analysis inverse dynamics: run_ID() missing 1 required positional argument: 'resultsDir'
+2024-11-22 01:03:38: Error in Marcel analysis static optimization: run_SO() takes 3 positional arguments but 5 were given
+2024-11-22 01:06:12: msk tests all passsed!
+2024-11-22 01:06:28: msk tests all passsed!
+2024-11-22 01:07:08: msk tests all passsed!
+2024-11-22 01:07:19: msk tests all passsed!
+2024-11-22 01:10:10: msk tests all passsed!
+2024-11-22 14:06:57: msk tests all passsed!
+2024-11-22 14:06:57: Error in Marcel analysis files not found in C:\Git\research_documents\students\marcel_BSc_vienna\data\pilot01\sumo_dl_80kg01
+2024-11-22 14:06:57: Error in Marcel analysis setup: [Errno 2] No such file or directory: 'C:\\Git\\research_documents\\students\\marcel_BSc_vienna\\conventional_dl_80kg02.c3d'
+2024-11-25 13:40:51: msk tests all passsed!
+2024-11-25 13:40:51: Error in Marcel analysis files not found in C:\Git\research_documents\students\marcel_BSc_vienna\data\pilot01\sumo_dl_80kg01
+2024-11-25 13:41:15: Error in Marcel analysis inverse kinematics: 
+2024-11-25 13:41:15: Error in Marcel analysis inverse dynamics: run_ID() missing 1 required positional argument: 'resultsDir'
+2024-11-25 13:41:15: Error in Marcel analysis static optimization: run_SO() takes 3 positional arguments but 5 were given
+2024-11-25 16:15:11: msk tests all passsed!
+2024-11-25 16:30:56: msk tests all passsed!
+2024-11-25 16:35:16: msk tests all passsed!
+2024-11-25 16:36:31: msk tests all passsed!
+2024-11-25 16:39:02: msk tests all passsed!
+2024-11-26 11:00:12: msk tests all passsed!
+2024-11-28 15:58:11: msk tests all passsed!
+2024-11-28 15:59:53: msk tests all passsed!
+2024-11-28 16:15:24: msk tests all passsed!
