@@ -397,7 +397,7 @@ class osimSetup:
 
         return members_dict
 
-    def increase_max_isometric_force(model_path, factor): # opensim API
+    def increase_max_isometric_force(self, model_path, factor): # opensim API
         # Load the OpenSim model
         model = osim.Model(model_path)
 

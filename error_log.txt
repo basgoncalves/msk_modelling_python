@@ -91,3 +91,22 @@
 2024-11-28 15:58:11: msk tests all passsed!
 2024-11-28 15:59:53: msk tests all passsed!
 2024-11-28 16:15:24: msk tests all passsed!
+2024-12-04 09:59:29: msk tests all passsed!
+2024-12-06 15:54:38: msk tests all passsed!
+2024-12-09 14:45:06: msk tests all passsed!
+2024-12-09 14:45:06: Error in Marcel analysis files not found in C:\Git\research_documents\students\marcel_BSc_vienna\data\pilot01\sumo_dl_80kg01
+2024-12-09 14:45:06: Error in Marcel analysis changing Max isometric force: increase_max_isometric_force() takes 2 positional arguments but 3 were given
+2024-12-09 14:46:14: msk tests all passsed!
+2024-12-09 14:46:14: Error in Marcel analysis files not found in C:\Git\research_documents\students\marcel_BSc_vienna\data\pilot01\sumo_dl_80kg01
+2024-12-09 14:48:49: Error in Marcel analysis changing Max isometric force: 
+2024-12-09 14:50:13: msk tests all passsed!
+2024-12-09 14:50:13: Error in Marcel analysis files not found in C:\Git\research_documents\students\marcel_BSc_vienna\data\pilot01\sumo_dl_80kg01
+2024-12-09 14:50:13: Error in Marcel analysis changing Max isometric force: increase_max_isometric_force() takes 2 positional arguments but 3 were given
+2024-12-09 14:50:59: msk tests all passsed!
+2024-12-09 14:51:05: msk tests all passsed!
+2024-12-09 14:51:05: Error in Marcel analysis changing Max isometric force: increase_max_isometric_force() takes 2 positional arguments but 3 were given
+2024-12-09 14:51:16: msk tests all passsed!
+2024-12-09 14:51:16: Error in Marcel analysis changing Max isometric force: increase_max_isometric_force() takes 2 positional arguments but 3 were given
+2024-12-09 14:51:24: msk tests all passsed!
+2024-12-09 14:51:24: Error in Marcel analysis changing Max isometric force: increase_max_isometric_force() takes 2 positional arguments but 3 were given
+2024-12-09 14:57:20: msk tests all passsed!

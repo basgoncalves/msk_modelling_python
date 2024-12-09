@@ -34,6 +34,7 @@ def harrington_hjc(trc_df, lasis = 'LASI', rasis = 'RASI', lpsis = 'LPSIS', rpsi
     r_asi = msk.src.np.array(trc_df[lasis])
     pelvis_depth = [msk.src.np.array(lasi) - msk.src.np.array(lsacr) for lasi, lsacr in zip(trc_df[lasis], trc_df[lpsis])]
     np = msk.src.np
+    import pdb; pdb.set_trace()
     x = np.array([1, 2, 3, 5, 6])
     y = np.array([1, 2, 3, 5, 6])
     z = np.array([1, 2, 3, 5, 6])
