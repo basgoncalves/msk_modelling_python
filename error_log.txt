@@ -110,3 +110,15 @@
 2024-12-09 14:51:24: msk tests all passsed!
 2024-12-09 14:51:24: Error in Marcel analysis changing Max isometric force: increase_max_isometric_force() takes 2 positional arguments but 3 were given
 2024-12-09 14:57:20: msk tests all passsed!
+2024-12-16 15:30:20: msk tests all passsed!
+2024-12-16 15:31:26: msk tests all passsed!
+2024-12-16 15:33:26: msk tests all passsed!
+2024-12-16 15:43:09: msk tests all passsed!
+2024-12-16 15:43:55: msk tests all passsed!
+2024-12-16 15:45:16: msk tests all passsed!
+2024-12-16 15:46:46: msk tests all passsed!
+2024-12-16 15:47:32: msk tests all passsed!
+2024-12-16 15:54:28: msk tests all passsed!
+2024-12-16 15:54:46: msk tests all passsed!
+2024-12-16 15:55:12: msk tests all passsed!
+2024-12-16 15:55:23: msk tests all passsed!

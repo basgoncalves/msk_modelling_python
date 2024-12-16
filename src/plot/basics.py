@@ -93,9 +93,7 @@ class TimeSeries():
             if self.print:
                 print("Error: Could not read the CSV file")
     
-    def plot_line(self, show=True):
-        import pdb; pdb.set_trace()
-        
+    def plot_line(self, show=True):        
         plt.plot(self.df[self.header], label=f"{self.name}")
         plt.xlabel("X-axis")
         plt.ylabel("Y-axis")
@@ -217,8 +215,32 @@ class test(unittest.TestCase):
 
 if __name__ == "__main__":
     
-    output = unittest.main(exit=False)
+    # output = unittest.main(exit=False)
 
+    # create figute with 5x3 subplots
+    fig, axs = plt.subplots(5, 3)
+    fig.suptitle('Subplots')
     
+    # activate the subplots IK (first row)
+    ik_sumo_path = r"C:\Git\research_documents\students\marcel_BSc_vienna\opensim-deadlift-techniques\athlete_0\motion\sumo_dl_80kg02\IK\ik.mot"
+    ik_conve_path = r"C:\Git\research_documents\students\marcel_BSc_vienna\opensim-deadlift-techniques\athlete_0\motion\conventional_dl_80kg02\IK\ik.mot"
+    
+    ik_sumo = pd.read_csv(ik_sumo_path, sep='\\t' ,skiprows=9)
+    ik_conv = pd.read_excel(ik_conve_path, skiprows=10)
+    import pdb; pdb.set_trace()
+    plt.sca(axs[0, 0])
+    plt.plot(ik_sumo['hip_flexion_r'], ik_conv['hip_flexion_r'])
+    import pdb; pdb.set_trace()
+    # loop through the subplots and plot random data
+    for i in range(5):
+        for j in range(3):
+            
+            
+            # test plot_curves
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            filepath1 = os.path.join(current_dir, 'csv1.csv')
+            filepath2 = os.path.join(current_dir, 'csv2.csv')
+            
+   
 
 # END

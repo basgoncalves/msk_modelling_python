@@ -1,3 +1,8 @@
 [2024-12-09 14:48:18.634] [info] Loaded model Athlete0_scaled from file C:\Git\research_documents\students\marcel_BSc_vienna\opensim-deadlift-techniques\athlete_0\model\jointcenters\scale_model.osim
 [2024-12-09 14:48:28.531] [info] Loaded model Athlete0_scaled from file C:\Git\research_documents\students\marcel_BSc_vienna\opensim-deadlift-techniques\athlete_0\model\jointcenters\scale_model.osim
 [2024-12-09 14:57:20.667] [info] Loaded model Athlete0_scaled from file C:\Git\research_documents\students\marcel_BSc_vienna\opensim-deadlift-techniques\athlete_0\model\jointcenters\scale_model.osim
+[2024-12-16 15:30:20.660] [error] IO.OpenInputFile(const string&,openmode mode): failed to open C:\Git\research_documents\students\marcel_BSc_vienna\data\pilot01\sumo_dl_80kg01\ik.mot.
+[2024-12-16 15:31:26.611] [info] Storage: read data file = C:\Git\research_documents\students\marcel_BSc_vienna\opensim-deadlift-techniques\athlete_0\motion\sumo_dl_80kg02\IK\ik.mot (nr=501 nc=40)
+[2024-12-16 15:31:26.723] [info] Loaded model Athlete0_scaled from file C:\Git\research_documents\students\marcel_BSc_vienna\opensim-deadlift-techniques\athlete_0\model\jointcenters\scale_model.osim
+[2024-12-16 15:33:26.888] [info] Storage: read data file = C:\Git\research_documents\students\marcel_BSc_vienna\opensim-deadlift-techniques\athlete_0\motion\sumo_dl_80kg02\IK\ik.mot (nr=501 nc=40)
+[2024-12-16 15:33:26.961] [info] Loaded model Athlete0_scaled from file C:\Git\research_documents\students\marcel_BSc_vienna\opensim-deadlift-techniques\athlete_0\model\jointcenters\scale_model.osim
