@@ -216,20 +216,22 @@ class test(unittest.TestCase):
 if __name__ == "__main__":
     
     # output = unittest.main(exit=False)
+    msk.ui.show_warning("Warning: This is function is testing but may not work when run directly. Please import the functions in another script.")
 
+    
     # create figute with 5x3 subplots
     fig, axs = plt.subplots(5, 3)
     fig.suptitle('Subplots')
     
     # activate the subplots IK (first row)
-    ik_sumo_path = r"C:\Git\research_documents\students\marcel_BSc_vienna\opensim-deadlift-techniques\athlete_0\motion\sumo_dl_80kg02\IK\ik.mot"
-    ik_conve_path = r"C:\Git\research_documents\students\marcel_BSc_vienna\opensim-deadlift-techniques\athlete_0\motion\conventional_dl_80kg02\IK\ik.mot"
+    trial1 = msk.ui.select_file("Select a file to plot: ")
+    trial2 = msk.ui.select_file("Select a second file to plot file: ")
     
-    ik_sumo = pd.read_csv(ik_sumo_path, sep='\\t' ,skiprows=9)
-    ik_conv = pd.read_excel(ik_conve_path, skiprows=10)
+    trial1_df = pd.read_csv(trial1, sep='\\t' ,skiprows=9)
+    trial2_df = pd.read_excel(trial2, skiprows=10)
     import pdb; pdb.set_trace()
     plt.sca(axs[0, 0])
-    plt.plot(ik_sumo['hip_flexion_r'], ik_conv['hip_flexion_r'])
+    plt.plot(trial1_df['hip_flexion_r'], trial2_df['hip_flexion_r'])
     import pdb; pdb.set_trace()
     # loop through the subplots and plot random data
     for i in range(5):

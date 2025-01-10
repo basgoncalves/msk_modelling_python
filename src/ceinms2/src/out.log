@@ -1,0 +1,19 @@
+
++-+-+-+-+-+-+
+|C|E|I|N|M|S|
++-+-+-+-+-+-+-+-+-+-+
+|C|a|l|i|b|r|a|t|e|d|
++-+-+-+-+-+-+-+-+-+-+-+-+
+|E|M|G|-|I|n|f|o|r|m|e|d|
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|N|e|u|r|o|m|u|s|c|u|l|o|s|k|e|l|e|t|a|l|
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|T|o|o|l|b|o|x|
++-+-+-+-+-+-+-+
+
+CEINMScalibrate version 0.21.0
+Copyright (C) Apr 29 2020
+Claudio Pizzolato, Monica Reggiani, Massimo Sartori, David Lloyd
+Software developers: Claudio Pizzolato, Monica Reggiani
+readNMSmodelCfg
+boost::filesystem::canonical: No such file or directory: "C:\Git\research_data\Projects\runbops_example_data\simulations\009\pre\Run_baseline1\ceinms\.\uncalibrated.xml"boost::filesystem::canonical: No such file or directory: "C:\Git\research_data\Projects\runbops_example_data\simulations\009\pre\Run_baseline1\ceinms\..\excitationGenerators\excitationGenerator_2ndcal.xml"boost::filesystem::canonical: No such file or directory: "C:\Git\research_data\Projects\runbops_example_data\simulations\009\pre\Run_baseline1\ceinms\.\uncalibrated.xml"Reading subject file: C:\Git\research_data\Projects\runbops_example_data\simulations\009\pre\Run_baseline1\ceinms\.\uncalibrated.xml .
