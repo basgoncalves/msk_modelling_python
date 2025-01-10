@@ -229,19 +229,12 @@ if __name__ == "__main__":
     
     trial1_df = pd.read_csv(trial1, sep='\\t' ,skiprows=9)
     trial2_df = pd.read_excel(trial2, skiprows=10)
-    import pdb; pdb.set_trace()
+    
+    
     plt.sca(axs[0, 0])
-    plt.plot(trial1_df['hip_flexion_r'], trial2_df['hip_flexion_r'])
-    import pdb; pdb.set_trace()
-    # loop through the subplots and plot random data
-    for i in range(5):
-        for j in range(3):
-            
-            
-            # test plot_curves
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            filepath1 = os.path.join(current_dir, 'csv1.csv')
-            filepath2 = os.path.join(current_dir, 'csv2.csv')
+    plt.plot(trial1_df, trial2_df)
+    
+    plt.show()
             
    
 
