@@ -627,8 +627,20 @@ def c3d_analog_export(c3dFilePath,emg_labels='all', replace = True):
     analog_labels = [label.replace('.', '_') for label in analog_labels]
 
     # get analog labels, trimmed and replace '.' with '_'
+    first_frame = reader.first_frame
     num_frames = reader.frame_count
+    fs = reader.analog_rate
+
+    # add time to dataframe
+    final_time = (first_frame + num_frames) / fs
+    time = np.arange(first_frame / fs, final_time, 1 / fs)    
     df = pd.DataFrame(index=range(num_frames),columns=analog_labels)
+    df['time'] = time
+    
+    # move time to first column
+    cols = df.columns.tolist()
+    cols = cols[-1:] + cols[:-1]
+    df = df[cols]    
     
     # loop through frames and add analog data to dataframe
     for i_frame, points, analog in reader.read_frames():
@@ -647,7 +659,7 @@ def c3d_analog_export(c3dFilePath,emg_labels='all', replace = True):
             # add channel to dataframe
             df.loc[i_row, channel_name] = analog[i_channel][0]
     
-    # save emg data to csv
+    # save emg data to csv   
     df.to_csv(analog_file_path)
     print('analog.csv exported to ' + analog_file_path)  
     
