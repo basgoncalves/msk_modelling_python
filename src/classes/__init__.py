@@ -751,7 +751,29 @@ class SimpleProject:
 
     def isProject(self, var):
         return isinstance(var, self.Project)
+
+class NormalizationSet:
+    def __init__(self,name,path, extension, columns_to_normalise = 'all'):
+        '''
+        Class to store information about a set of files to normalise data
+        '''
+        self.name = name
+        self.path = path
+        self.ext = extension
+        self.df = msk.bops.import_file(path + name + extension)
+        
+        if columns_to_normalise == 'all':
+            self.columns = self.df.columns
+        else:
+            if columns_to_normalise not in self.df.columns:
+                print('Column not found in data')
+                return
+            else:
+                self.columns = columns_to_normalise
+        
     
+    
+ 
 #%% Plotting 
 
 class Plot():
@@ -1006,5 +1028,5 @@ class Plot():
         return fig, ax
 
     
-        
+
 #%% END
