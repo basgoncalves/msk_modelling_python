@@ -1,5 +1,5 @@
-from msk_modelling_python import bp
-from msk_modelling_python import cs
+from msk_modelling_python import bops as bp
+from msk_modelling_python import ceinms as cs
 
 class steps:
     def __init__(self, moment_errors = True, compare_forces_ceinms_so = True, activation_errors = True, muscle_work = True, 
