@@ -303,7 +303,7 @@ def create_trial_folder(c3dFilePath):
     return trialFolder 
 
 
-#%% import / save data  
+#%% #############################################          import / save data          ###################################################
 def import_file(file_path):
     df = pd.DataFrame()
     if os.path.isfile(file_path):
@@ -312,9 +312,9 @@ def import_file(file_path):
             c3d_dict = import_c3d_to_dict(file_path)
             df =  pd.DataFrame(c3d_dict.items())
                     
-        elif file_extension.lower() == ".sto":
+        elif file_extension.lower() == ".sto" or file_extension.lower() == ".mot":
             df = import_sto_data(file_path)
-            
+        
         elif file_extension.lower() == ".trc":
             import_trc_file(file_path)
             
@@ -1602,7 +1602,7 @@ def run_MA(osim_modelPath, ik_mot, grf_xml, resultsDir):
     # Run the muscle analysis calculation
     maTool.run()
 
-def run_SO(modelpath, trialpath, actuators_file_path):
+def run_SO(model_path, trialpath, actuators_file_path):
     '''
     Function to run Static Optimization using the OpenSim API.
     
@@ -1659,7 +1659,7 @@ def run_SO(modelpath, trialpath, actuators_file_path):
     # run
     analyzeTool_SO.run()
 
-def runJRA(modelpath, trial_path, setup_file_path):
+def runJRA(model_path, trial_path, setup_file_path):
     '''
     Function to run Joint Reaction Analysis using the OpenSim API.
     
