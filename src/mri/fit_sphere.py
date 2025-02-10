@@ -103,15 +103,36 @@ def fit_sphere_and_plot(mesh_path):
 
     filename_without_extension = os.path.splitext(os.path.basename(mesh_path))[0]
     plt.title(f'Fitted Sphere for {filename_without_extension}')
-    plt.savefig(os.path.join(os.path.dirname(mesh_path), filename_without_extension + '_fitted_sphere.png'))
+    
+    # save figure
+    save_file_path = os.path.join(os.path.dirname(mesh_path), filename_without_extension + '_fitted_sphere.png')
+    plt.savefig(save_file_path)
+    
+    print(f"Approximate covered area of the sphere: {covered_area:.1f} mm^2")
+    print(f"Figure saved at: {save_file_path}")
 
-    return covered_area
+    return covered_area, sphere_points
     
 
 
 if __name__ == '__main__':
 
     mesh_path = filedialog.askopenfilename(title='Select STL file', filetypes=[('STL Files', '*.stl')])
-    covered_area = fit_sphere_and_plot(mesh_path)
-    print(f"Approximate covered area of the sphere: {covered_area:.1f} mm^2")
+    
+    mesh_path = r'c:\Users\Bas\ucloud\MRI_segmentation_BG\acetabular_coverage\079\Meshlab_BG\acetabulum_l.stl'
+    covered_area, sphere_pints = fit_sphere_and_plot(mesh_path)
+    
+    mesh_path_femur = r'c:\Users\Bas\ucloud\MRI_segmentation_BG\acetabular_coverage\079\Meshlab_BG\femoral_head_l.stl'
+    covered_area_femur, sphere_points_femur = fit_sphere_and_plot(mesh_path_femur)
+    
+    # compare the two spheres
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.plot_trisurf(sphere_pints[:, 0], sphere_pints[:, 1], sphere_pints[:, 2], color='r', alpha=0.3)
+    ax.plot_trisurf(sphere_points_femur[:, 0], sphere_points_femur[:, 1], sphere_points_femur[:, 2], color='b', alpha=0.3)
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+    
+    
     plt.show()
