@@ -72,6 +72,12 @@ class Mesh():
     def distance_to_point(self, mesh):
         return np.linalg.norm(self.centroid() - mesh.centroid())
 
+def error_function(params, points, centroid):
+    center = params[:3]
+    radius = params[3]
+    distances = np.linalg.norm(points - center, axis=1) - radius
+    return distances
+
 def print_loading_bar(current, total):
     percentage = (current / total) * 100
     bar_length = 30
@@ -128,11 +134,8 @@ def calculate_area(points):
 
   return total_area
 
-def calculate_centroid(mesh_path = ''):
-    if not mesh_path:
-        mesh_path = filedialog.askopenfilename(title='Select STL file', filetypes=[('STL Files', '*.stl')])
-    mesh = trimesh.load(mesh_path)
-
+def calculate_centroid(mesh):
+    
     points = mesh.vertices
     centroid = np.mean(points, axis=0)
 
@@ -141,12 +144,23 @@ def calculate_centroid(mesh_path = ''):
 
     return points, centroid, initial_radius
 
-def generate_sphere_points(center, radius, num_points=1000):
+def generate_sphere_points(mesh, num_points=1000):
+    
+    points, centroid, initial_radius = calculate_centroid(mesh)
+    
+    # Initial guess for center and radius
+    initial_guess = np.append(centroid, initial_radius)
+
+    # Optimization
+    result = least_squares(error_function, initial_guess, args=(points, centroid))
+    optimal_center = result.x[:3]
+    optimal_radius = result.x[3]
+    
     phi = np.random.uniform(0, np.pi, num_points)
     theta = np.random.uniform(0, 2 * np.pi, num_points)
-    x = center[0] + radius * np.sin(phi) * np.cos(theta)
-    y = center[1] + radius * np.sin(phi) * np.sin(theta)
-    z = center[2] + radius * np.cos(phi)
+    x = optimal_center[0] + optimal_radius * np.sin(phi) * np.cos(theta)
+    y = optimal_center[1] + optimal_radius * np.sin(phi) * np.sin(theta)
+    z = optimal_center[2] + optimal_radius * np.cos(phi)
 
     return np.column_stack((x, y, z))
 
@@ -228,23 +242,41 @@ def fit_sphere_and_plot(mesh_path):
     return covered_area, sphere_points
 
 
+acetabular_coverage_path = r"C:\Users\Bas\ucloud\MRI_segmentation_BG\acetabular_coverage"
+results_csv_path = os.path.join(acetabular_coverage_path, 'results.csv')
+
+subject = "048"
+leg = "l" 
 
 # Replace for the paths of the pelvis and femur meshes
-pelvis_path = r'c:\Users\Bas\ucloud\MRI_segmentation_BG\acetabular_coverage\048\Meshlab_BG\coverage_stick_method\acetabulum_l.stl'
-femur_path = r'c:\Users\Bas\ucloud\MRI_segmentation_BG\acetabular_coverage\048\Meshlab_BG\coverage_stick_method\femoral_head_l.stl'
+pelvis_path = fr'c:\Users\Bas\ucloud\MRI_segmentation_BG\acetabular_coverage\{subject}\Meshlab_BG\Segmentation_bg_{leg}_pelvis.stl'
+femur_path = fr'c:\Users\Bas\ucloud\MRI_segmentation_BG\acetabular_coverage\{subject}\Meshlab_BG\Segmentation_bg_{leg}_femur.stl'
 
 # Paths to save the figures
 current_path = os.path.dirname(os.path.abspath(__file__))
 figures_path = os.path.join(os.path.dirname(femur_path), 'figures')
+
 if os.path.exists(figures_path) == False:
     os.mkdir(figures_path)
 
 # Load the meshes
+print("Loading meshes...")
 pelvis = trimesh.load(pelvis_path)
 femur = trimesh.load(femur_path)
 
+# Fit a sphere to the femur mesh
+sphere_points_femur = generate_sphere_points(femur, num_points=1000)
+sphere_points_pelvis = generate_sphere_points(pelvis, num_points=1000)
+
+# # plot the fitted spheres
+# fig = plt.figure()
+# ax = fig.add_subplot(111, projection='3d')
+# ax.scatter(sphere_points_femur[:, 0], sphere_points_femur[:, 1], sphere_points_femur[:, 2], s=1, color='r', label='Fitted Sphere')
+# ax.scatter(sphere_points_pelvis[:, 0], sphere_points_pelvis[:, 1], sphere_points_pelvis[:, 2], s=1, color='b', label='Fitted Sphere')
+
+
 # loop through the thresholds to calculate the covered area
-threshold_list = [3, 5, 10, 15]
+threshold_list = [5, 10, 15]
 for threshold in threshold_list:
     
     # calculate the distance between the meshes
@@ -283,4 +315,5 @@ for threshold in threshold_list:
     
     print(f"Threshold: {threshold} - Covered Area: {covered_area:.2f}")
     print(f"Figure saved at: {save_path}")
+
 
