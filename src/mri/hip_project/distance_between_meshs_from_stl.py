@@ -94,53 +94,100 @@ def save_3d_plot(fig, path):
     # save isometric view
     ax.view_init(elev=30, azim=30)
     fig.savefig(path.replace('.png', '_iso.png'))
-    
+
+def calculate_area(points):
+  """
+  Calculates the surface area of a 3D mesh defined by a list of vertices.
+
+  Args:
+    points: A NumPy array of shape (n, 3) where n is the number of vertices, 
+            representing the (x, y, z) coordinates of each vertex.
+
+  Returns:
+    The surface area of the mesh.
+  """
+
+  # Create a list of triangles by connecting adjacent vertices
+  triangles = []
+  for i in range(len(points) - 2):
+    triangles.append([points[i], points[i+1], points[i+2]])
+
+  # Calculate the area of each triangle using Heron's formula
+  total_area = 0
+  for triangle in triangles:
+    a = np.linalg.norm(triangle[1] - triangle[0])
+    b = np.linalg.norm(triangle[2] - triangle[1])
+    c = np.linalg.norm(triangle[0] - triangle[2])
+    s = (a + b + c) / 2
+    area = np.sqrt(s * (s - a) * (s - b) * (s - c))
+    total_area += area
+
+  return total_area
 
 # Replace for the paths of the pelvis and femur meshes
 pelvis_path = r'c:\Users\Bas\ucloud\MRI_segmentation_BG\acetabular_coverage\048\Meshlab_BG\coverage_stick_method\acetabulum_l.stl'
 femur_path = r'c:\Users\Bas\ucloud\MRI_segmentation_BG\acetabular_coverage\048\Meshlab_BG\coverage_stick_method\femoral_head_l.stl'
 
-n_chunks = 10
-threshold_centroids = 90 
-
 # Paths to save the figures
 current_path = os.path.dirname(os.path.abspath(__file__))
-figures_path = os.path.join(current_path, 'figures')
+figures_path = os.path.join(os.path.dirname(femur_path), 'figures')
 if os.path.exists(figures_path) == False:
     os.mkdir(figures_path)
 
 # Load the meshes
-pelvis = Mesh(pelvis_path)
-femur = Mesh(femur_path)
-
 pelvis = trimesh.load(pelvis_path)
 femur = trimesh.load(femur_path)
 
-distance = proximity.signed_distance(pelvis, femur.vertices)
+threshold_list = [3, 5, 10, 15]
+for threshold in threshold_list:
+    
+    # calculate the distance between the meshes
+    distance_femur = pelvis.nearest.on_surface(femur.vertices)
+    distance_pelvis = femur.nearest.on_surface(pelvis.vertices)
 
-# calculate the distance between the meshes
-distance_femur = pelvis.nearest.on_surface(femur.vertices)
-distance_pelvis = femur.nearest.on_surface(pelvis.vertices)
+    # get logical array of the distances
+    is_covered_femur = distance_femur[1] < threshold
+    
+    # calculate the area of the covered faces
+    covered_area = calculate_area(femur.vertices[is_covered_femur])
 
-# make all distances smaller than the threshold red
-distance_femur[2][distance_femur[2] < threshold_centroids] = 1
-distance_pelvis[2][distance_pelvis[2] < threshold_centroids] = 1
+    # if distance is bigger than the threshold, the distance is set to 0
+    distance_femur[1][distance_femur[1] >= threshold] = 0
+    distance_pelvis[1][distance_pelvis[1] >= threshold] = 0
+    
+    # plot the meshes with the distance color map
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    plt.subplots_adjust(top=1.0, bottom=0.0, left=0.0, right=1.0, hspace=0.0, wspace=0.0)
+    ax.scatter(femur.vertices[:,0], femur.vertices[:,1], femur.vertices[:,2],c='grey', s=1, alpha=0.1) # plot all the points in grey
+    ax.view_init(elev=45, azim=-36, roll=0) # set the view to front
+    
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    plt.subplots_adjust(top=1.0, bottom=0.0, left=0.0, right=1.0, hspace=0.0, wspace=0.0)
+    ax.scatter(femur.vertices[:,0], femur.vertices[:,1], femur.vertices[:,2],c='grey', s=1, alpha=0.1) # plot all the points in grey
+    ax.view_init(elev=0, azim=45, roll=0) # set the view to side
+    
+    plt.show()
+    
+    ax.scatter(pelvis.vertices[:,0], pelvis.vertices[:,1], pelvis.vertices[:,2],c='grey', s=1, alpha=0.1) 
+    
+    ax.scatter(femur.vertices[is_covered_femur,0], femur.vertices[is_covered_femur,1], femur.vertices[is_covered_femur,2],c='red') # plot the points that are below the threshold in red
+    
+   
+    
+    plt.show()
 
-# make all distances bigger than the threshold gray
-distance_femur[2][distance_femur[2] >= threshold_centroids] = 0
-distance_pelvis[2][distance_pelvis[2] >= threshold_centroids] = 0
+    plt.title(f"Threshold: {threshold}")
+    
+    # add text with covered area to the top right corner outside the plot
+    import pdb; pdb.set_trace()
+    plt.text(1, 1, f'Covered Area: {covered_area:.2f}', ha='right', va='top', transform=ax.transAxes)
+    
+    # save the figure
+    save_path = os.path.join(figures_path, f"distance_{threshold}.png")
+    plt.savefig(save_path)
+    
+    print(f"Threshold: {threshold} - Covered Area: {covered_area:.2f}")
+    print(f"Figure saved at: {save_path}")
 
-import pdb; pdb.set_trace()
-# plot the distance
-fig = plt.figure()
-ax = plt.subplot(111, projection='3d')
-ax.scatter(femur.vertices[:,0], femur.vertices[:,1], femur.vertices[:,2],c=distance_femur[2], cmap='Reds')
-ax.scatter(pelvis.vertices[:,0], pelvis.vertices[:,1], pelvis.vertices[:,2],c=distance_pelvis[2])
-# add colorbar
-norm = colors.Normalize(vmin=distance.min(), vmax=distance.max())
-sm = plt.cm.ScalarMappable(cmap='Reds', norm=norm)
-
-plt.show()
-
-distance_save_path = os.path.join(current_path, 'distance.csv')
-pd.DataFrame(distance[2]).to_csv(distance_save_path)
