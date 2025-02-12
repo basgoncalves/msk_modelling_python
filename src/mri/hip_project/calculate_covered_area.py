@@ -95,67 +95,6 @@ class Project():
         with open(self.log_file, "w") as f:
             f.write(message)
 
-
-class Mesh():
-    def __init__(self, path = None):
-        self.path = path
-        if path == None:
-            self.Trimesh = None
-        else:
-            print('Loading mesh from: ', path)
-            self.Trimesh = trimesh.load(path)
-            self.vertices = self.Trimesh.vertices
-
-    def show_3d_mesh(self):
-        if os.path.exists(self.path) == False:
-            raise FileNotFoundError("STL file does not exist")
-        self.Trimesh.show()
-
-    def centroid(self):
-        return np.mean(self.vertices, axis=0)
-
-    def split_mesh(self, n_chunks):
-        chunk_size = len(self.vertices) // n_chunks
-        mesh_list = []
-        # Split the vertices into chunks
-        for i in range(0, len(self.vertices), chunk_size):
-
-            # Check if the chunk size is bigger than the remaining vertices
-            if i+chunk_size > len(self.vertices):
-                chunk_size = len(self.vertices) - i
-
-            # Create a new mesh with the chunk
-            try:
-                new_mesh = Mesh()
-                chunk_vertices = self.vertices[i:i + chunk_size]
-                chunk_faces = self.Trimesh.faces[np.all(np.isin(self.Trimesh.faces, np.arange(i, i + chunk_size)), axis=1)]
-                chunk_faces -= i  # Adjust face indices to match the chunk vertices
-                new_mesh.Trimesh = trimesh.Trimesh(vertices=chunk_vertices, faces=chunk_faces)
-                new_mesh.vertices = new_mesh.Trimesh.vertices
-                mesh_list.append(new_mesh)
-            except Exception as e:
-                print(f'Error in chunk {i}')
-                print(e)
-                import pdb; pdb.set_trace()
-
-        return mesh_list
-
-    def add_to_current_plot(self, color='b'):
-
-        # check if there is a current figure
-        if plt.fignum_exists(1) == False:
-            fig = plt.figure()
-            ax = fig.add_subplot(111, projection='3d')
-        else:
-            fig = plt.gcf()
-
-        # activate the current figure
-        ax = plt.gca()
-        ax.scatter(self.vertices[:, 0], self.vertices[:, 1], self.vertices[:, 2], c=color)
-
-    def distance_to_point(self, mesh):
-        return np.linalg.norm(self.centroid() - mesh.centroid())
-
 class Hip():
     def __init__(self, subjectID, pelvis_path, femur_path, leg, threshold_list=[5, 10, 15], replace=True):
         
@@ -354,7 +293,6 @@ class Hip():
 
         return fig, ax
 
-
 def error_function(params, points, centroid):
     center = params[:3]
     radius = params[3]
@@ -532,7 +470,7 @@ if __name__ == "__main__":
     skip = False
     legs = ["r", "l"]
     thresholds = [10, 15]
-    skip_subjects = ["013"]
+    skip_subjects = []
     algorithm = 'fit_sphere_algoritm' # 'nearest' or 'fit_sphere_algoritm'
     restart_results = False
 
