@@ -283,10 +283,9 @@ def fit_sphere_algoritm(femur_mesh, pelvis_mesh, threshold, figures_path):
     
     # Create a sphere mesh for the femur
     sphere_points_femur = generate_sphere_points(femur_mesh, num_points=1000)
-    shere_mesh_femur = trimesh.Trimesh(vertices=sphere_points_femur)
+    shere_mesh_femur = trimesh.convex.convex_hull(sphere_points_femur)
     
     # Calculate the distance between the meshes
-    import pdb; pdb.set_trace()
     distance = shere_mesh_femur.nearest.on_surface(pelvis_mesh.vertices)
 
     # Get logical array of the distances
