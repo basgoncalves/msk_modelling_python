@@ -354,14 +354,22 @@ def plot_summary_results():
     print(f"Summary results saved at: {sumaary_csv_path}")
     
     # plot the summary results
+    
+    X = all_results['subject'].unique()
+    Y = all_results['covered_area'].groupby(all_results['subject']).mean()
+    Y_per_threshold = all_results['covered_area'].groupby([all_results['subject'], all_results['threshold']]).mean()
+    
     fig = plt.figure()
+    Y_per_threshold.unstack().plot(kind='bar', ax=fig.add_subplot(111))
     
+    plt.ylabel('Covered Area (mm^2)')
+    plt.xlabel('Subject')
+    plt.title('Covered Area by Subject')
+    plt.xticks(rotation=45)
+    plt.tight_layout()
     
-    X = all_results['subject'].unique()    
-    for threshold in all_results['threshold'].unique():
-        Y = all_results[all_results['threshold'] == threshold]['covered_area'].groupby(all_results['subject']).mean()
-        plt.bar(X, Y, label=f'Threshold: {threshold}')
-    
+    save_file_path = os.path.join(paths.example_folder, 'summary.png')
+    plt.savefig(save_file_path)
     plt.show()
 
 
@@ -373,13 +381,13 @@ if __name__ == "__main__":
     paths = Paths()
     print(paths.subjects)
     
-    # plot_summary_results()
+    plot_summary_results()
     
+    exit()
     for subject in paths.subjects:
         for leg in legs:
             pelvis_path = os.path.join(paths.example_folder, subject ,f"acetabulum_{leg}.stl")
             femur_path = os.path.join(paths.example_folder, subject, f"femoral_head_{leg}.stl")
             
             compare_area_covered_different_thersholds(pelvis_path, femur_path, threshold_list=[10, 15, 20])
-    
     
