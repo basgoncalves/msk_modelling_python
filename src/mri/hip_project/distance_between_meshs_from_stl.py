@@ -9,7 +9,7 @@ import time
 
 # may need to pip install "pyglet<2", "rtree", "open3d" to run this example
 
-class Paths():
+class Project():
     def __init__(self):
         self.current = os.path.dirname(os.path.abspath(__file__))
         self.example_folder = os.path.join(self.current, 'example_stls')
@@ -17,7 +17,7 @@ class Paths():
         self.stl_files = [file for file in self.files if file.endswith('.stl')]
         self.subjects = os.listdir(self.example_folder)
         self.subjects = [subject for subject in self.subjects if os.path.isdir(os.path.join(self.example_folder, subject))]
-        
+
 class Mesh():
     def __init__(self, path = None):
         self.path = path
@@ -247,22 +247,131 @@ def fit_sphere_and_plot(mesh_path):
 
     return covered_area, sphere_points
 
-def intersect_meshes(mesh1, mesh2):
+def plot_coverage(femur_mesh, pelvis_mesh, threshold, is_covered_femur, covered_area):
+    # plot the meshes with the distance color map
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    plt.subplots_adjust(top=1.0, bottom=0.0, left=0.0, right=1.0, hspace=0.0, wspace=0.0)
+    ax.scatter(femur_mesh.vertices[:,0], femur_mesh.vertices[:,1], femur_mesh.vertices[:,2],c='grey', s=1, alpha=0.1) # plot all the points in grey    
+    ax.scatter(pelvis_mesh.vertices[:,0], pelvis_mesh.vertices[:,1], pelvis_mesh.vertices[:,2],c='grey', s=1, alpha=0.1) 
+    
+    ax.scatter(femur_mesh.vertices[is_covered_femur,0], femur_mesh.vertices[is_covered_femur,1], femur_mesh.vertices[is_covered_femur,2],c='red') # plot the points that are below the threshold in red
+    
+    ax.view_init(elev=16, azim=-35, roll=0) # set the view 
+
+    plt.title(f"Threshold: {threshold}")
+    
+    # add text with covered area to the top right corner outside the plot
+    ax.text2D(0.95, 0.95, f'Covered Area: {covered_area:.1f} mm^2', transform=ax.transAxes, ha='right', va='top')
+    
+    return fig, ax
+
+def fit_sphere_algoritm(femur_mesh, pelvis_mesh, threshold, figures_path):
     """
-    Intersects two meshes and returns the intersection points.
+    
+    Similar to the nearest algorithm, the sphere intersection algorithm calculates the distance between two meshes and determines which points are covered by the other mesh.
 
     Args:
         mesh1: A trimesh object representing the first mesh.
         mesh2: A trimesh object representing the second mesh.
+        threshold: The maximum distance threshold for a point to be considered covered.
+    
+    Returns:
+        The covered area of the first mesh.
+    """
+    start_time = time.time()
+    
+    # Create a sphere mesh for the femur
+    sphere_points_femur = generate_sphere_points(femur_mesh, num_points=1000)
+    shere_mesh_femur = trimesh.Trimesh(vertices=sphere_points_femur)
+    
+    # Calculate the distance between the meshes
+    import pdb; pdb.set_trace()
+    distance = shere_mesh_femur.nearest.on_surface(pelvis_mesh.vertices)
+
+    # Get logical array of the distances
+    is_covered_femur = distance[1] < threshold
+
+
+    # Calculate the area of the covered faces
+    covered_area = calculate_area(femur_mesh.vertices[is_covered_femur])
+    print(f"Threshold: {threshold} - Covered Area: {covered_area:.2f}")
+    
+    # plot the meshes with the distance color map
+    fig, ax = plot_coverage(femur_mesh, pelvis_mesh, threshold, is_covered_femur, covered_area)
+    
+    # save the figure
+    save_path = os.path.join(figures_path, f"distance_{threshold}.png")
+    plt.savefig(save_path)
+    print(f"Figure saved at: {save_path}")
+    
+    # print to .csv 
+    csv_path = os.path.join(figures_path, f"fit_sphere_algoritm.csv")
+    if os.path.exists(csv_path):
+        results = pd.read_csv(csv_path)
+    else:
+        results = pd.DataFrame(columns=['threshold', 'covered_area', 'time'])
+    
+    time_taken = time.time() - start_time
+    results = pd.concat([results, pd.DataFrame([[threshold, covered_area, time_taken]], columns=['threshold', 'covered_area', 'time'])])
+    results.to_csv(csv_path, index=False)
+    print(f"Results saved at: {csv_path}")
+    time.sleep(1)
+
+    
+    # Perform the intersection
+    # intersection = trimesh.intersections.mesh_multiplane(femur_mesh, pelvis_mesh)
+    # intersection_points = intersection[0]
+
+    return covered_area
+
+def nearest_algorithm(femur_mesh, pelvis_mesh, threshold, figures_path):
+    """
+    Calculates the distance between two meshes using the nearest algorithm.
+
+    Args:
+        mesh1: A trimesh object representing the first mesh.
+        mesh2: A trimesh object representing the second mesh.
+        threshold: The maximum distance threshold for a point to be considered covered.
 
     Returns:
-        The intersection points between the two meshes.
+        The covered area of the first mesh.
     """
-    # Perform the intersection
-    intersection = trimesh.intersections.mesh_multiplane(mesh1, mesh2)
-    intersection_points = intersection[0]
+    
+    start_time = time.time()
+    
+    # Calculate the distance between the meshes
+    distance = femur_mesh.nearest.on_surface(pelvis_mesh.vertices)
 
-    return intersection_points
+    # Get logical array of the distances
+    is_covered_femur = distance[1] < threshold
+
+    # Calculate the area of the covered faces
+    covered_area = calculate_area(femur_mesh.vertices[is_covered_femur])
+    print(f"Threshold: {threshold} - Covered Area: {covered_area:.2f}")
+    
+    # plot the meshes with the distance color map
+    fig, ax = plot_coverage(femur_mesh, pelvis_mesh, threshold, is_covered_femur, covered_area)
+    
+    # save the figure
+    save_path = os.path.join(figures_path, f"distance_{threshold}.png")
+    plt.savefig(save_path)
+    print(f"Figure saved at: {save_path}")
+    
+    # print to .csv 
+    csv_path = os.path.join(figures_path, f"nearest_algoritm.csv")
+    if os.path.exists(csv_path):
+        results = pd.read_csv(csv_path)
+    else:
+        results = pd.DataFrame(columns=['threshold', 'covered_area', 'time'])
+    
+    time_taken = time.time() - start_time
+    results = pd.concat([results, pd.DataFrame([[threshold, covered_area, time_taken]], columns=['threshold', 'covered_area', 'time'])])
+    results.to_csv(csv_path, index=False)
+    print(f"Results saved at: {csv_path}")
+    time.sleep(1)
+
+    return covered_area
 
 def compare_area_covered_different_thersholds(pelvis_path, femur_path, threshold_list=[5, 10, 15], algorithm='nearest'):
     
@@ -281,71 +390,26 @@ def compare_area_covered_different_thersholds(pelvis_path, femur_path, threshold
     print("Loading meshes...")
     pelvis = trimesh.load(pelvis_path)
     femur = trimesh.load(femur_path)
-
-    # Fit a sphere to the femur mesh
-    sphere_points_femur = generate_sphere_points(femur, num_points=1000)
-    sphere_points_pelvis = generate_sphere_points(pelvis, num_points=1000)
-    
-    sphere_mesh_femur = trimesh.Trimesh(vertices=sphere_points_femur)
     
     # loop through the thresholds to calculate the covered area
     for threshold in threshold_list:
         
         start_time = time.time()
         
-        # calculate the distance between the meshes
-        distance_femur = pelvis.nearest.on_surface(femur.vertices)
-        distance_pelvis = femur.nearest.on_surface(pelvis.vertices)
+        if algorithm == 'nearest':
+            nearest_algorithm(pelvis, femur, threshold, figures_path)
+            
+        elif algorithm == 'fit_sphere_algoritm':
+            fit_sphere_algoritm(pelvis, femur, threshold, figures_path)
+            
 
-        # get logical array of the distances
-        is_covered_femur = distance_femur[1] < threshold
-        
-        # calculate the area of the covered faces
-        covered_area = calculate_area(femur.vertices[is_covered_femur])
 
-        # if distance is bigger than the threshold, the distance is set to 0
-        distance_femur[1][distance_femur[1] >= threshold] = 0
-        distance_pelvis[1][distance_pelvis[1] >= threshold] = 0
         
-        # plot the meshes with the distance color map
-        fig = plt.figure()
-        ax = fig.add_subplot(111, projection='3d')
-        plt.subplots_adjust(top=1.0, bottom=0.0, left=0.0, right=1.0, hspace=0.0, wspace=0.0)
-        ax.scatter(femur.vertices[:,0], femur.vertices[:,1], femur.vertices[:,2],c='grey', s=1, alpha=0.1) # plot all the points in grey    
-        ax.scatter(pelvis.vertices[:,0], pelvis.vertices[:,1], pelvis.vertices[:,2],c='grey', s=1, alpha=0.1) 
         
-        ax.scatter(femur.vertices[is_covered_femur,0], femur.vertices[is_covered_femur,1], femur.vertices[is_covered_femur,2],c='red') # plot the points that are below the threshold in red
-        
-        ax.view_init(elev=16, azim=-35, roll=0) # set the view 
-
-        plt.title(f"Threshold: {threshold}")
-        
-        # add text with covered area to the top right corner outside the plot
-        ax.text2D(0.95, 0.95, f'Covered Area: {covered_area:.1f} mm^2', transform=ax.transAxes, ha='right', va='top')
-        
-        # save the figure
-        save_path = os.path.join(figures_path, f"distance_{threshold}.png")
-        plt.savefig(save_path)
-        
-        print(f"Threshold: {threshold} - Covered Area: {covered_area:.2f}")
-        print(f"Figure saved at: {save_path}")
-        
-        # print to .csv 
-        csv_path = os.path.join(figures_path, f"distances.csv")
-        if os.path.exists(csv_path):
-            results = pd.read_csv(csv_path)
-        else:
-            results = pd.DataFrame(columns=['threshold', 'covered_area', 'time'])
-        
-        time_taken = time.time() - start_time
-        results = pd.concat([results, pd.DataFrame([[threshold, covered_area, time_taken]], columns=['threshold', 'covered_area', 'time'])])
-        results.to_csv(csv_path, index=False)
-        print(f"Results saved at: {csv_path}")
-        time.sleep(1)
         
 def plot_summary_results():
     
-    paths = Paths()
+    paths = Project()
     
     # summarise all results in a single csv file
     sumaary_csv_path = os.path.join(paths.example_folder, 'summary.csv')
@@ -390,15 +454,16 @@ if __name__ == "__main__":
     ####################################################################################################
     skip = False
     legs = ["r", "l"] 
-    thresholds = [5, 10, 15]
+    thresholds = [10, 15]
     skip_subjects = ["009", "010"]
+    algorithm = 'fit_sphere_algoritm' # 'nearest' or 'fit_sphere_algoritm'
     
     
     ####################################################################################################
-    paths = Paths()
+    paths = Project()
     print(paths.subjects)
     
-    if skip:
+    if skip == False:
         for subject in paths.subjects:
             if subject in skip_subjects:
                 continue
@@ -407,7 +472,7 @@ if __name__ == "__main__":
                 pelvis_path = os.path.join(paths.example_folder, subject ,f"acetabulum_{leg}.stl")
                 femur_path = os.path.join(paths.example_folder, subject, f"femoral_head_{leg}.stl")
                 
-                compare_area_covered_different_thersholds(pelvis_path, femur_path, threshold_list=thresholds)
+                compare_area_covered_different_thersholds(pelvis_path, femur_path, threshold_list=thresholds, algorithm=algorithm)
         
 
     plot_summary_results()
