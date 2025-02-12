@@ -59,7 +59,7 @@ def calculate_coverge(stl_file_femur, stl_file_acetabulum, thresholds):
 
   try:
     vertices_femur, centres_femur, normal_vectors_femur = pv.load_stl_vertices(stl_file_femur)
-    vertices_ace, centres_ace, normal_vectors_ace = pv.load_stl_vertices(stl_file_acetabulum)
+    vertices_ace, centres_ace, normal_vectors_ace = pv.load_stl_vertices(stl_file_acetabulum) 
   except Exception as e:
     print(f"Error loading STL files: {e}")
     return
@@ -74,7 +74,7 @@ def calculate_coverge(stl_file_femur, stl_file_acetabulum, thresholds):
     total_femur_area = 0
     current_threshold_save_folder = os.path.join(os.path.dirname(stl_file_femur), f"threshold_{threshold}")
     create_folder(current_threshold_save_folder)
-    
+        
     for i,_ in enumerate(centres_femur[:nframes]):  
       show_loading_bar(i + 1, len(centres_femur[:nframes]))
       centre_face_femur = centres_femur[i]  
@@ -95,7 +95,7 @@ def calculate_coverge(stl_file_femur, stl_file_acetabulum, thresholds):
         centre_face_femur = centres_femur[i]
         face_ace = np.array([vertices_ace[index][0], vertices_ace[index][1], vertices_ace[index][2]])
         angle_between_faces.append(pv.angle_between_two_faces(face_femur,face_ace))
-
+        
         # using the Moeller-Trumbore algorithm to check if the normal vector of the acetabulum 
         normal_intercept = moeller_trumbore_intersect(centre_face_femur, normal_vector_femur, 
             face_ace[0], face_ace[1], face_ace[2])
@@ -167,7 +167,6 @@ def calculate_coverge(stl_file_femur, stl_file_acetabulum, thresholds):
       file.write(f"Normalized Area Covered: {normalized_area}% \n")
       file.write(f"Total Time: {total_time}s\n")
 
-
 def calculate_coverage_batch(maindir, legs, thresholds, subjects_to_run):
     """
     Calculate the acetabular coverage for a batch of subjects.
@@ -208,6 +207,6 @@ if __name__ == "__main__":
   legs = ['l']
   thresholds = [25] # distance threshold in mm
   # select the subjects to run
-  subjects_to_run = ["079"]
+  subjects_to_run = ["009"]
   
   calculate_coverage_batch(maindir, legs, thresholds, subjects_to_run)
