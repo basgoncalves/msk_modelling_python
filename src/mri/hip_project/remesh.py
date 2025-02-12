@@ -145,7 +145,7 @@ if __name__ == "__main__":
     print("Change the mode to 'manual', 'semi-auto' or 'batch' in the code to run the remeshing")
 
     subjects_to_run = []
-    mode = "batch" # "manual", "semi-auto" or "batch"
+    mode = "manual" # "manual", "semi-auto" or "batch"
     replace = False
     resampling_cell_size = 0.499923
     

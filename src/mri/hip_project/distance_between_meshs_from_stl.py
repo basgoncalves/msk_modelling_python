@@ -2,14 +2,11 @@ import os
 import trimesh
 import numpy as np
 from matplotlib import pyplot as plt
-from matplotlib import colors
-from trimesh import proximity
 import pandas as pd
-import tkinter as tk
-from tkinter import filedialog
 from scipy.optimize import least_squares
 import matplotlib.pyplot as plt
-# import Seaborn as sns 
+import time
+
 # may need to pip install "pyglet<2", "rtree", "open3d" to run this example
 
 class Mesh():
@@ -241,79 +238,97 @@ def fit_sphere_and_plot(mesh_path):
 
     return covered_area, sphere_points
 
-
-acetabular_coverage_path = r"C:\Users\Bas\ucloud\MRI_segmentation_BG\acetabular_coverage"
-results_csv_path = os.path.join(acetabular_coverage_path, 'results.csv')
-
-subject = "048"
-leg = "l" 
-
-# Replace for the paths of the pelvis and femur meshes
-pelvis_path = fr'c:\Users\Bas\ucloud\MRI_segmentation_BG\acetabular_coverage\{subject}\Meshlab_BG\Segmentation_bg_{leg}_pelvis.stl'
-femur_path = fr'c:\Users\Bas\ucloud\MRI_segmentation_BG\acetabular_coverage\{subject}\Meshlab_BG\Segmentation_bg_{leg}_femur.stl'
-
-# Paths to save the figures
-current_path = os.path.dirname(os.path.abspath(__file__))
-figures_path = os.path.join(os.path.dirname(femur_path), 'figures')
-
-if os.path.exists(figures_path) == False:
-    os.mkdir(figures_path)
-
-# Load the meshes
-print("Loading meshes...")
-pelvis = trimesh.load(pelvis_path)
-femur = trimesh.load(femur_path)
-
-# Fit a sphere to the femur mesh
-sphere_points_femur = generate_sphere_points(femur, num_points=1000)
-sphere_points_pelvis = generate_sphere_points(pelvis, num_points=1000)
-
-# # plot the fitted spheres
-# fig = plt.figure()
-# ax = fig.add_subplot(111, projection='3d')
-# ax.scatter(sphere_points_femur[:, 0], sphere_points_femur[:, 1], sphere_points_femur[:, 2], s=1, color='r', label='Fitted Sphere')
-# ax.scatter(sphere_points_pelvis[:, 0], sphere_points_pelvis[:, 1], sphere_points_pelvis[:, 2], s=1, color='b', label='Fitted Sphere')
-
-
-# loop through the thresholds to calculate the covered area
-threshold_list = [5, 10, 15]
-for threshold in threshold_list:
+def compare_area_covered_different_thersholds(pelvis_path, femur_path, threshold_list=[5, 10, 15]):
     
-    # calculate the distance between the meshes
-    distance_femur = pelvis.nearest.on_surface(femur.vertices)
-    distance_pelvis = femur.nearest.on_surface(pelvis.vertices)
+    # Paths to save the figures
+    figures_path = os.path.join(os.path.dirname(femur_path), 'figures')
 
-    # get logical array of the distances
-    is_covered_femur = distance_femur[1] < threshold
-    
-    # calculate the area of the covered faces
-    covered_area = calculate_area(femur.vertices[is_covered_femur])
+    if os.path.exists(figures_path) == False:
+        os.mkdir(figures_path)
 
-    # if distance is bigger than the threshold, the distance is set to 0
-    distance_femur[1][distance_femur[1] >= threshold] = 0
-    distance_pelvis[1][distance_pelvis[1] >= threshold] = 0
-    
-    # plot the meshes with the distance color map
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    plt.subplots_adjust(top=1.0, bottom=0.0, left=0.0, right=1.0, hspace=0.0, wspace=0.0)
-    ax.scatter(femur.vertices[:,0], femur.vertices[:,1], femur.vertices[:,2],c='grey', s=1, alpha=0.1) # plot all the points in grey    
-    ax.scatter(pelvis.vertices[:,0], pelvis.vertices[:,1], pelvis.vertices[:,2],c='grey', s=1, alpha=0.1) 
-    
-    ax.scatter(femur.vertices[is_covered_femur,0], femur.vertices[is_covered_femur,1], femur.vertices[is_covered_femur,2],c='red') # plot the points that are below the threshold in red
-    
-    ax.view_init(elev=16, azim=-35, roll=0) # set the view 
+    # Load the meshes
+    print("Loading meshes...")
+    pelvis = trimesh.load(pelvis_path)
+    femur = trimesh.load(femur_path)
 
-    plt.title(f"Threshold: {threshold}")
+    # Fit a sphere to the femur mesh
+    sphere_points_femur = generate_sphere_points(femur, num_points=1000)
+    sphere_points_pelvis = generate_sphere_points(pelvis, num_points=1000)
     
-    # add text with covered area to the top right corner outside the plot
-    ax.text2D(0.95, 0.95, f'Covered Area: {covered_area:.1f} mm^2', transform=ax.transAxes, ha='right', va='top')
+    sphere_mesh_femur = trimesh.Trimesh(vertices=sphere_points_femur)
     
-    # save the figure
-    save_path = os.path.join(figures_path, f"distance_{threshold}.png")
-    plt.savefig(save_path)
-    
-    print(f"Threshold: {threshold} - Covered Area: {covered_area:.2f}")
-    print(f"Figure saved at: {save_path}")
+    # # plot the fitted spheres
+    # fig = plt.figure()
+    # ax = fig.add_subplot(111, projection='3d')
+    # ax.scatter(sphere_points_femur[:, 0], sphere_points_femur[:, 1], sphere_points_femur[:, 2], s=1, color='r', label='Fitted Sphere')
+    # ax.scatter(sphere_points_pelvis[:, 0], sphere_points_pelvis[:, 1], sphere_points_pelvis[:, 2], s=1, color='b', label='Fitted Sphere')
 
 
+    # loop through the thresholds to calculate the covered area
+    for threshold in threshold_list:
+        
+        start_time = time.time()
+        
+        # calculate the distance between the meshes
+        distance_femur = pelvis.nearest.on_surface(femur.vertices)
+        distance_pelvis = femur.nearest.on_surface(pelvis.vertices)
+
+        # get logical array of the distances
+        is_covered_femur = distance_femur[1] < threshold
+        
+        # calculate the area of the covered faces
+        covered_area = calculate_area(femur.vertices[is_covered_femur])
+
+        # if distance is bigger than the threshold, the distance is set to 0
+        distance_femur[1][distance_femur[1] >= threshold] = 0
+        distance_pelvis[1][distance_pelvis[1] >= threshold] = 0
+        
+        # plot the meshes with the distance color map
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        plt.subplots_adjust(top=1.0, bottom=0.0, left=0.0, right=1.0, hspace=0.0, wspace=0.0)
+        ax.scatter(femur.vertices[:,0], femur.vertices[:,1], femur.vertices[:,2],c='grey', s=1, alpha=0.1) # plot all the points in grey    
+        ax.scatter(pelvis.vertices[:,0], pelvis.vertices[:,1], pelvis.vertices[:,2],c='grey', s=1, alpha=0.1) 
+        
+        ax.scatter(femur.vertices[is_covered_femur,0], femur.vertices[is_covered_femur,1], femur.vertices[is_covered_femur,2],c='red') # plot the points that are below the threshold in red
+        
+        ax.view_init(elev=16, azim=-35, roll=0) # set the view 
+
+        plt.title(f"Threshold: {threshold}")
+        
+        # add text with covered area to the top right corner outside the plot
+        ax.text2D(0.95, 0.95, f'Covered Area: {covered_area:.1f} mm^2', transform=ax.transAxes, ha='right', va='top')
+        
+        # save the figure
+        save_path = os.path.join(figures_path, f"distance_{threshold}.png")
+        plt.savefig(save_path)
+        
+        print(f"Threshold: {threshold} - Covered Area: {covered_area:.2f}")
+        print(f"Figure saved at: {save_path}")
+        
+        # print to .csv 
+        csv_path = os.path.join(figures_path, f"distances.csv")
+        if os.path.exists(csv_path):
+            results = pd.read_csv(csv_path)
+        else:
+            results = pd.DataFrame(columns=['threshold', 'covered_area', 'time'])
+        
+        time_taken = time.time() - start_time
+        results = pd.concat([results, pd.DataFrame([[threshold, covered_area, time_taken]], columns=['threshold', 'covered_area', 'time'])])
+        results.to_csv(csv_path, index=False)
+        print(f"Results saved at: {csv_path}")
+        time.sleep(1)
+        
+
+
+
+if __name__ == "__main__":
+    # Paths to the pelvis and femur meshes
+    
+    subject = "009"
+    leg = "l" 
+    pelvis_path = fr'c:\Users\Bas\ucloud\MRI_segmentation_BG\acetabular_coverage\{subject}\Meshlab_BG\acetabulum_{leg}.stl'
+    femur_path = fr'c:\Users\Bas\ucloud\MRI_segmentation_BG\acetabular_coverage\{subject}\Meshlab_BG\femoral_head_{leg}.stl'
+    
+    compare_area_covered_different_thersholds(pelvis_path, femur_path, threshold_list=[10, 15, 20])
+    
