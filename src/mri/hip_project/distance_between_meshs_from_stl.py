@@ -255,6 +255,7 @@ def plot_coverage(femur_mesh, pelvis_mesh, threshold, is_covered_femur, covered_
     ax.scatter(femur_mesh.vertices[:,0], femur_mesh.vertices[:,1], femur_mesh.vertices[:,2],c='grey', s=1, alpha=0.1) # plot all the points in grey
     ax.scatter(pelvis_mesh.vertices[:,0], pelvis_mesh.vertices[:,1], pelvis_mesh.vertices[:,2],c='grey', s=1, alpha=0.1)
 
+    import pdb; pdb.set_trace()
     ax.scatter(femur_mesh.vertices[is_covered_femur,0], femur_mesh.vertices[is_covered_femur,1], femur_mesh.vertices[is_covered_femur,2],c='red') # plot the points that are below the threshold in red
 
     ax.view_init(elev=16, azim=-35, roll=0) # set the view
@@ -340,7 +341,7 @@ def nearest_algorithm(femur_mesh, pelvis_mesh, threshold, figures_path):
 
     start_time = time.time()
 
-    # Calculate the distance between the meshes (femur to pelvis)
+    # Calculate the distance between the meshes (reutrns ... to be tested)
     distance = pelvis_mesh.nearest.on_surface(femur_mesh.vertices)
 
     # Get logical array of the distances
@@ -354,6 +355,7 @@ def nearest_algorithm(femur_mesh, pelvis_mesh, threshold, figures_path):
     fig, ax = plot_coverage(femur_mesh, pelvis_mesh, threshold, is_covered_femur, covered_area)
 
     # save the figure
+    import pdb; pdb.set_trace()
     save_path = os.path.join(figures_path, f"distance_{threshold}.png")
     plt.savefig(save_path)
     print(f"Figure saved at: {save_path}")
@@ -485,7 +487,7 @@ if __name__ == "__main__":
     ####################################################################################################
     #                                      Edit settings here                                          #
     ####################################################################################################
-    skip = True
+    skip = False
     legs = ["r", "l"]
     thresholds = [10, 15]
     skip_subjects = ["013"]
