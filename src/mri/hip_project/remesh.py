@@ -3,9 +3,10 @@ import os
 import tkinter as tk
 from tkinter import filedialog
 import pandas as pd
+import time
 
 
-def remesh_stl_file(stl_path="", new_stl_path=""):
+def remesh_stl_file(stl_path="", new_stl_path="", resampling_cell_size=0.499923):
 
     if stl_path == "":
         stl_path = filedialog.askopenfilename(title='Select STL file', filetypes=[('STL Files', '*.stl')])
@@ -16,20 +17,13 @@ def remesh_stl_file(stl_path="", new_stl_path=""):
     # copy uniform resampling code 
     ms = ml.MeshSet()
     ms.load_new_mesh(stl_path)
-    ms.generate_resampled_uniform_mesh(cellsize = ml.PercentageValue(0.499923))
+    ms.generate_resampled_uniform_mesh(cellsize = ml.PercentageValue(resampling_cell_size))
 
     ms.save_current_mesh(new_stl_path)
     print("Uniform resampling done")
     print("New STL file saved at: ", new_stl_path)
 
 def create_new_folder_names(stl_path):
-    print("Remeshing STL file: ", stl_path)
-    print('Rules for remeshing:')
-    print('1. The STL file should contain either femur or pelvis')
-    print('2. The STL file name should not contain "cartilage"')
-    print('3. The new STL file will be saved in the same folder as the original file')
-    print('4. The new STL file will be named as "femoral_head_l.stl", "femoral_head_r.stl", "acetabulum_l.stl" or "acetabulum_r.stl"')
-    
     if stl_path.lower().__contains__("cartilage"):
         raise ValueError("STL file contains cartilage (edit the code in line 35 to fix)")
     
@@ -64,7 +58,7 @@ def ask_to_continue(mode):
     else:
         return True
     
-def run(subjects_to_run, mode):
+def run(subjects_to_run, mode, replace, resampling_cell_size):
     
     if mode == "manual":
         file_path = filedialog.askopenfilename(title='Select STL file', filetypes=[('STL Files', '*.stl')])
@@ -81,6 +75,7 @@ def run(subjects_to_run, mode):
         
         # Create a dataframe with all the subjects, paths, and files
         paths = pd.DataFrame(columns=["Subject", "Path", "Files"])
+        
         for subject_id in os.listdir(subjects_folder):
             if subject_id not in subjects_to_run and subjects_to_run != []:
                 continue
@@ -98,14 +93,14 @@ def run(subjects_to_run, mode):
         
         ask_to_continue(mode)
         
-        for subject_id in paths["Subject"]:
+        for i, subject_id in enumerate(paths["Subject"]):
             for file in paths["Files"][0]:
                 
-                file_path = os.path.join(paths["Path"][0], file)
+                file_path = os.path.join(paths["Path"][i], file)
                 print("File path: ", file_path)
 
                 ## Ask the user if they want to remesh the file 
-                if mode == "manual":
+                if mode == "semi-auto":
                     answer = input("Do you want to remesh the file: " + file + "? Y(default) / N   " )
                     if answer.lower() == "n":
                         continue
@@ -113,19 +108,47 @@ def run(subjects_to_run, mode):
                 # Remesh the file
                 try:
                     new_file_path = create_new_folder_names(file_path)
-                    remesh_stl_file(stl_path=file_path, new_stl_path=new_file_path)
+                    if os.path.exists(new_file_path) and replace == False:
+                        print("New file already exists: " + new_file_path)
+                        continue
+                        
+                    remesh_stl_file(stl_path=file_path, new_stl_path=new_file_path, resampling_cell_size=resampling_cell_size)
                     print("\n")
                 except Exception as e:
                     print("Error: ", e)
                     continue
-    
+            
+            
+            print("\n")
+            print("Finished remeshing subject: ", subject_id)
+            time.sleep(1)
     else:
         print("Mode not recognized")
 
+
+
 if __name__ == "__main__":
     # example 
+    
+    print("Remeshing STL file in this code:")
+    print('Rules for remeshing:')
+    print('1. The STL file should contain either femur or pelvis')
+    print('2. The STL file name should not contain "cartilage"')
+    print('3. The new STL file will be saved in the same folder as the original file')
+    print('4. The new STL file will be named as "femoral_head_l.stl", "femoral_head_r.stl", "acetabulum_l.stl" or "acetabulum_r.stl"')
+    print('5. The new STL file will be saved only if it does not already exist')
+    print('6. The new STL file will be saved with uniform resampling')
+    print('7. The new STL file will be saved with a cell size of 0.499923')
+    
+    print("To change the naming rules, edit function 'create_new_folder_names'")
+    
+    print("Change the mode to 'manual', 'semi-auto' or 'batch' in the code to run the remeshing")
+
     subjects_to_run = []
-    mode = "manual" # "manual", "semi-auto" or "batch"
-    run(subjects_to_run,mode)
+    mode = "batch" # "manual", "semi-auto" or "batch"
+    replace = False
+    resampling_cell_size = 0.499923
+    
+    run(subjects_to_run, mode, replace, resampling_cell_size)
     
     
