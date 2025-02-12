@@ -285,26 +285,28 @@ def fit_sphere_algoritm(pelvis_mesh, femur_mesh, threshold, figures_path):
     start_time = time.time()
 
     # Create a sphere mesh for the femur
-    sphere_points_femur = generate_sphere_points(femur_mesh, num_points=len(femur_mesh.vertices))
+    sphere_points_femur = generate_sphere_points(femur_mesh, num_points=len(femur_mesh.vertices)*3)
     shere_mesh_femur = trimesh.convex.convex_hull(sphere_points_femur)
 
+    # Determine the convertion ration between the units of the femur mesh and the sphere mesh
+    ratio = np.mean(np.linalg.norm(femur_mesh.vertices, axis=1)) / np.mean(np.linalg.norm(shere_mesh_femur.vertices, axis=1))   
+    
     # Calculate the distance between the meshes
     distance = pelvis_mesh.nearest.on_surface(shere_mesh_femur.vertices)
 
     # Get logical array of the distances
     is_covered_femur = distance[1] < threshold
 
-
     # Calculate the area of the covered faces
-    # import pdb; pdb.set_trace()
     covered_area = calculate_area(shere_mesh_femur.vertices[is_covered_femur])
+    covered_area = covered_area * ratio**2
     print(f"Threshold: {threshold} - Covered Area: {covered_area:.2f}")
 
     # plot the meshes with the distance color map
-    fig, ax = plot_coverage(shere_mesh_femur, pelvis_mesh, threshold, is_covered_femur, covered_area)
+    fig, ax = plot_coverage(pelvis_mesh, shere_mesh_femur, threshold, is_covered_femur, covered_area)
 
     # save the figure
-    save_path = os.path.join(figures_path, f"distance_{threshold}.png")
+    save_path = os.path.join(figures_path, f"sphere_{threshold}.png")
     plt.savefig(save_path)
     print(f"Figure saved at: {save_path}")
 
@@ -357,7 +359,7 @@ def nearest_algorithm(pelvis_mesh, femur_mesh, threshold, figures_path):
     fig, ax = plot_coverage(pelvis_mesh, femur_mesh, threshold, is_covered_femur, covered_area)
 
     # save the figure
-    save_path = os.path.join(figures_path, f"distance_{threshold}.png")
+    save_path = os.path.join(figures_path, f"nearest_{threshold}.png")
     plt.savefig(save_path)
     print(f"Figure saved at: {save_path}")
 
@@ -495,7 +497,7 @@ if __name__ == "__main__":
     legs = ["r", "l"]
     thresholds = [10, 15]
     skip_subjects = ["013"]
-    algorithm = 'nearest' # 'nearest' or 'fit_sphere_algoritm'
+    algorithm = 'fit_sphere_algoritm' # 'nearest' or 'fit_sphere_algoritm'
 
 
     ####################################################################################################
