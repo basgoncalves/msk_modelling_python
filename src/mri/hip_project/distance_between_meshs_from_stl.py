@@ -327,8 +327,9 @@ if __name__ == "__main__":
     
     subject = "009"
     leg = "l" 
-    pelvis_path = fr'c:\Users\Bas\ucloud\MRI_segmentation_BG\acetabular_coverage\{subject}\Meshlab_BG\acetabulum_{leg}.stl'
-    femur_path = fr'c:\Users\Bas\ucloud\MRI_segmentation_BG\acetabular_coverage\{subject}\Meshlab_BG\femoral_head_{leg}.stl'
+    current_folder = os.path.dirname(os.path.abspath(__file__))
+    pelvis_path = os.path.join(current_folder,'example_stls', f"acetabulum_{leg}.stl")
+    femur_path = os.path.join(current_folder,'example_stls', f"femoral_head_{leg}.stl")
     
     compare_area_covered_different_thersholds(pelvis_path, femur_path, threshold_list=[10, 15, 20])
     
