@@ -96,7 +96,7 @@ class Project():
             f.write(message)
 
 class Hip():
-    def __init__(self, subjectID, pelvis_path, femur_path, leg, threshold_list=[5, 10, 15], replace=True):
+    def __init__(self, subjectID, pelvis_path, femur_path, leg, threshold_list=[5, 10, 15], replace=False):
         
         try:
             self.start_time = time.time()
@@ -258,14 +258,25 @@ class Hip():
         Compares the area covered by the pelvis mesh for different thresholds.
         
         """
-
+        self.algorithm = algorithm
         print(f"Comparing meshes: ")
         print(f"Pelvis: {self.pelvis_path}")
         print(f"Femur: {self.femur_path}")
-
+        results = pd.read_csv(self.results_path)
+        
+        
         # loop through the thresholds to calculate the covered area
         for threshold in self.threshold_list:
-            if algorithm == 'nearest':
+            
+            # check if the results already exist and if we should replace them
+            if any([int(self.subjectID) in results['subject'].values, self.threshold in results['threshold'].values,
+            self.leg in results['leg'].values, self.algorithm in results['algorithm'].values]):
+        
+                if self.replace == False:
+                    
+                    continue
+                
+            if algorithm == 'nearest' or ():
                 self.nearest_algorithm(threshold)
 
             elif algorithm == 'fit_sphere_algoritm':
@@ -469,9 +480,9 @@ if __name__ == "__main__":
     ####################################################################################################
     skip = False
     legs = ["r", "l"]
-    thresholds = [10, 15]
+    thresholds = [15]
     skip_subjects = []
-    algorithm = 'fit_sphere_algoritm' # 'nearest' or 'fit_sphere_algoritm'
+    algorithm = 'nearest' # 'nearest' or 'fit_sphere_algoritm'
     restart_results = False
 
 
