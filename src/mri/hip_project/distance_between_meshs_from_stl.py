@@ -247,15 +247,17 @@ def fit_sphere_and_plot(mesh_path):
 
     return covered_area, sphere_points
 
-def plot_coverage(femur_mesh, pelvis_mesh, threshold, is_covered_femur, covered_area):
+def plot_coverage(pelvis_mesh, femur_mesh, threshold, is_covered_femur, covered_area):
     # plot the meshes with the distance color map
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     plt.subplots_adjust(top=1.0, bottom=0.0, left=0.0, right=1.0, hspace=0.0, wspace=0.0)
-    ax.scatter(femur_mesh.vertices[:,0], femur_mesh.vertices[:,1], femur_mesh.vertices[:,2],c='grey', s=1, alpha=0.1) # plot all the points in grey
+    
+    # plot the meshes in grey
+    ax.scatter(femur_mesh.vertices[:,0], femur_mesh.vertices[:,1], femur_mesh.vertices[:,2],c='grey', s=1, alpha=0.1) 
     ax.scatter(pelvis_mesh.vertices[:,0], pelvis_mesh.vertices[:,1], pelvis_mesh.vertices[:,2],c='grey', s=1, alpha=0.1)
 
-    import pdb; pdb.set_trace()
+    # plot the points that are below the threshold in red
     ax.scatter(femur_mesh.vertices[is_covered_femur,0], femur_mesh.vertices[is_covered_femur,1], femur_mesh.vertices[is_covered_femur,2],c='red') # plot the points that are below the threshold in red
 
     ax.view_init(elev=16, azim=-35, roll=0) # set the view
@@ -267,7 +269,7 @@ def plot_coverage(femur_mesh, pelvis_mesh, threshold, is_covered_femur, covered_
 
     return fig, ax
 
-def fit_sphere_algoritm(femur_mesh, pelvis_mesh, threshold, figures_path):
+def fit_sphere_algoritm(pelvis_mesh, femur_mesh, threshold, figures_path):
     """
 
     Similar to the nearest algorithm, the sphere intersection algorithm calculates the distance between two meshes and determines which points are covered by the other mesh.
@@ -326,7 +328,7 @@ def fit_sphere_algoritm(femur_mesh, pelvis_mesh, threshold, figures_path):
 
     return covered_area
 
-def nearest_algorithm(femur_mesh, pelvis_mesh, threshold, figures_path):
+def nearest_algorithm(pelvis_mesh, femur_mesh, threshold, figures_path):
     """
     Calculates the distance between two meshes using the nearest algorithm.
 
@@ -341,7 +343,7 @@ def nearest_algorithm(femur_mesh, pelvis_mesh, threshold, figures_path):
 
     start_time = time.time()
 
-    # Calculate the distance between the meshes (reutrns ... to be tested)
+    # Calculate the distance between the meshes (reutrns number of the nearest face and the distance on the femur mesh)
     distance = pelvis_mesh.nearest.on_surface(femur_mesh.vertices)
 
     # Get logical array of the distances
@@ -352,10 +354,9 @@ def nearest_algorithm(femur_mesh, pelvis_mesh, threshold, figures_path):
     print(f"Threshold: {threshold} - Covered Area: {covered_area:.2f}")
 
     # plot the meshes with the distance color map
-    fig, ax = plot_coverage(femur_mesh, pelvis_mesh, threshold, is_covered_femur, covered_area)
+    fig, ax = plot_coverage(pelvis_mesh, femur_mesh, threshold, is_covered_femur, covered_area)
 
     # save the figure
-    import pdb; pdb.set_trace()
     save_path = os.path.join(figures_path, f"distance_{threshold}.png")
     plt.savefig(save_path)
     print(f"Figure saved at: {save_path}")
@@ -376,7 +377,10 @@ def nearest_algorithm(femur_mesh, pelvis_mesh, threshold, figures_path):
     return covered_area
 
 def compare_area_covered_different_thersholds(pelvis_path, femur_path, threshold_list=[5, 10, 15], algorithm='nearest'):
-
+    """
+    Compares the area covered by the pelvis mesh for different thresholds.
+    
+    """
 
     print(f"Comparing meshes: ")
     print(f"Pelvis: {pelvis_path}")
@@ -507,7 +511,9 @@ if __name__ == "__main__":
                 pelvis_path = os.path.join(paths.example_folder, subject ,f"acetabulum_{leg}.stl")
                 femur_path = os.path.join(paths.example_folder, subject, f"femoral_head_{leg}.stl")
 
-                compare_area_covered_different_thersholds(pelvis_path, femur_path, threshold_list=thresholds, algorithm=algorithm)
+                compare_area_covered_different_thersholds(pelvis_path=pelvis_path, 
+                                                          femur_path=femur_path, 
+                                                          threshold_list=thresholds, algorithm=algorithm)
 
 
     plot_summary_results()
