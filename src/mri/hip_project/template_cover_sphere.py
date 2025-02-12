@@ -26,9 +26,12 @@ def plot_sphere_and_segment(radius, segment_radius):
     ax = fig.add_subplot(111, projection='3d')
 
     x, y, z = create_sphere(radius)
-    ax.plot_surface(x, y, z, color='b', alpha=0.3)
-
     x_seg, y_seg, z_seg = create_sphere_segment(radius, segment_radius)
+    
+    distance = radius - segment_radius
+    
+    # plot
+    ax.plot_surface(x, y, z, color='b', alpha=0.3)
     ax.plot_surface(x_seg, y_seg, z_seg, color='r', alpha=0.6)
 
     plt.title('Sphere and Sphere Segment')
@@ -39,6 +42,8 @@ def plot_sphere_and_segment(radius, segment_radius):
     print(f"Plot saved as 'sphere_and_segment.png' in {current_folder}")
     
     plt.show()
+
+
 
 if __name__ == "__main__":
     radius = float(input("Enter the radius of the sphere: "))
