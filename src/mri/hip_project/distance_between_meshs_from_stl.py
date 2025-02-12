@@ -375,6 +375,12 @@ def nearest_algorithm(femur_mesh, pelvis_mesh, threshold, figures_path):
 
 def compare_area_covered_different_thersholds(pelvis_path, femur_path, threshold_list=[5, 10, 15], algorithm='nearest'):
 
+
+    print(f"Comparing meshes: ")
+    print(f"Pelvis: {pelvis_path}")
+    print(f"Femur: {femur_path}")
+          
+    
     # Paths to save the figures
     figures_path = os.path.join(os.path.dirname(femur_path), 'figures')
     csv_path = os.path.join(figures_path, 'distances.csv')
@@ -394,7 +400,7 @@ def compare_area_covered_different_thersholds(pelvis_path, femur_path, threshold
     # loop through the thresholds to calculate the covered area
     for threshold in threshold_list:
 
-        start_time = time.time()
+        
 
         if algorithm == 'nearest':
             nearest_algorithm(pelvis, femur, threshold, figures_path)
@@ -404,58 +410,76 @@ def compare_area_covered_different_thersholds(pelvis_path, femur_path, threshold
 
 
 
-
-
-
 def plot_summary_results():
 
     paths = Project()
 
     # summarise all results in a single csv file
-    sumaary_csv_path = os.path.join(paths.example_folder, 'summary.csv')
-    all_results = pd.DataFrame()
+    all_results = pd.DataFrame(columns=['subject', 'threshold', 'covered_area', 'algorithm'])
     for subject in os.listdir(paths.example_folder):
-        csv_path = os.path.join(paths.example_folder, subject, f"figures", f"distances.csv")
+        
+        # add the results for the sphere algorithm
         try:
-            results = pd.read_csv(csv_path)
-            results['subject'] = subject
-            all_results = pd.concat([all_results, results])
+            sphere_csv_path = os.path.join(paths.example_folder, subject, f"figures", f"fit_sphere_algoritm.csv")
+            sphere_results = pd.read_csv(os.path.join(paths.example_folder, subject, f"figures", f"fit_sphere_algoritm.csv"))
+            sphere_results['subject'] = subject 
+            sphere_results['algorithm'] = 'fit_sphere_algoritm' # add column with algorithm name
+            all_results = pd.concat([all_results, sphere_results])
         except Exception as e:
-            print(f"Error: Could not read {csv_path}")
+            print(f"Error: Could not read {sphere_csv_path}")
             print(e)
-    all_results.to_csv(sumaary_csv_path, index=False)
+        
+        # add the results for the nearest algorithm
+        try:
+            nearest_csv_path = os.path.join(paths.example_folder, subject, f"figures", f"nearest_algoritm.csv")
+            nearest_results = pd.read_csv(os.path.join(paths.example_folder, subject, f"figures", f"nearest_algoritm.csv"))
+            nearest_results['subject'] = subject
+            nearest_results['algorithm'] = 'nearest' # add column with algorithm name
+            all_results = pd.concat([all_results, nearest_results])
+        except Exception as e:
+            print(f"Error: Could not read {nearest_csv_path}")
+            print(e)
+            
 
-    print(f"Summary results saved at: {sumaary_csv_path}")
+            
+    # save the summary results to a csv file     
+    summary_csv_path = os.path.join(paths.example_folder, 'summary.csv')            
+    all_results.to_csv(summary_csv_path, index=False)
+    print(f"Summary results saved at: {summary_csv_path}")
 
     # plot the summary results
+    try:
+        X = all_results['subject'].unique()
+        # one subplot for each algorithm
+        fig = plt.figure()
+        n_subplots = len(all_results['algorithm'].unique())
+        for algorithm in all_results['algorithm'].unique():
+            algorithm_results = all_results[all_results['algorithm'] == algorithm]
+            Y = algorithm_results['covered_area'].groupby([algorithm_results['subject'], algorithm_results['threshold']]).mean()      
+            Y.unstack().plot(kind='bar', ax=fig.add_subplot(1,n_subplots,1), title=algorithm)
+            
+            plt.ylabel('Covered Area (mm^2)')
+            plt.xlabel('Subject')
+            plt.title(algorithm)
+            plt.xticks(rotation=45)
+            plt.tight_layout()
 
-    X = all_results['subject'].unique()
-    Y = all_results['covered_area'].groupby(all_results['subject']).mean()
-    Y_per_threshold = all_results['covered_area'].groupby([all_results['subject'], all_results['threshold']]).mean()
-
-    fig = plt.figure()
-    Y_per_threshold.unstack().plot(kind='bar', ax=fig.add_subplot(111))
-
-    plt.ylabel('Covered Area (mm^2)')
-    plt.xlabel('Subject')
-    plt.title('Covered Area by Subject')
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-
-    save_file_path = os.path.join(paths.example_folder, 'summary.png')
-    plt.savefig(save_file_path)
-    plt.show()
-
+        save_file_path = os.path.join(paths.example_folder, 'summary.png')
+        plt.savefig(save_file_path)
+        plt.show()
+    except Exception as e:
+        print(f"Error: Could not plot summary results")
+        print(e)
 
 if __name__ == "__main__":
 
     ####################################################################################################
     #                                      Edit settings here                                          #
     ####################################################################################################
-    skip = False
+    skip = True
     legs = ["r", "l"]
     thresholds = [10, 15]
-    skip_subjects = ["009", "010"]
+    skip_subjects = ["013"]
     algorithm = 'fit_sphere_algoritm' # 'nearest' or 'fit_sphere_algoritm'
 
 
