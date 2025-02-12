@@ -9,6 +9,15 @@ import time
 
 # may need to pip install "pyglet<2", "rtree", "open3d" to run this example
 
+class Paths():
+    def __init__(self):
+        self.current = os.path.dirname(os.path.abspath(__file__))
+        self.example_folder = os.path.join(self.current, 'example_stls')
+        self.files = os.listdir(self.current)
+        self.stl_files = [file for file in self.files if file.endswith('.stl')]
+        self.subjects = os.listdir(self.example_folder)
+        self.subjects = [subject for subject in self.subjects if os.path.isdir(os.path.join(self.example_folder, subject))]
+        
 class Mesh():
     def __init__(self, path = None):
         self.path = path
@@ -242,9 +251,14 @@ def compare_area_covered_different_thersholds(pelvis_path, femur_path, threshold
     
     # Paths to save the figures
     figures_path = os.path.join(os.path.dirname(femur_path), 'figures')
+    csv_path = os.path.join(figures_path, 'distances.csv')
 
     if os.path.exists(figures_path) == False:
         os.mkdir(figures_path)
+        
+    # delete the csv file if it already exists
+    if os.path.exists(csv_path):
+        os.remove(csv_path)
 
     # Load the meshes
     print("Loading meshes...")
@@ -319,17 +333,53 @@ def compare_area_covered_different_thersholds(pelvis_path, femur_path, threshold
         print(f"Results saved at: {csv_path}")
         time.sleep(1)
         
-
+def plot_summary_results():
+    
+    paths = Paths()
+    
+    # summarise all results in a single csv file
+    sumaary_csv_path = os.path.join(paths.example_folder, 'summary.csv')
+    all_results = pd.DataFrame()
+    for subject in os.listdir(paths.example_folder):
+        csv_path = os.path.join(paths.example_folder, subject, f"figures", f"distances.csv")
+        try:
+            results = pd.read_csv(csv_path)
+            results['subject'] = subject
+            all_results = pd.concat([all_results, results])
+        except Exception as e:
+            print(f"Error: Could not read {csv_path}")
+            print(e)
+    all_results.to_csv(sumaary_csv_path, index=False)
+    
+    print(f"Summary results saved at: {sumaary_csv_path}")
+    
+    # plot the summary results
+    fig = plt.figure()
+    
+    
+    X = all_results['subject'].unique()    
+    for threshold in all_results['threshold'].unique():
+        Y = all_results[all_results['threshold'] == threshold]['covered_area'].groupby(all_results['subject']).mean()
+        plt.bar(X, Y, label=f'Threshold: {threshold}')
+    
+    plt.show()
 
 
 if __name__ == "__main__":
     # Paths to the pelvis and femur meshes
     
-    subject = "009"
-    leg = "l" 
-    current_folder = os.path.dirname(os.path.abspath(__file__))
-    pelvis_path = os.path.join(current_folder,'example_stls', f"acetabulum_{leg}.stl")
-    femur_path = os.path.join(current_folder,'example_stls', f"femoral_head_{leg}.stl")
     
-    compare_area_covered_different_thersholds(pelvis_path, femur_path, threshold_list=[10, 15, 20])
+    legs = ["r", "l"] 
+    paths = Paths()
+    print(paths.subjects)
+    
+    # plot_summary_results()
+    
+    for subject in paths.subjects:
+        for leg in legs:
+            pelvis_path = os.path.join(paths.example_folder, subject ,f"acetabulum_{leg}.stl")
+            femur_path = os.path.join(paths.example_folder, subject, f"femoral_head_{leg}.stl")
+            
+            compare_area_covered_different_thersholds(pelvis_path, femur_path, threshold_list=[10, 15, 20])
+    
     
