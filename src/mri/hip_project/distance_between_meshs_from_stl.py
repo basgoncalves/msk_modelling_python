@@ -247,7 +247,24 @@ def fit_sphere_and_plot(mesh_path):
 
     return covered_area, sphere_points
 
-def compare_area_covered_different_thersholds(pelvis_path, femur_path, threshold_list=[5, 10, 15]):
+def intersect_meshes(mesh1, mesh2):
+    """
+    Intersects two meshes and returns the intersection points.
+
+    Args:
+        mesh1: A trimesh object representing the first mesh.
+        mesh2: A trimesh object representing the second mesh.
+
+    Returns:
+        The intersection points between the two meshes.
+    """
+    # Perform the intersection
+    intersection = trimesh.intersections.mesh_multiplane(mesh1, mesh2)
+    intersection_points = intersection[0]
+
+    return intersection_points
+
+def compare_area_covered_different_thersholds(pelvis_path, femur_path, threshold_list=[5, 10, 15], algorithm='nearest'):
     
     # Paths to save the figures
     figures_path = os.path.join(os.path.dirname(femur_path), 'figures')
@@ -271,13 +288,6 @@ def compare_area_covered_different_thersholds(pelvis_path, femur_path, threshold
     
     sphere_mesh_femur = trimesh.Trimesh(vertices=sphere_points_femur)
     
-    # # plot the fitted spheres
-    # fig = plt.figure()
-    # ax = fig.add_subplot(111, projection='3d')
-    # ax.scatter(sphere_points_femur[:, 0], sphere_points_femur[:, 1], sphere_points_femur[:, 2], s=1, color='r', label='Fitted Sphere')
-    # ax.scatter(sphere_points_pelvis[:, 0], sphere_points_pelvis[:, 1], sphere_points_pelvis[:, 2], s=1, color='b', label='Fitted Sphere')
-
-
     # loop through the thresholds to calculate the covered area
     for threshold in threshold_list:
         
@@ -374,20 +384,30 @@ def plot_summary_results():
 
 
 if __name__ == "__main__":
-    # Paths to the pelvis and femur meshes
     
-    
+    ####################################################################################################
+    #                                      Edit settings here                                          #
+    ####################################################################################################
+    skip = False
     legs = ["r", "l"] 
+    thresholds = [5, 10, 15]
+    skip_subjects = ["009", "010"]
+    
+    
+    ####################################################################################################
     paths = Paths()
     print(paths.subjects)
     
-    plot_summary_results()
-    
-    exit()
-    for subject in paths.subjects:
-        for leg in legs:
-            pelvis_path = os.path.join(paths.example_folder, subject ,f"acetabulum_{leg}.stl")
-            femur_path = os.path.join(paths.example_folder, subject, f"femoral_head_{leg}.stl")
+    if skip:
+        for subject in paths.subjects:
+            if subject in skip_subjects:
+                continue
             
-            compare_area_covered_different_thersholds(pelvis_path, femur_path, threshold_list=[10, 15, 20])
-    
+            for leg in legs:
+                pelvis_path = os.path.join(paths.example_folder, subject ,f"acetabulum_{leg}.stl")
+                femur_path = os.path.join(paths.example_folder, subject, f"femoral_head_{leg}.stl")
+                
+                compare_area_covered_different_thersholds(pelvis_path, femur_path, threshold_list=thresholds)
+        
+
+    plot_summary_results()
