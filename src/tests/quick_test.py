@@ -1,48 +1,30 @@
+import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import msk_modelling_python as msk
 
-# Sample DataFrame (replace with your actual DataFrame)
-data = {'threshold': [10, 15, 20, 10, 15, 20, 10, 15, 20],
-        'covered_area': [7391.232877, 12476.212893, 16725.837971, 
-                         5842.719398, 10108.066135, 13878.470279, 
-                         4835.434849, 8707.562546, 13374.003104],
-        'time': [7.758052, 5.285596, 5.621986, 
-                 7.609042, 5.015001, 5.701381, 
-                 4.915967, 4.513439, 4.546807],
-        'subject': [9, 9, 9, 10, 10, 10, 10, 10, 10]}
-df = pd.DataFrame(data)
+################
+def format_subject_id(subject_id):
+        """Formats a subject ID to a 3-digit string."""
+        try:
+            # Convert to integer first to handle cases like '01'
+            subject_id = int(subject_id)
+            return f"{subject_id:03d}"  # Formats the integer to a 3-digit string
+        except ValueError:
+            # Handle cases where the value is not convertible to an integer
+            return str(subject_id)  # Return the original value as a string  
 
-# Group data by subject and threshold
-grouped_df = df.groupby(['subject', 'threshold'])['covered_area'].mean().reset_index()
 
-# Create a figure and axes
-fig, ax = plt.subplots()
+file_path = r"C:\Git\research_data\Projects\runbops_FAIS_phd\subject_info.csv"
+info = pd.read_csv(file_path)
 
-# Define x positions for each subject's bars
-x = np.arange(len(grouped_df['subject'].unique()))
-width = 0.2
+print(info.head())
+print(info['Subject'])
 
-# Create grouped bar plot with appropriate x positions
-for i, (subject, group_df) in enumerate(grouped_df.groupby('subject')):
-    x_pos = x[i] + np.arange(len(group_df)) * width - (len(group_df) - 1) * width / 2
-    ax.bar(x_pos, group_df['covered_area'], width=width, label=f'Subject {subject}')
+info['Subject'] = info['Subject'].apply(format_subject_id)
+info['Subject'] = info['Subject'].astype(str)
+info.to_csv(file_path.replace('.csv','_upd.csv'), index=False)
 
-# Set x-axis labels with subject names
-ax.set_xticks(x)
-ax.set_xticklabels(grouped_df['subject'].unique())
-
-# Set x-axis label
-ax.set_xlabel('Subject')
-
-# Set y-axis label
-ax.set_ylabel('Covered Area')
-
-# Set title
-ax.set_title('Covered Area by Threshold and Subject')
-
-# Add legend
-ax.legend()
-
-# Show the plot
-plt.show()
+print(info.head())
+print(info['Subject'])
