@@ -1,9 +1,11 @@
+import os
+
 folder = r"C:\Users\Bas\ucloud\MRI_segmentation_BG\acetabular_coverage"
 
 
 file_mapping = {
     'Segmentation_bg_l_femur.stl': 'Segmentation_l_femur.stl',
-    'Segmentation_bg_ r_femur.stl': 'Segmentation_r_femur.stl',
+    'Segmentation_bg_r_femur.stl': 'Segmentation_r_femur.stl',
     'Segmentation_bg_l_pelvis.stl': 'Segmentation_l_pelvis.stl',
     'Segmentation_bg_r_pelvis.stl': 'Segmentation_r_pelvis.stl',
     'Segmentation_bg_l_femur_cartilage.stl': 'Segmentation_l_femur_cartilage.stl',

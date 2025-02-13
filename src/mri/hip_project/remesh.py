@@ -24,7 +24,7 @@ def remesh_stl_file(stl_path="", new_stl_path="", resampling_cell_size=0.499923)
     print("New STL file saved at: ", new_stl_path)
 
 def create_new_folder_names(stl_path):
-    if stl_path.lower().__contains__("cartilage"):
+    if stl_path.lower().__contains__("afdiu"):
         raise ValueError("STL file contains cartilage (edit the code in line 35 to fix)")
     
     elif any(substring in stl_path.lower() for substring in ["femur_l", "l_femur"]):
@@ -35,6 +35,10 @@ def create_new_folder_names(stl_path):
         new_stl_path = os.path.dirname(stl_path) + os.sep + "acetabulum_r.stl"
     elif any(substring in stl_path.lower() for substring in ["pelvis_l", "l_pelvis"]):
         new_stl_path = os.path.dirname(stl_path) + os.sep + "acetabulum_l.stl"
+    elif any(substring in stl_path.lower() for substring in ["cartilage_l", "l_cartilage"]):
+        new_stl_path = os.path.dirname(stl_path) + os.sep + "cartilage_l.stl"
+    elif any(substring in stl_path.lower() for substring in ["cartilage_r", "r_cartilage"]):
+        new_stl_path = os.path.dirname(stl_path) + os.sep + "cartilage_r.stl"
     else:
         raise ValueError("STL file does not contain femur or pelvis")
     
@@ -85,10 +89,8 @@ def run(subjects_to_run, mode, replace, resampling_cell_size):
             main_folder = fr"C:\Users\Bas\ucloud\MRI_segmentation_BG\acetabular_coverage\{subject_id}\Meshlab_BG"
             dir_list = os.listdir(main_folder)
             dir_list = [file for file in dir_list if file.endswith(".stl") and "Segmentation" in file]
-            #make the list vertical
-            dir_list = [file for file in dir_list if file.endswith(".stl") and "Segmentation" in file]
-            
             paths = pd.concat([paths, pd.DataFrame([{"Subject": subject_id, "Path": main_folder, "Files": dir_list}])], ignore_index=True)
+            
         print(paths)
         
         ask_to_continue(mode)
@@ -109,7 +111,7 @@ def run(subjects_to_run, mode, replace, resampling_cell_size):
                 try:
                     new_file_path = create_new_folder_names(file_path)
                     if os.path.exists(new_file_path) and replace == False:
-                        print("New file already exists: " + new_file_path)
+                        print("\033[93mNew file already exists: " + new_file_path + "\033[0m")
                         continue
                         
                     remesh_stl_file(stl_path=file_path, new_stl_path=new_file_path, resampling_cell_size=resampling_cell_size)
@@ -124,8 +126,6 @@ def run(subjects_to_run, mode, replace, resampling_cell_size):
             time.sleep(1)
     else:
         print("Mode not recognized")
-
-
 
 if __name__ == "__main__":
     # example 
@@ -144,9 +144,9 @@ if __name__ == "__main__":
     
     print("Change the mode to 'manual', 'semi-auto' or 'batch' in the code to run the remeshing")
 
-    subjects_to_run = ['015']
+    subjects_to_run = []
     mode = "batch" # "manual", "semi-auto" or "batch"
-    replace = True
+    replace = False  # Set to True if you want to replace the existing files
     resampling_cell_size = 0.499923
     
     run(subjects_to_run, mode, replace, resampling_cell_size)

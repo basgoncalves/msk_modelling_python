@@ -12,23 +12,23 @@ import time
 class Project():
     def __init__(self):
         self.current = os.path.dirname(os.path.abspath(__file__))
-        self.example_folder = os.path.join(self.current, 'example_stls')
+        self.stl_folder = r'C:\Users\Bas\ucloud\MRI_segmentation_BG\acetabular_coverage'
         self.log_file = os.path.join(self.current, 'log.txt')
         self.files = os.listdir(self.current)
         self.stl_files = [file for file in self.files if file.endswith('.stl')]
-        self.subjects = os.listdir(self.example_folder)
-        self.subjects = [subject for subject in self.subjects if os.path.isdir(os.path.join(self.example_folder, subject))]
+        self.subjects = os.listdir(self.stl_folder)
+        self.subjects = [subject for subject in self.subjects if os.path.isdir(os.path.join(self.stl_folder, subject))]
     
     def remove_all_results(self):
         for subject in self.subjects:
             for leg in ['r', 'l']:
-                results_path = os.path.join(self.example_folder, subject, f"hip_{leg}", 'results.csv')
+                results_path = os.path.join(self.stl_folder, subject, f"hip_{leg}", 'results.csv')
                 if os.path.exists(results_path):
                     os.remove(results_path)
                     print(f"Removed: {results_path}")
      
     def get_summary_results(self):
-        summary_csv_path = os.path.join(self.example_folder, 'summary.csv')
+        summary_csv_path = os.path.join(self.stl_folder, 'summary.csv')
         if os.path.exists(summary_csv_path) == False:
             return None
         return pd.read_csv(summary_csv_path)
@@ -43,7 +43,7 @@ class Project():
         for subject in self.subjects:            
             for leg in ['r', 'l']: # loop through both legs
                 try:
-                    results_path = os.path.join(self.example_folder, subject, f"hip_{leg}", 'results.csv')
+                    results_path = os.path.join(self.stl_folder, subject, 'Meshlab_BG',f"hip_{leg}", 'results.csv')
                     results = pd.read_csv(results_path)
                     results['leg'] = leg
                     all_results = pd.concat([all_results, results])
@@ -53,7 +53,7 @@ class Project():
                      
         # save the summary results to a csv file 
         try:    
-            summary_csv_path = os.path.join(self.example_folder, 'summary.csv')            
+            summary_csv_path = os.path.join(self.stl_folder, 'summary.csv')            
             all_results.to_csv(summary_csv_path, index=False)
             print(f"Summary results saved at: {summary_csv_path}")
         except Exception as e:
@@ -80,7 +80,7 @@ class Project():
                 plt.xticks(rotation=45)
                 plt.tight_layout()
 
-            save_file_path = os.path.join(self.example_folder, 'summary.png')
+            save_file_path = os.path.join(self.stl_folder, 'summary.png')
             plt.savefig(save_file_path)
             plt.show()     
         except Exception as e:
@@ -88,15 +88,16 @@ class Project():
             print(e)
 
         # print to log file
-        with open(self.log_file, "w") as f:
-            f.write(f"Finished plot_summary_results: {time.ctime()}")
+        self.write_to_log(f"Summary results saved at: {summary_csv_path} at {time.ctime()}")
 
     def write_to_log(self, message):
-        with open(self.log_file, "w") as f:
+        with open(self.log_file, "a") as f:
             f.write(message)
+            if message[-1] != "\n":
+                f.write("\n")
 
 class Hip():
-    def __init__(self, subjectID, pelvis_path, femur_path, leg, threshold_list=[5, 10, 15], replace=False):
+    def __init__(self, subjectID, pelvis_path, femur_path, leg, algorithm = 'nearest' , threshold_list=[5, 10, 15], replace=False):
         
         try:
             self.start_time = time.time()
@@ -106,17 +107,17 @@ class Hip():
             self.hip_path = os.path.join(os.path.dirname(femur_path), 'hip_' + leg)
             self.results_path = os.path.join(self.hip_path, 'results.csv')
             self.replace = replace
-            
+            self.algorithm = algorithm
+            self.threshold_list = threshold_list
+            self.leg = leg
+           
             if os.path.exists(self.hip_path) == False:
                 os.mkdir(self.hip_path)
-            
+                
             # load meshes
             self.pelvis_mesh = trimesh.load(pelvis_path)
             self.femur_mesh = trimesh.load(femur_path)
-            
-            self.leg = leg
-            self.threshold_list = threshold_list
-            
+        
             self.pelvis_to_femur_distance = self.pelvis_mesh.nearest.on_surface(self.femur_mesh.vertices)
             
             self.algorithm = None
@@ -126,6 +127,22 @@ class Hip():
             
             # check time to load
             self.sec_to_load = time.time() - self.start_time
+           
+            # load results if they exist
+            try:
+                results = pd.read_csv(self.results_path)
+                # check if the subject is already in the results
+                self.is_in_results = all([int(self.subjectID) in results['subject'].values, 
+                                        self.threshold in results['threshold'].values,
+                                        self.leg in results['leg'].values, 
+                                        self.algorithm in results['algorithm'].values, 
+                                        self.covered_area in results['covered_area'].values])
+            except:
+                results = pd.DataFrame()
+                self.is_in_results = False
+                
+            self.results = results
+            
             
         except Exception as e:
             print(f"Error: Could not load meshes")
@@ -134,8 +151,9 @@ class Hip():
     def save_csv(self):
         
         columns = ['subject','threshold', 'covered_area', 'leg', 'time', 'algorithm']
-        if os.path.exists(self.results_path):
+        if os.path.isfile(self.results_path):
             results = pd.read_csv(self.results_path)            
+            
         else:
             results = pd.DataFrame(columns=columns)
 
@@ -160,6 +178,7 @@ class Hip():
                 return
         fig.savefig(save_path)
         print(f"Figure saved at: {save_path}")
+        plt.close(fig)
     
     def fit_sphere_algoritm(self, threshold):
         """
@@ -185,7 +204,15 @@ class Hip():
         ratio = np.mean(np.linalg.norm(self.femur_mesh.vertices, axis=1)) / np.mean(np.linalg.norm(shere_mesh_femur.vertices, axis=1))   
         
         # Calculate the distance between the meshes
-        distance = self.pelvis_mesh.nearest.on_surface(shere_mesh_femur.vertices)
+        if shere_mesh_femur.vertices.shape[0] > 100000:
+            # split into chuncks to avoid memory error
+            distance = []
+            for i in range(0, shere_mesh_femur.vertices.shape[0], 100000):
+                distance.append(self.pelvis_mesh.nearest.on_surface(shere_mesh_femur.vertices[i:i+100000]))
+            distance = np.concatenate(distance, axis=1)
+                
+        else:
+            distance = self.pelvis_mesh.nearest.on_surface(shere_mesh_femur.vertices)
 
         # Get logical array of the distances
         is_covered_femur = distance[1] < threshold
@@ -252,29 +279,73 @@ class Hip():
         self.save_csv()
         
         return covered_area
-                  
-    def compare_area_covered_different_thersholds(self, algorithm='nearest'):
+    
+    def nearest_above_algorithm(self, threshold):
+        """
+        Calculates the distance between two meshes using the nearest algorithm.
+
+        Args:
+            mesh1: A trimesh object representing the first mesh.
+            mesh2: A trimesh object representing the second mesh.
+            threshold: The maximum distance threshold for a point to be considered covered.
+
+        Returns:
+            The covered area of the first mesh.
+        """
+
+        start_time = time.time()
+        self.algorithm = 'nearest_above'
+
+        # Calculate the distance between the meshes (reutrns number of the nearest face and the distance on the femur mesh)
+        distance = self.pelvis_mesh.nearest.on_surface(self.femur_mesh.vertices)
+
+        # Is covered if the distance is above the threshold 
+        is_covered_femur = distance[1] > threshold
+        
+        # Is above for the points that have a higher valuer in the vertical direction
+
+        # Calculate the area of the covered faces
+        covered_area = calculate_area(self.femur_mesh.vertices[is_covered_femur])
+        print(f"Threshold: {threshold} - Covered Area: {covered_area:.2f}")
+
+        # plot the meshes with the distance color map
+        try:
+            fig, ax = self.plot_coverage(self.pelvis_mesh, self.femur_mesh, threshold, is_covered_femur, covered_area)
+            self.save_fig(fig, f"nearest_above_{threshold}.png")
+        except Exception as e:
+            print(f"Error: Could not save figure")
+            print(e)
+
+        # print to .csv
+        self.covered_area = covered_area
+        self.threshold = threshold
+        self.time_taken = time.time() - start_time
+        self.save_csv()
+        
+        return covered_area
+                
+    def compare_area_covered_different_thersholds(self, algorithm=''):
         """
         Compares the area covered by the pelvis mesh for different thresholds.
         
         """
-        self.algorithm = algorithm
+
+        if algorithm != '':
+            self.algorithm = algorithm
+            print(f"Algorithm: {algorithm}")
+            
         print(f"Comparing meshes: ")
         print(f"Pelvis: {self.pelvis_path}")
         print(f"Femur: {self.femur_path}")
-        results = pd.read_csv(self.results_path)
-        
+                
         
         # loop through the thresholds to calculate the covered area
         for threshold in self.threshold_list:
             
             # check if the results already exist and if we should replace them
-            if any([int(self.subjectID) in results['subject'].values, self.threshold in results['threshold'].values,
-            self.leg in results['leg'].values, self.algorithm in results['algorithm'].values]):
-        
-                if self.replace == False:
-                    
-                    continue
+            if self.is_in_results and self.replace == False:
+                print(f"Results already exist for {self.subjectID} {self.leg} {self.algorithm} {threshold}. Skipping")
+                continue
                 
             if algorithm == 'nearest' or ():
                 self.nearest_algorithm(threshold)
@@ -480,15 +551,20 @@ if __name__ == "__main__":
     ####################################################################################################
     skip = False
     legs = ["r", "l"]
-    thresholds = [15]
+    thresholds = [10, 15]
     skip_subjects = []
-    algorithm = 'nearest' # 'nearest' or 'fit_sphere_algoritm'
+    run_subjects = []
+    algorithm = 'fit_sphere_algoritm' # 'nearest' or 'fit_sphere_algoritm'
     restart_results = False
 
 
     ####################################################################################################
     project = Project()
     project.subjects = [subject for subject in project.subjects if subject not in skip_subjects]
+    
+    if run_subjects:
+        project.subjects = run_subjects
+        
     print(project.subjects)
     
     if restart_results:
@@ -496,19 +572,29 @@ if __name__ == "__main__":
 
     if skip == False:
         for subject in project.subjects:
-            if subject in skip_subjects:
+            if subject in skip_subjects or int(subject) > 40 or int(subject) < 33:
+                print(f"Skipping: {subject}")
                 continue
 
             for leg in legs:
-                
                 # check if the files exist for the subject (pelvis and femur)
-                pelvis_path = os.path.join(project.example_folder, subject ,f"acetabulum_{leg}.stl")
-                femur_path = os.path.join(project.example_folder, subject, f"femoral_head_{leg}.stl")
+                pelvis_path = os.path.join(project.stl_folder, subject, 'Meshlab_BG', f"acetabulum_{leg}.stl")
+                femur_path = os.path.join(project.stl_folder, subject, 'Meshlab_BG', f"femoral_head_{leg}.stl")
                 
-                hip = Hip(subject, pelvis_path, femur_path, leg, threshold_list=thresholds)
-                hip.compare_area_covered_different_thersholds(algorithm)
+                # check byte size of the files 
+                size_pelvis_kb = os.path.getsize(pelvis_path) / 1000
+                size_femur_kb = os.path.getsize(femur_path) / 1000
                 
-                project.write_to_log(f"Finished processing {subject} {leg} at: {time.ctime()}")
+                if size_pelvis_kb == 0 or size_femur_kb == 0 or size_pelvis_kb > 20000 or size_femur_kb > 20000:
+                    print(f"\033[93mError: File size not supported: femur={size_femur_kb} / pelvis={size_pelvis_kb} \033[0m")
+                    continue
+                    
+                
+                hip = Hip(subject, pelvis_path, femur_path, leg, algorithm=algorithm, threshold_list=thresholds)
+                hip.compare_area_covered_different_thersholds()
+                hip.compare_area_covered_different_thersholds('nearest')
+                
+                project.write_to_log(f"Finished {pelvis_path} {subject} {leg} at: {time.ctime()}")
                 
                 
 
