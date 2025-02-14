@@ -305,7 +305,11 @@ def create_trial_folder(c3dFilePath):
 
 #%% #############################################          import / save data          ###################################################
 def import_file(file_path):
-    df = pd.DataFrame()
+    
+    if not os.path.isfile(file_path):
+        print('file does not exist')
+        return
+        
     if os.path.isfile(file_path):
         file_extension = os.path.splitext(file_path)[1]
         if file_extension.lower() == ".c3d":
@@ -319,16 +323,14 @@ def import_file(file_path):
             import_trc_file(file_path)
             
         elif file_extension.lower() == ".csv":
-            df = pd.read_csv(file_path, sep='\t')
+            df = pd.read_csv(file_path)
         
         else:
             print('file extension does not match any of the bops options')
             
     else:
-        print('file path does not exist!')
+        print(f'\033[93mERROR {file_path} does not exist \033')
         
-    return df
-
 def import_c3d_to_dict(c3dFilePath):
 
     c3d_dict = dict()
@@ -1316,6 +1318,8 @@ def blandAltman(method1=[],method2=[]):
 def sum3d_vector(df, columns_to_sum = ['x','y','z'], new_column_name = 'sum'):
     df[new_column_name] = df[columns_to_sum].sum(axis=1)
     return df
+
+
 
 #%% ############################################  Torsion Tool (to be complete)  ########################################################
 def torsion_tool(): # to complete...
@@ -2541,7 +2545,35 @@ def get_package_location(package_name):
   except ImportError:
     return f"Package '{package_name}' not found."
 
-  
+def check_files(base_path=r'C:', print_cmd = True, save_log = True):
+    
+    msk.ui.show_warning('This function is not finished yet....')
+
+    log_path = os.path.join(base_path,'files.log')
+    with open('log_path', 'a') as log_file:
+        for root, dirs, files in os.walk(base_path):
+            try:
+                log_file.write(f"Root: {root}\n")
+                print(f"Root: {root}")
+                for dir in dirs:
+                    dir_path = os.path.join(root, dir)
+                    try:
+                        log_file.write(f"  Directory: {dir_path}\n")
+                        print(f"  Directory: {dir_path}")
+                    except:
+                        log_file.write(f"Error \n")
+                        print(f"Error in {dir_path}")
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    try:
+                        log_file.write(f"    File: {file_path}\n")
+                        print(f"    File: {file_path}")
+                    except:
+                        log_file.write(f"Error \n")
+                        print(f"Error in {file_path}")
+            except:
+                log_file.write(f"Error \n")
+                print(f"Error in {root}")
 
 #%% ######################################################### BOPS TESTING #################################################################
 

@@ -1,30 +1,42 @@
 import os
+import json
+import time
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import msk_modelling_python as msk
-
+import matplotlib.pyplot as plt
+parent_dir = os.path.dirname(__file__)
+start_time = time.time()
 ################
-def format_subject_id(subject_id):
-        """Formats a subject ID to a 3-digit string."""
-        try:
-            # Convert to integer first to handle cases like '01'
-            subject_id = int(subject_id)
-            return f"{subject_id:03d}"  # Formats the integer to a 3-digit string
-        except ValueError:
-            # Handle cases where the value is not convertible to an integer
-            return str(subject_id)  # Return the original value as a string  
+file = r'C:\Git\research_data\Projects\runbops_FAIS_phd\results\mean_ci\mean_ci.csv'
+# df =  msk.bops.pd.read_csv(file)
+
+# stats = file.replace('mean_ci.csv', 'group_comparison.xlsx')
+# df_stats = pd.read_excel(stats)
+
+# # radar plot 
+# line_columns = ['mean', 'ci_low', 'ci_high']
 
 
-file_path = r"C:\Git\research_data\Projects\runbops_FAIS_phd\subject_info.csv"
-info = pd.read_csv(file_path)
+# con = df[df['group'] == 'CON']
+# fais = df[df['group'] == 'FAIS']
+# cam = df[df['group'] == 'CAM']
 
-print(info.head())
-print(info['Subject'])
+# column_dict = ['Alpha angle' 'Centre edge angle' 'Coverage_tested_leg_BG'
+#  'sphere_coverage_tested_leg_bg' 'HJCF_BW' 'HJCF_BW_normalised'
+#  'HJCF_Newtons' 'HJCF_Newtons_normalised' 'HJCF_pHF_Newtons'
+#  'HJCF_pHF_Newtons_normalised' 'HJCF_pHF_BW' 'HJCF_pHF_BW_normalised'
+#  'Weight' 'Height' 'Age']
 
-info['Subject'] = info['Subject'].apply(format_subject_id)
-info['Subject'] = info['Subject'].astype(str)
-info.to_csv(file_path.replace('.csv','_upd.csv'), index=False)
 
-print(info.head())
-print(info['Subject'])
+# print(df.head())
+# print(df.columns)
+# print(df['column'].unique())
+
+#%%
+subjects = ['CON', 'FAIS', 'CAM']
+trial_path = 
+sprint_1 = msk.
+
+

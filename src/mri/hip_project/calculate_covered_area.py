@@ -19,6 +19,10 @@ class Project():
         self.subjects = os.listdir(self.stl_folder)
         self.subjects = [subject for subject in self.subjects if os.path.isdir(os.path.join(self.stl_folder, subject))]
     
+    def set_all_subjects(self):
+        self.subjects = os.listdir(self.stl_folder)
+        self.subjects = [subject for subject in self.subjects if os.path.isdir(os.path.join(self.stl_folder, subject))]
+    
     def remove_all_results(self):
         for subject in self.subjects:
             for leg in ['r', 'l']:
@@ -38,7 +42,8 @@ class Project():
         columns = ['subject','threshold', 'covered_area', 'leg', 'time', 'algorithm']
         # summarise all results in a single csv file
         all_results = pd.DataFrame(columns=columns)
-        
+        self.subjects = os.listdir(self.stl_folder)
+        self.subjects = [subject for subject in self.subjects if subject not in skip_subjects]
         # Loop through all the subjects (i.e. folders in the example folder)
         for subject in self.subjects:            
             for leg in ['r', 'l']: # loop through both legs
@@ -553,7 +558,7 @@ if __name__ == "__main__":
     legs = ["r", "l"]
     thresholds = [10, 15]
     skip_subjects = []
-    run_subjects = []
+    run_subjects = ["038","040","050"]
     algorithm = 'fit_sphere_algoritm' # 'nearest' or 'fit_sphere_algoritm'
     restart_results = False
 
@@ -572,7 +577,7 @@ if __name__ == "__main__":
 
     if skip == False:
         for subject in project.subjects:
-            if subject in skip_subjects or int(subject) > 40 or int(subject) < 33:
+            if subject in skip_subjects:
                 print(f"Skipping: {subject}")
                 continue
 
@@ -597,5 +602,5 @@ if __name__ == "__main__":
                 project.write_to_log(f"Finished {pelvis_path} {subject} {leg} at: {time.ctime()}")
                 
                 
-
+    project.set_all_subjects()
     project.plot_summary_results()

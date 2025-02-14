@@ -176,6 +176,27 @@ def spider(files):
     
     
     return None
+
+def df(file_df, single_plot=False,show=False):
+    # Plot the data in the mot file
+    if single_plot:
+        for column in file_df.columns[1:]:
+            plt.plot(file_df['time'], file_df[column], label=column)
+        plt.xlabel("Time (s)")
+        plt.ylabel("Value")
+        plt.legend()
+        
+    else:
+        for column in file_df.columns[1:]:
+            plt.plot(file_df['time'], file_df[column], label=column)
+            plt.xlabel("Time (s)")
+            plt.ylabel("Value")
+            plt.legend()
+    
+    if show:
+        plt.show()
+     
+    
     
     
 # Testing the functions using unittest module when the script is run directly
