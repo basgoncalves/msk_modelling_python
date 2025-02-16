@@ -93,9 +93,7 @@ class TimeSeries():
             if self.print:
                 print("Error: Could not read the CSV file")
     
-    def plot_line(self, show=True):
-        import pdb; pdb.set_trace()
-        
+    def plot_line(self, show=True):        
         plt.plot(self.df[self.header], label=f"{self.name}")
         plt.xlabel("X-axis")
         plt.ylabel("Y-axis")
@@ -178,10 +176,31 @@ def spider(files):
     
     
     return None
+
+def df(file_df, single_plot=False,show=False):
+    # Plot the data in the mot file
+    if single_plot:
+        for column in file_df.columns[1:]:
+            plt.plot(file_df['time'], file_df[column], label=column)
+        plt.xlabel("Time (s)")
+        plt.ylabel("Value")
+        plt.legend()
+        
+    else:
+        for column in file_df.columns[1:]:
+            plt.plot(file_df['time'], file_df[column], label=column)
+            plt.xlabel("Time (s)")
+            plt.ylabel("Value")
+            plt.legend()
+    
+    if show:
+        plt.show()
+     
+    
     
     
 # Testing the functions using unittest module when the script is run directly
-class test_basics(unittest.TestCase):
+class test(unittest.TestCase):
     # for each function assign True or false to run the test
     
     def test_plot_curves(self, run = False):
@@ -213,37 +232,31 @@ class test_basics(unittest.TestCase):
             data.plot_lines(show=False)
             data.correlation_matrix(show=False)
             data.show()
-            
-
+    
 
 if __name__ == "__main__":
     
-    output = unittest.main(exit=False)
-    # test_file = False
-    # test_multiple_files = False
-    # test_spider = True
-    
-    # if test_file:
-    #     file1 = select_file()
-    #     file2 = select_file()
-    #     plot_curves(file1, file2)
-    # else:
-    #     pass
-    
-    # if test_multiple_files:
-    #     files = select_multiple_files()
-    #     plot_multiple_curves(files)
-    # else:
-    #     pass
-    
+    # output = unittest.main(exit=False)
+    msk.ui.show_warning("Warning: This is function is testing but may not work when run directly. Please import the functions in another script.")
 
-    # # test spider plot
-    # if test_spider:
-    #     file1 = select_file()
-    #     file2 = select_file()
-    #     spider(file1, file2)
-    # else:
-    #     pass
     
+    # create figute with 5x3 subplots
+    fig, axs = plt.subplots(5, 3)
+    fig.suptitle('Subplots')
+    
+    # activate the subplots IK (first row)
+    trial1 = msk.ui.select_file("Select a file to plot: ")
+    trial2 = msk.ui.select_file("Select a second file to plot file: ")
+    
+    trial1_df = pd.read_csv(trial1, sep='\\t' ,skiprows=9)
+    trial2_df = pd.read_excel(trial2, skiprows=10)
+    
+    
+    plt.sca(axs[0, 0])
+    plt.plot(trial1_df, trial2_df)
+    
+    plt.show()
+            
+   
 
 # END

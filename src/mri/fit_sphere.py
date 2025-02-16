@@ -79,7 +79,8 @@ def fit_sphere_and_plot(mesh_path):
 
     # Generate sphere points
     sphere_points = generate_sphere_points(optimal_center, optimal_radius)
-
+    
+    import pdb; pdb.set_trace()
     # Plotting
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
@@ -103,15 +104,71 @@ def fit_sphere_and_plot(mesh_path):
 
     filename_without_extension = os.path.splitext(os.path.basename(mesh_path))[0]
     plt.title(f'Fitted Sphere for {filename_without_extension}')
-    plt.savefig(os.path.join(os.path.dirname(mesh_path), filename_without_extension + '_fitted_sphere.png'))
-
-    return covered_area
     
+    # save figure
+    save_file_path = os.path.join(os.path.dirname(mesh_path), filename_without_extension + '_fitted_sphere.png')
+    plt.savefig(save_file_path)
+    
+    print(f"Approximate covered area of the sphere: {covered_area:.1f} mm^2")
+    print(f"Figure saved at: {save_file_path}")
 
+    return covered_area, sphere_points
+
+
+
+import unittest
+class Tests(unittest.TestCase):
+    def test_calculate_centroid(self):
+        points, centroid, initial_radius = calculate_centroid('test_mesh.stl')
+        self.assertEqual(points.shape, (1000, 3))
+        self.assertEqual(centroid.shape, (3,))
+        self.assertEqual(initial_radius, 1.0)
+
+    def test_generate_sphere_points(self):
+        center = np.array([0, 0, 0])
+        radius = 1
+        num_points = 1000
+        sphere_points = generate_sphere_points(center, radius, num_points)
+        self.assertEqual(sphere_points.shape, (num_points, 3))
+
+    def test_calculate_covered_area(self):
+        points = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]])
+        center = np.array([0, 0, 0])
+        radius = 1
+        covered_area = calculate_covered_area(points, center, radius)
+        self.assertEqual(covered_area, 4 * np.pi)
+
+    def test_error_function(self):
+        params = np.array([0, 0, 0, 1])
+        points = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]])
+        centroid = np.array([0, 0, 0])
+        error = error_function(params, points, centroid)
+        # self.assertTrue(np.allclose(error, [0, 0, 0, 0]))
+        
+    def test_fit_sphere_plot(self):
+        
+        mesh_path = r'c:\Users\Bas\ucloud\MRI_segmentation_BG\acetabular_coverage\079\Meshlab_BG\acetabulum_l.stl'
+        covered_area, sphere_pints = fit_sphere_and_plot(mesh_path)
+        
+        mesh_path_femur = r'c:\Users\Bas\ucloud\MRI_segmentation_BG\acetabular_coverage\079\Meshlab_BG\femoral_head_l.stl'
+        covered_area_femur, sphere_points_femur = fit_sphere_and_plot(mesh_path_femur)
+        
+        # compare the two spheres
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+        ax.plot_trisurf(sphere_pints[:, 0], sphere_pints[:, 1], sphere_pints[:, 2], color='r', alpha=0.3)
+        ax.plot_trisurf(sphere_points_femur[:, 0], sphere_points_femur[:, 1], sphere_points_femur[:, 2], color='b', alpha=0.3)
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+        ax.set_zlabel('Z')
+        
+        
+        plt.show()
 
 if __name__ == '__main__':
 
-    mesh_path = filedialog.askopenfilename(title='Select STL file', filetypes=[('STL Files', '*.stl')])
-    covered_area = fit_sphere_and_plot(mesh_path)
-    print(f"Approximate covered area of the sphere: {covered_area:.1f} mm^2")
-    plt.show()
+    # mesh_path = filedialog.askopenfilename(title='Select STL file', filetypes=[('STL Files', '*.stl')])
+    
+    unittest.main(argv=[''], exit=False)
+
+    

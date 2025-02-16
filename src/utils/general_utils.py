@@ -211,7 +211,6 @@ def time_to_load():
 #%% Print template messages 
 def print_error_message():
     print("please select one of the following options:")
-    print_option_names()
     print("eg usage: utils.py speet_test")
 
 #%% Main function to select option to run if the script is executed
@@ -255,7 +254,6 @@ create_template = cmd_function(create_template_def)
 
 #%% Run if the script is executed
 if __name__ == "__main__":
-    import pdb; pdb.set_trace()
     select_option_to_run()
 
 

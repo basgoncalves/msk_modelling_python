@@ -154,9 +154,60 @@ class Muscle:
             plt.xlabel('time (s)')
         except Exception as e:
             print('Parameter not found.')
-            
+
+import unittest        
+class unittest_Muscle(unittest.TestCase):
+    def test_force_length_curve(self):
+        muscle = Muscle()
+        muscle_length = 0.1
+        self.assertEqual(muscle.force_length_curve(muscle_length), np.exp(-((muscle_length - 1) ** 2) / 0.56))
         
+    def test_force_velocity_curve(self):
+        muscle = Muscle()
+        muscle_velocity = 0.0
+        self.assertEqual(muscle.force_velocity_curve(muscle_velocity), 1.0)
+        
+    def test_passive_force_length_curve(self):
+        muscle = Muscle()
+        muscle_length = 0.1
+        self.assertEqual(muscle.passive_force_length_curve(muscle_length), 0.0)
+        
+    def test_tendon_force_length_curve(self):
+        muscle = Muscle()
+        tendon_length = 0.05
+        self.assertEqual(muscle.tendon_force_length_curve(tendon_length), 0.0)
+        
+    def test_get_force(self):
+        muscle = Muscle()
+        muscle.length = 0.1
+        muscle.velocity = 0.0
+        muscle.activation = 0.0
+        self.assertEqual(muscle.get_force(), 0.0)
+        
+    def test_update(self):
+        muscle = Muscle()
+        muscle.update(length=0.1, velocity=0.0, activation=0.0, time_step=0.01)
+        self.assertEqual(muscle.state['length'].iloc[-1], 0.1)
+        self.assertEqual(muscle.state['velocity'].iloc[-1], 0.0)
+        self.assertEqual(muscle.state['activation'].iloc[-1], 0.0)
+        self.assertEqual(muscle.state['force'].iloc[-1], 0.0)
+        self.assertEqual(muscle.state['tendon_force'].iloc[-1], 0.0)
+        
+    def test_plot_state(self):
+        muscle = Muscle()
+        muscle.update(length=0.1, velocity=0.0, activation=0.0, time_step=0.01)
+        muscle.plot_state()
+        
+    def test_plot(self):
+        muscle = Muscle()
+        muscle.update(length=0.1, velocity=0.0, activation=0.0, time_step=0.01)
+        muscle.plot('force')
+      
 if __name__ == '__main__':
+    
+    unittest.main()
+    exit()
+    
     biceps = Muscle(name='biceps', max_force=100, opt_length=0.1, length=0.1, velocity=0.0, activation=0.0, pennation_angle=0.0)
     
     for i in range(100):

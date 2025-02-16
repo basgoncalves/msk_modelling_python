@@ -72,9 +72,9 @@
 7. **Testing msk_modelling_python**
      ```python
      import msk_modelling_python as mks
-     msk.run()
+     msk.run_bops()
      ```
-     Note: to change the performance of msk.run() edit the settings file in .\msk_modelling_python\src\bops\settings.json
+     Note: to change the performance of msk.run_bops() edit the settings file in .\msk_modelling_python\src\bops\settings.json
 ---
 8. **Basic Usage**
      ```python
@@ -103,7 +103,7 @@ This package includes a combination of other packages and custom functions to ma
   [BTK Documentation](https://biomechanical-toolkit.github.io/docs/Wrapping/Python/_getting_started.html)
 - **c3dServer**  
   [c3dServer](https://www.c3dserver.com/)
-- **OpenSim v4.4**  
+- **OpenSim**  
   [OpenSim Scripting in Python](https://simtk-confluence.stanford.edu:8443/display/OpenSim/Scripting+in+Python)
 - **3D Slicer**  
   [3D Slicer](https://www.slicer.org/)
@@ -126,11 +126,12 @@ This package includes a combination of other packages and custom functions to ma
 3. **ui**
      Functions to create user interface.
 
+4. **osim commands**
 ---
 
 ## Examples
 
-Find examples under "ExampleScripts".
+Find examples under ".\example_data\example_modules".
 
 ---
 

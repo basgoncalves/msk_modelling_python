@@ -1,7 +1,7 @@
 import slicer
 import msk_modelling_python as msk
 import slicer.utils_testing
-
+import slicerio
 
 def open_scene(file_path):
     """
@@ -16,6 +16,12 @@ def open_scene(file_path):
 # Example usage
 if __name__ == "__main__":
     # scene_file_path = msk.ut.select_file()
+    input_filename = r"C:\Users\Bas\ucloud\MRI_segmentation_BG\Scenes\015\Segmentation.seg.nrrd"
+    segmentation = slicerio.read_segmentation(input_filename)
+    
+    
+    
+    exit()
     scene_file_path = r'"C:\Users\Bas\ucloud\MRI_segmentation_BG\Scenes\009.mrb"'
     scene = open_scene(scene_file_path)
 # Python Slicer

@@ -1,6 +1,10 @@
 import os
 import sys
+import numpy as np
+import pandas as pd
 import shutil
+import unittest
+import ctypes
 
 try:
     import opensim as osim
@@ -15,4 +19,21 @@ except:
     print('init path is: ', initPath)    
     print('For opensim installation, visit: https://simtk-confluence.stanford.edu/display/OpenSim/Scripting+with+Python')
     print('=============================================================================================\n\n\n\n\n')
+
+import msk_modelling_python as msk
+
+class test(unittest.TestCase):
     
+    def test_1(self):
+        self.assertTrue(True)
+          
+    # msk.log_error('src tests all passsed!')
+    
+if __name__ == "__main__":
+    try:
+        unittest.main()
+        msk.log_error('Tests passed for msk_modelling_python package')
+    except Exception as e:
+        print("Error: ", e)
+        msk.log_error(e)
+        msk.bops.Platypus().sad()

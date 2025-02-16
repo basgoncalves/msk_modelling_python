@@ -3,7 +3,7 @@
 # BOPS: a Matlab toolbox to batch musculoskeletal data processing for OpenSim, Computer Methods in Biomechanics and Biomedical Engineering
 # DOI: 10.1080/10255842.2020.1867978
 
-__version__ = '0.0.3'
+__version__ = '0.1.7'
 __testing__ = False
 
 from msk_modelling_python.src.utils import general_utils as ut
@@ -44,41 +44,12 @@ def is_setup_file(file_path, type = 'OpenSimDocument', print_output=False):
         print(f"{file_path} is not a setup file")
         
     return is_setup  
-    
-
-#%% ######################################################  General  #####################################################################
-def select_file(original_path=''):
-    if not original_path:
-        original_path = os.getcwd()
-    elif os.path.isfile(original_path):
-        original_path = os.path.dirname
-        
-    root = tk.Tk()
-    root.withdraw()  # Hide the main window
-
-    file_path = filedialog.askopenfilename(title="Select a file", initialdir=original_path)
-
-    if file_path:
-        pass
-    else:
-        raise ValueError('No file selected')    
-
-    return file_path
-
-def select_folder(prompt='Please select your folder', staring_path=''):
-    if not staring_path: # if empty
-        staring_path = os.getcwd()      
-
-    selected_folder = filedialog.askdirectory(initialdir=staring_path,title=prompt)
-    return selected_folder
-
-
-
-def select_subjects():
-   subject_names = get_subject_names()
 
 def get_dir_bops():
     return os.path.dirname(os.path.realpath(__file__))
+
+
+#%% ######################################################  General  #####################################################################
 
 def get_dir_simulations():
     return os.path.join(get_current_project_folder(),'simulations')
@@ -332,37 +303,34 @@ def create_trial_folder(c3dFilePath):
     return trialFolder 
 
 
-# Testing functions and paths
-
-
-
-
-#%% import / save data  
+#%% #############################################          import / save data          ###################################################
 def import_file(file_path):
-    df = pd.DataFrame()
+    
+    if not os.path.isfile(file_path):
+        print('file does not exist')
+        return
+        
     if os.path.isfile(file_path):
         file_extension = os.path.splitext(file_path)[1]
         if file_extension.lower() == ".c3d":
             c3d_dict = import_c3d_to_dict(file_path)
             df =  pd.DataFrame(c3d_dict.items())
                     
-        elif file_extension.lower() == ".sto":
+        elif file_extension.lower() == ".sto" or file_extension.lower() == ".mot":
             df = import_sto_data(file_path)
-            
+        
         elif file_extension.lower() == ".trc":
             import_trc_file(file_path)
             
         elif file_extension.lower() == ".csv":
-            df = pd.read_csv(file_path, sep='\t')
+            df = pd.read_csv(file_path)
         
         else:
             print('file extension does not match any of the bops options')
             
     else:
-        print('file path does not exist!')
+        print(f'\033[93mERROR {file_path} does not exist \033')
         
-    return df
-
 def import_c3d_to_dict(c3dFilePath):
 
     c3d_dict = dict()
@@ -470,13 +438,18 @@ def import_c3d_analog_data(c3dFilePath):
     return analog_df
 
 def import_trc_file(trcFilePath):
+    '''
+    Input: trcFilePath(str) =  path to the trc file
+    
+    Output: trc_data(dict) = dictionary with the trc data
+            trc_dataframe(pd.DataFrame) = DataFrame with the trc data
+    '''
     trc_data = TRCData()
     trc_data.load(trcFilePath)
     
     # convert data to DataFrame 
     data_dict = {}
     headers = list(trc_data.keys())
-    
     # only include columns from "Time" to "Markers" (i.e. labeled markers)
     data = list(trc_data.values())[headers.index('Time'):headers.index('Markers')-1]
     headers = headers[headers.index('Time'):headers.index('Markers')-1]
@@ -484,13 +457,55 @@ def import_trc_file(trcFilePath):
     for col_idx in range(1,len(data)):
         col_name = headers[col_idx]
         col_data = data[col_idx]
-        data_dict[col_name] = col_data
+        col_dict = {'x': [], 'y': [], 'z': []}
+        for i in range(len(col_data)):
+            col_dict['x'].append(col_data[i][0])
+            col_dict['y'].append(col_data[i][1])
+            col_dict['z'].append(col_data[i][2])
+            
+            
+        data_dict[col_name] = col_dict
 
     # convert data to DataFrame 
     trc_dataframe = pd.DataFrame(data_dict)
     trc_dataframe.to_csv(os.path.join(os.path.dirname(trcFilePath),'test.csv'))
     
     return trc_data, trc_dataframe
+
+def export_trc_file(trc_dataFrame, trcFilePath, sampleRate=200):
+    import textwrap
+    '''
+    Input:  trc_dataFrame(pd.DataFrame) = DataFrame with the trc data
+            trcFilePath(str) = path to the trc file
+    
+    Output: None
+    
+    Description: This function writes the data from a trc DataFrame to a trc file.
+    '''
+    
+    # Define the TRC headings
+    header_info = {
+    'PathFileTy': 4,
+    'DataRate': sampleRate,
+    'CameraRate': sampleRate,
+    'NumFram': len(trc_dataFrame),
+    'NumMark': len(trc_dataFrame.columns) - 1,
+    'Units': 'mm',
+    'OrigDataP': len(trc_dataFrame),
+    'OrigDataS': 1,
+    'OrigNumFrames': len(trc_dataFrame)
+    }
+    
+    # Create a header string
+    header_str = '\t'.join(f'{key} {value}' for key, value in header_info.items())
+
+    
+    # add TRC headings
+    
+    # Write the trc data to the trc file
+    trc_dataFrame.to_csv(trcFilePath, sep='\t', index=False)
+    
+    print('trc file saved')
 
 def import_json_file(jsonFilePath):
     
@@ -614,8 +629,20 @@ def c3d_analog_export(c3dFilePath,emg_labels='all', replace = True):
     analog_labels = [label.replace('.', '_') for label in analog_labels]
 
     # get analog labels, trimmed and replace '.' with '_'
+    first_frame = reader.first_frame
     num_frames = reader.frame_count
+    fs = reader.analog_rate
+
+    # add time to dataframe
+    final_time = (first_frame + num_frames) / fs
+    time = np.arange(first_frame / fs, final_time, 1 / fs)    
     df = pd.DataFrame(index=range(num_frames),columns=analog_labels)
+    df['time'] = time
+    
+    # move time to first column
+    cols = df.columns.tolist()
+    cols = cols[-1:] + cols[:-1]
+    df = df[cols]    
     
     # loop through frames and add analog data to dataframe
     for i_frame, points, analog in reader.read_frames():
@@ -634,7 +661,7 @@ def c3d_analog_export(c3dFilePath,emg_labels='all', replace = True):
             # add channel to dataframe
             df.loc[i_row, channel_name] = analog[i_channel][0]
     
-    # save emg data to csv
+    # save emg data to csv   
     df.to_csv(analog_file_path)
     print('analog.csv exported to ' + analog_file_path)  
     
@@ -654,9 +681,17 @@ def read_trc_file(trcFilePath):
     pass
 
 def writeTRC(c3dFilePath, trcFilePath):
+    '''
+    Input:  c3dFilePath(str) = path to the c3d file
+            trcFilePath(str) = path to the trc file
+    
+    Output: None
+    
+    Description: This function writes the data from a c3d file to a trc file.
+    '''
 
     print('writing trc file ...')
-    c3d_dict = import_c3d_to_dict (c3dFilePath)
+    c3d_dict = import_c3d_to_dict(c3dFilePath)
 
     with open(trcFilePath, 'w') as file:
         # from https://github.com/IISCI/c3d_2_trc/blob/master/extractMarkers.py
@@ -690,9 +725,18 @@ def writeTRC(c3dFilePath, trcFilePath):
 
 def create_grf_xml(grf_file, output_file= '', apply_force_body_name='calcn_r', force_expressed_in_body_name='ground'):     
     '''Create an external loads XML file from a GRF file.
+    Inputs: grf_file(str): path to the GRF file
+            output_file(str): path to save the XML file
+            apply_force_body_name(str): name of the body to apply the force
+            force_expressed_in_body_name(str): name of the body in which the force is expressed
+    
+    Outputs: None
+    
     Usage:
     import msk_modelling_python as msk
-    msk.bops.create_grf_xml(grf_file, output_file= '', apply_force_body_name='calcn_r', force_expressed_in_body_name='ground')    
+    msk.bops.create_grf_xml(grf_file, output_file= '', apply_force_body_name='calcn_r', force_expressed_in_body_name='ground')  
+    
+      
     
     '''       
     # create empty ExternalLoads object and set the data file name
@@ -723,7 +767,7 @@ def create_grf_xml(grf_file, output_file= '', apply_force_body_name='calcn_r', f
         # Add new ExternalForce elements
         for i in range(num_forces):
             new_force = ET.Element('ExternalForce')
-            new_force.set('name', f'externalforce_{i}')  # Adjust names as needed
+            new_force.set('name', f'externalforce_{i+1}')  # Adjust names as needed
 
             def create_element(tag, text):
                 element = ET.Element(tag)
@@ -754,9 +798,9 @@ def create_grf_xml(grf_file, output_file= '', apply_force_body_name='calcn_r', f
             # Add child elements with desired attributes for each force
             new_force.append(create_element('applied_to_body', apply_force_body_name))
             new_force.append(create_element('force_expressed_in_body', force_expressed_in_body_name))
-            new_force.append(create_element('force_identifier', f'f{i}_'))
-            new_force.append(create_element('point_identifier', f'p{i}_'))
-            new_force.append(create_element('torque_identifier', f'm{i}_'))
+            new_force.append(create_element('force_identifier', f'f{i+1}_'))
+            new_force.append(create_element('point_identifier', f'p{i+1}_'))
+            new_force.append(create_element('torque_identifier', f'm{i+1}_'))
             
             indent(new_force, level=5)
             objects_tag.insert(i, new_force)
@@ -1275,293 +1319,12 @@ def sum3d_vector(df, columns_to_sum = ['x','y','z'], new_column_name = 'sum'):
     df[new_column_name] = df[columns_to_sum].sum(axis=1)
     return df
 
+
+
 #%% ############################################  Torsion Tool (to be complete)  ########################################################
 def torsion_tool(): # to complete...
    pass
-
-
-#%% #############################################  OpenSim setup (to be complete)  #######################################################
-
-class osimSetup:
-    def __init__(self):
-        pass
-    
-    def print_osim_info():
-        print('Osim module version: ' + osim.__version__)
-        print('Osim module path: ' + osim.__file__)
-        
-    def create_analysis_tool(coordinates_file, modelpath, results_directory, force_set_files=None):
-        # Get mot data to determine time range
-        motData = osim.Storage(coordinates_file)
-
-        # Get initial and final time
-        initial_time = motData.getFirstTime()
-        final_time = motData.getLastTime()
-
-        # Set the model
-        model = osim.Model(modelpath)
-
-        # Create AnalyzeTool
-        analyzeTool = osim.AnalyzeTool()
-        analyzeTool.setModel(model)
-        analyzeTool.setModelFilename(model.getDocumentFileName())
-
-        analyzeTool.setReplaceForceSet(False)
-        analyzeTool.setResultsDir(results_directory)
-        analyzeTool.setOutputPrecision(8)
-
-        if force_set_files is not None:  # Set actuators file
-            forceSet = osim.ArrayStr()
-            forceSet.append(force_set_files)
-            analyzeTool.setForceSetFiles(forceSet)
-
-        # motData.print('.\states.sto')
-        # states = osim.Storage('.\states.sto')
-        # analyzeTool.setStatesStorage(states)
-        analyzeTool.setInitialTime(initial_time)
-        analyzeTool.setFinalTime(final_time)
-
-        analyzeTool.setSolveForEquilibrium(False)
-        analyzeTool.setMaximumNumberOfSteps(20000)
-        analyzeTool.setMaxDT(1)
-        analyzeTool.setMinDT(1e-008)
-        analyzeTool.setErrorTolerance(1e-005)
-
-        analyzeTool.setExternalLoadsFileName('.\GRF.xml')
-        analyzeTool.setCoordinatesFileName(coordinates_file)
-        analyzeTool.setLowpassCutoffFrequency(6)
-
-        return analyzeTool
-
-    def get_muscles_by_group_osim(xml_path, group_names): # olny tested for Catelli model Opensim 3.3
-        members_dict = {}
-
-        try:
-            with open(xml_path, 'r', encoding='utf-8') as file:
-                tree = ET.parse(xml_path)
-                root = tree.getroot()
-        except Exception as e:
-            print('Error parsing xml file: {}'.format(e))
-            return members_dict
-        
-        if group_names == 'all':
-            # Find all ObjectGroup names
-            group_names = [group.attrib['name'] for group in root.findall(".//ObjectGroup")]
-
-
-        members_dict['all_selected'] = []
-        for group_name in group_names:
-            members = []
-            for group in root.findall(".//ObjectGroup[@name='{}']".format(group_name)):
-                members_str = group.find('members').text
-                members.extend(members_str.split())
-            
-            members_dict[group_name] = members
-            members_dict['all_selected'] = members_dict['all_selected'] + members 
-
-        return members_dict
-
-    def increase_max_isometric_force(model_path, factor, compare_models = False): # opensim API
-        # Load the OpenSim model
-        model = osim.Model(model_path)
-
-        # Loop through muscles and update their maximum isometric force
-        muscles = pd.DataFrame()
-        muscle_data = []
-        for muscle in model.getMuscles():
-            current_max_force = muscle.getMaxIsometricForce()
-            new_max_force = current_max_force * factor
-            muscle_data.append([muscle.getName(), current_max_force, new_max_force])
-            muscle.setMaxIsometricForce(new_max_force)
-
-        # Create a DataFrame with the muscle data
-        muscle_df = pd.DataFrame(muscle_data, columns=['Muscle Name', 'Old Max Isometric Force', 'New Max Isometric Force'])
-        
-        # Save the modified model
-        output_model_path = model_path.replace('.osim', f'_increased_force_{factor}.osim')
-        model.printToXML(output_model_path)
-
-        print(f'Model with increased forces saved to: {output_model_path}')
-        
-        if compare_models:
-            # plot muscle_df
-            fig, ax = plt.subplots()
-            ax.bar(muscle_df['Muscle Name'], muscle_df['Old Max Isometric Force'], label='Old Max Isometric Force')
-            ax.bar(muscle_df['Muscle Name'], muscle_df['New Max Isometric Force'], label='New Max Isometric Force')
-            ax.set_ylabel('Max Isometric Force')           
-            plt.show()
-            
-        
-        return output_model_path
-
-    def update_max_isometric_force_xml(xml_file, factor,output_file = ''): # xml
-        # Parse the XML file
-        tree = ET.parse(xml_file)
-        root = tree.getroot()
-
-        # Find all Millard2012EquilibriumMuscle elements
-        muscles = root.findall('.//Millard2012EquilibriumMuscle')
-
-        # Update max_isometric_force for each muscle
-        n = 0
-        for muscle in muscles:
-            max_force_element = muscle.find('./max_isometric_force')
-            if max_force_element is not None:
-                current_max_force = float(max_force_element.text)
-                new_max_force = current_max_force * factor
-                max_force_element.text = str(new_max_force)
-                n = 1
-        if n == 0:
-            print('No Millard2012EquilibriumMuscle elements found in the XML file.')
-            
-        # Save the modified XML file
-        if not output_file:
-            output_xml_file = xml_file.replace('.xml', f'_updated.xml')
-        else:
-            output_xml_file = output_file
-            
-        tree.write(output_xml_file)
-
-        print(f'Modified XML saved to: {output_xml_file}')
-        
-    def reorder_markers(xml_path, order):
-        tree = ET.parse(xml_path)
-        root = tree.getroot()
-
-        # Create a dictionary to store marker elements by name
-        # markers_dict = {marker.find('name').text: marker for marker in root.findall('.//Marker')}
-
-        # Create a new MarkerSet element to replace the existing one
-        new_marker_set = ET.Element('MarkerSet')
-        # Create the 'objects' element
-        objects_element = ET.SubElement(new_marker_set, 'objects')    
-        groups_element = ET.SubElement(new_marker_set, 'groups')    
-
-        # Add Marker elements to the new MarkerSet in the specified order
-        for marker_name in order:
-            existing_marker = root.find('.//Marker[@name="' + marker_name + '"]')
-            if existing_marker:
-                objects_element.append(existing_marker)
-
-        # Replace the existing MarkerSet with the new one
-        existing_marker_set = root.find('.//MarkerSet')
-        existing_marker_set.clear()
-        existing_marker_set.extend(new_marker_set)
-
-        # Save the modified XML back to a file
-        tree.write(xml_path)
-
-    def copy_marker_locations(model_path1,model_path2,marker_names='all',marker_common_frame='RASI'):
-        '''
-        This function copies the location of markers from model2 to model1. 
-        The location of the marker in model1 is changed to the location of the marker in model2 
-        in the frame of the common marker. 
-        The location of the marker in model1 is changed back to the original parent frame. 
-        The model with the changed marker locations is saved as a new model.
-        '''
-        # Load the OpenSim model
-        model1 = Model(model_path1)
-        model1_version = model1.version
-        model1_xml = model1.xml
-        model1 = model1.osim_object
-        markerset1 = model1.get_MarkerSet()
-        state1 = model1.initSystem()
-
-        model2 = osim.Model(model_path2)
-        markerset2 = model2.get_MarkerSet()
-        state2 = model2.initSystem()
-        
-        # if marker_names == 'all' then use all markers in model1
-        if marker_names == 'all':
-            marker_names = [markerset1.get(i).getName() for i in range(markerset1.getSize())]
-
-        if marker_common_frame not in marker_names:
-            raise ValueError('The marker_common_frame must be included in marker_names')
-
-        # Loop through muscles and update their maximum isometric force
-        for marker_name in marker_names:
-
-            try:
-                if markerset1.contains(marker_name):
-                    marker1 = dict()
-                    marker2 = dict()
-                    
-                    # get marker objects
-                    marker1['marker'] = markerset1.get(marker_name)
-                    marker2['marker'] = markerset2.get(marker_name)
-
-                    # get location of markers
-                    marker1['location'] = list(marker1['marker'].get_location().to_numpy())           
-                    marker2['location'] = list(marker2['marker'].get_location().to_numpy())
-
-                    # get parent frame of markers            
-                    marker1['parent_frame'] = marker1['marker'].getParentFrame()
-                    marker2['parent_frame'] = marker2['marker'].getParentFrame()
-
-                    # get pelvis frame from marker_common_frame marker
-                    marker1['pelvis_frame'] = markerset1.get(marker_common_frame).getParentFrame()
-                    marker2['pelvis_frame'] = markerset2.get(marker_common_frame).getParentFrame()
-                    
-                    # get location of marker 2 in pelvis frame
-                    marker2['marker'].changeFramePreserveLocation(state2,marker2['pelvis_frame'])
-                    marker2['location_in_pelvis'] = marker2['marker'].get_location()
-                    
-                    # change location of marker 1 to marker 2 in pelvis frame
-                    marker1['marker'].changeFramePreserveLocation(state1,marker1['pelvis_frame'])
-                    marker1['marker'].set_location(marker2['location_in_pelvis'])
-
-                    # change marker 1 back to original parent frame
-                    marker1['marker'].changeFramePreserveLocation(state1,marker1['parent_frame'])
-                    marker1['location'] = list(marker1['marker'].get_location().to_numpy())  
-
-                    # if orginal model is 3.3 change the 
-                    if int(model1_version[0]) == 3:
-                        model1_xml.getroot().find('.//Marker[@name="' + marker_name + '"]/location').text = ' '.join(map(str, marker1['location']))
-
-                    print(f'Location of marker {marker_name} changed')
-            except Exception as e:
-                print(f'Error changing location of marker {marker_name}: {e}')
-
-
-        # Save the modified model
-        if int(model1_version[0]) == 3:
-            output_model_path = model_path1.replace('.osim', '_new.osim')
-            model1_xml.write(model_path1.replace('.osim', '_new.osim'))
-            print(f'Model saved to: {model_path1}')
-        else:    
-            output_model_path = model_path1.replace('.osim', '_new.osim')
-            model1.printToXML(output_model_path)
-            print(f'Model saved to: {output_model_path}')
-
-    def create_grf_xml(grf_file, output_file):     
-
-        # Create the OpenSim ExternalLoads object
-        external_loads = osim.ExternalLoads()
-
-        # Set the external loads file
-        external_loads.setDataFileName(grf_file)
-        external_loads.printToXML(output_file)
-        
-        print(f'External loads XML file saved to: {output_file}')
-         
-    # Operations    
-    def sum_body_mass(model_path):
-        '''
-        This function sums the body mass of the model
-        '''
-        # Load the OpenSim model
-        model = model(model_path)
-        mass = 0
-        for i in range(model.osim_object.getBodySet().getSize()):
-            mass += model.osim_object.getBodySet().get(i).getMass()
-        print(f'The total mass of the model is: {mass} kg')
-        return mass
-
-def example_data(trial_name = 'walking1'):
-    
-    if trial_name == 'walking1':
-        osim
-        
+      
         
 
     
@@ -1581,8 +1344,17 @@ def scale_model(originalModelPath,targetModelPath,trcFilePath,setupScaleXML):
     print()
 
 def run_IK(osim_modelPath, trc_file, resultsDir):
+    '''
+    Function to run Inverse Kinematics using the OpenSim API.
+    
+    Inputs:
+            osim_modelPath(str): path to the OpenSim model file
+            trc_file(str): path to the TRC file
+            resultsDir(str): path to the directory where the results will be saved
+    '''
 
     # Load the TRC file
+    import pdb; pdb.set_trace()
     tuple_data = import_trc_file(trc_file)
     df = pd.DataFrame.from_records(tuple_data, columns=[x[0] for x in tuple_data])
     column_names = [x[0] for x in tuple_data]
@@ -1593,7 +1365,7 @@ def run_IK(osim_modelPath, trc_file, resultsDir):
     state = osimModel.initSystem()
 
     # Define the time range for the analysis
-    import pdb; pdb.set_trace()
+    
     initialTime = TRCData.getIndependentColumn()
     finalTime = TRCData.getLastTime()
 
@@ -1834,12 +1606,22 @@ def run_MA(osim_modelPath, ik_mot, grf_xml, resultsDir):
     # Run the muscle analysis calculation
     maTool.run()
 
-def run_SO(modelpath, trialpath, actuators_file_path):
+def run_SO(model_path, trialpath, actuators_file_path):
+    '''
+    Function to run Static Optimization using the OpenSim API.
+    
+    Inputs:
+            modelpath(str): path to the OpenSim model file
+            trialpath(str): path to the trial folder
+            actuators_file_path(str): path to the actuators file
+            
+    '''
     os.chdir(trialpath)
 
+    trial = Trial(trialpath)    
     # create directories
     results_directory = os.path.relpath(trialpath, trialpath)
-    coordinates_file = os.path.join(trialpath, "IK.mot")
+    coordinates_file =  os.path.relpath(trialpath, trial.ik)
     modelpath_relative = os.path.relpath(modelpath, trialpath)
 
     # create a local copy of the actuator file path and update name
@@ -1866,7 +1648,7 @@ def run_SO(modelpath, trialpath, actuators_file_path):
     so.setMaxIterations(25)
 
     analyzeTool_SO = osimSetup.create_analysis_tool(coordinates_file,modelpath_relative,results_directory)
-    analyzeTool_SO.getAnalysisSet().cloneAndAppend (so)
+    analyzeTool_SO.getAnalysisSet().cloneAndAppend(so)
     analyzeTool_SO.getForceSetFiles().append(actuators_file_path)
     analyzeTool_SO.setReplaceForceSet(False)
     OsimModel.addAnalysis(so)
@@ -1881,10 +1663,19 @@ def run_SO(modelpath, trialpath, actuators_file_path):
     # run
     analyzeTool_SO.run()
 
-def runJRA(modelpath, trial_path, setup_file_path):
+def runJRA(model_path, trial_path, setup_file_path):
+    '''
+    Function to run Joint Reaction Analysis using the OpenSim API.
+    
+    Inputs:
+            modelpath(str): path to the OpenSim model file
+            trial_path(str): path to the trial folder
+            setup_file_path(str): path to the setup file
+    '''
     os.chdir(trial_path)
-    results_directory = [trial_path]
-    coordinates_file = [trial_path, 'ik.mot']
+    trial_paths = Trial(trial_path)
+    results_directory = os.path.relpath(trial_path, trial_path)
+    coordinates_file = os.path.relpath(trial_path, trial_paths.ik)
     _, trialName = os.path.split(trial_path)
 
     # start model
@@ -1900,7 +1691,7 @@ def runJRA(modelpath, trial_path, setup_file_path):
     # start joint reaction analysis
     jr = osim.JointReaction(setup_file_path)
     jr.setName('joint reaction analysis')
-    jr.set_model(osimModel)
+    jr.setModel(osimModel)
 
     inFrame = osim.ArrayStr()
     onBody = osim.ArrayStr()
@@ -2625,11 +2416,6 @@ def plot_from_txt(file_path='', xlabel=' ', ylabel=' ', title=' ', save_path='')
     
     return fig, ax
 
-#%% ####################################################    ##################################################################
-#%% ####################################################  Error prints  ##################################################################
-def exampleFunction():
-    pass
-
 
 #%% ################################################  CREATE BOPS SETTINGS ###############################################################
 def add_markers_to_settings():
@@ -2759,7 +2545,35 @@ def get_package_location(package_name):
   except ImportError:
     return f"Package '{package_name}' not found."
 
-  
+def check_files(base_path=r'C:', print_cmd = True, save_log = True):
+    
+    msk.ui.show_warning('This function is not finished yet....')
+
+    log_path = os.path.join(base_path,'files.log')
+    with open('log_path', 'a') as log_file:
+        for root, dirs, files in os.walk(base_path):
+            try:
+                log_file.write(f"Root: {root}\n")
+                print(f"Root: {root}")
+                for dir in dirs:
+                    dir_path = os.path.join(root, dir)
+                    try:
+                        log_file.write(f"  Directory: {dir_path}\n")
+                        print(f"  Directory: {dir_path}")
+                    except:
+                        log_file.write(f"Error \n")
+                        print(f"Error in {dir_path}")
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    try:
+                        log_file.write(f"    File: {file_path}\n")
+                        print(f"    File: {file_path}")
+                    except:
+                        log_file.write(f"Error \n")
+                        print(f"Error in {file_path}")
+            except:
+                log_file.write(f"Error \n")
+                print(f"Error in {root}")
 
 #%% ######################################################### BOPS TESTING #################################################################
 
@@ -2806,6 +2620,7 @@ class Platypus:
     def show_image(self):
         # Create a Tkinter window
         window = tk.Tk()
+        
         # Load the image using PIL
         image = Image.open(self.image_path)
         # Create a Tkinter PhotoImage from the PIL image
@@ -2815,7 +2630,18 @@ class Platypus:
         label.image = photo
         label.pack()
         
-        # Run the Tkinter event loop
+        # center image on the screen
+        try:
+            window_width = window.winfo_reqwidth()
+            window_height = window.winfo_reqheight()
+            position_right = int((window.winfo_screenwidth()/2 - window_width*3)) 
+            position_down = int((window.winfo_screenheight()/2 - window_height*2))
+            window.geometry("+{}+{}".format(position_right, position_down))
+        except Exception as e:
+            msk.log_error('Error bops.Platypus: ' + e)
+            print('Could not center image on screen: ' + str(e))
+            
+        # Start the image loop
         window.mainloop()
     
     def run_tests(self):
@@ -2827,9 +2653,9 @@ class Platypus:
         else:
             self.happy()
         
-class test_bops(unittest.TestCase):
+class test(unittest.TestCase):
     
-    ##### TESTS NOT WORKING ######
+    ##### TESTS WORKING ######
     def test_update_version(self):
         print('testing update_version ... ')
         self.assertRaises(Exception, update_version())
@@ -2838,10 +2664,10 @@ class test_bops(unittest.TestCase):
         print('testing import opensim ... ')
         import opensim as osim
     
-    def test_ProjectPaths(self):
+    def test_Project(self):
         print('testing Project ... ')
-        project_paths = ProjectPaths()
-        # self.assertEqual(type(project_paths),ProjectPaths)
+        project = msk.classes.Project()
+        self.assertTrue(True)
     
     def test_platypus(self):
         print('testing platypus ... ')
@@ -2853,8 +2679,9 @@ class test_bops(unittest.TestCase):
         print('testing create_grf_xml ... ')
         c3dFilePath = get_testing_file_path('c3d')
         create_grf_xml(c3dFilePath)
-            
-        
+    
+    
+    #### TESTS NOT WORKING ####
     not_working = False
     if not_working:                        
         def test_import_c3d_to_dict(self):

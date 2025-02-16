@@ -1,20 +1,21 @@
 import sys
 import os
 import time
+import math
 import unittest
 # import src modules first
 import msk_modelling_python as msk
 from msk_modelling_python import src
-from msk_modelling_python.src import tests
+# from msk_modelling_python.src import tests
 from msk_modelling_python.src import osim
 from msk_modelling_python.src import classes
 from msk_modelling_python.src.bops import bops 
 from msk_modelling_python.src.bops import ceinms
 from msk_modelling_python.src.utils import general_utils as ut
 import msk_modelling_python.src.plot as plot
-from msk_modelling_python import ui # import ui modules (not finished yet...)
+from msk_modelling_python.src import ui # import ui modules (not finished yet...)
 
-__version__ = '0.1.7'
+__version__ = '0.1.8'
 __testing__ = False
 
 if __testing__:
@@ -26,7 +27,6 @@ if __testing__:
     print("Python version: 3.8.10")
     print("For the latest version, visit " + r'GitHub\basgoncalves\msk_modelling_python')
     
-#%% FUNCTIONS
 def update_version(level=3, module=__file__, invert=False):
     '''
     Inputs:
@@ -99,6 +99,13 @@ def update_version(level=3, module=__file__, invert=False):
     return updated_version
     
 def log_error(error_message, error_log_path=''):
+    '''
+    Log an error message to a file
+    
+    Inputs:
+        error_message (str): The error message to log
+        error_log_path (str): The path to the error log file (default is the error_log.txt file in the same directory as this file)
+    '''
     if not error_log_path:
         current_file_path = os.path.dirname(os.path.abspath(__file__))
         error_log_path = os.path.join(current_file_path,"error_log.txt")
@@ -111,27 +118,23 @@ def log_error(error_message, error_log_path=''):
         print("Error: Could not log the error")
         return
 
-def update(param = None):
+def run_bops():
     '''
-    Update the module version.
-    
-    Parameters:
-        param (int): The level of the version to increment (1, 2, or 3) assuming the version is in the format 'major.minor.patch'
-    
-    Usage:
-        import msk_modelling_python as msk
-        msk.update(3) # update the patch version of the module "msk" by incrementing it by 1
-    '''
-    valid_params = []
-    if param == 'version':
-        update_version(3, __file__, invert=False)
-    
-#%% RUN
-def run():
-    '''
-    Run the main code of the module. 
+    Run an example of the bops package
         
     '''
+    # run the tests
+    try:
+        if bops.__testing__:
+            msk.test()
+            msk.ui.test()
+            msk.src.test()
+            msk.plot.basics.test()
+            msk.bops.test()
+            msk.log_error('All tests passed for msk_modelling_python package.')
+    except Exception as e:
+        ut.print_warning("Error running package testing: ", e)
+        msk.log_error(e)
     
     # run the steps based on the settings.json file in the bops package
     try:
@@ -140,7 +143,6 @@ def run():
         
         if settings['gui']:
             msk.bops.run_example()
-        pass
         
         if settings['update']:
             msk.update_version(3, msk, invert=False)
@@ -162,11 +164,11 @@ def run():
         msk.log_error(e)
         msk.bops.Platypus().sad()
     
-        
-
-class test_msk(unittest.TestCase):
+class test(unittest.TestCase):
     def test_update_version(self):
         pass
+    
+    msk.log_error('msk tests all passsed!')
 
     def test_log_error(self):
         pass
@@ -181,9 +183,24 @@ class test_msk(unittest.TestCase):
         msk.bops.Platypus().happy()
         self.assertTrue(True)
         
-    
+    def test_run_bops(self):
+        run_bops()
+        
+    def test_src(self):
+        src.test()
+        
+    def test_ui(self):
+        msk.ui.test()
+        
+            
 if __name__ == "__main__":
-    unittest.main()
-    pass
+    try:
+        unittest.main()
+        msk.log_error('Tests passed for msk_modelling_python package')
+    except Exception as e:
+        print("Error: ", e)
+        msk.log_error(e)
+        msk.bops.Platypus().sad()
+    
     
 #%% END
