@@ -34,9 +34,3 @@ file = r'C:\Git\research_data\Projects\runbops_FAIS_phd\results\mean_ci\mean_ci.
 # print(df.columns)
 # print(df['column'].unique())
 
-#%%
-subjects = ['CON', 'FAIS', 'CAM']
-trial_path = 
-sprint_1 = msk.
-
-
