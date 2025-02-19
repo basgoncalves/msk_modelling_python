@@ -71,7 +71,7 @@
 ---
 7. **Testing msk_modelling_python**
      ```python
-     import msk_modelling_python as mks
+     import msk_modelling_python as msk
      msk.run_bops()
      ```
      Note: to change the performance of msk.run_bops() edit the settings file in .\msk_modelling_python\src\bops\settings.json
