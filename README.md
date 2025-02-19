@@ -30,9 +30,12 @@
      ```
      Note: use any name you want for <\myenv>
 ---
-2. **Copy this Module "msk_modelling_python" to**
+2. **Clone this Module "msk_modelling_python" to your virtual environment**
+   ```
+   cd .\<myenv>\Lib\site-packages
+   ```
      ```
-     .\<myenv>\Lib\site-packages\msk_modelling_python
+     git clone https://github.com/basgoncalves/msk_modelling_python.git
      ```
      *Note: Ensure the name of the package is exactly "msk_modelling_python"*
 ---
