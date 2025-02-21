@@ -136,8 +136,6 @@ def dataFrame(df, x='time', single_plot=False, show=False):
         set_relative_figure_size(width=0.8, height=0.8)
      
     
-    
-    
 # Testing the functions using unittest module when the script is run directly
 class test(unittest.TestCase):
     # for each function assign True or false to run the test
@@ -164,14 +162,7 @@ class test(unittest.TestCase):
         if run:
             plt.show()
             
-    def test_DataSet(self, run = True):
-        if run:
-            print('testing DataSet ... ')   
-            data = DataSet()
-            data.plot_lines(show=False)
-            data.correlation_matrix(show=False)
-            data.show()
-    
+
 
 if __name__ == "__main__":
     

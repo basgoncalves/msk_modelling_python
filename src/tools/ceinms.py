@@ -1,5 +1,5 @@
 # to import bops need to deactivate some packages not intalled (offline mode, consider this when packaging)
-from msk_modelling_python.src.bops import *
+from msk_modelling_python.src.tools import *
 
 def get_main_path():
     main_path = r'C:\Git\isbs2024\Data'

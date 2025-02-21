@@ -7,8 +7,8 @@ __version__ = '0.1.7'
 __testing__ = False
 
 from msk_modelling_python.src.utils import general_utils as ut
-from msk_modelling_python.src.bops import *
-from msk_modelling_python.src.bops import ghost
+from msk_modelling_python.src.tools import *
+from msk_modelling_python.src.tools import ghost
 from msk_modelling_python.src.classes import *
 import msk_modelling_python as msk
 from msk_modelling_python import osim

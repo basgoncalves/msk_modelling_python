@@ -54,8 +54,8 @@ except:
         pass
 
 #%% modules withing
-from msk_modelling_python.src.bops import bops
-from msk_modelling_python.src.bops import stats
+from msk_modelling_python.src.tools import bops
+from msk_modelling_python.src.tools import stats
 
 
 #%% Test code when file runs
