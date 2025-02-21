@@ -16,7 +16,10 @@ from pathlib import Path
 #%% data strerelization formats
 import json
 from xml.etree import ElementTree as ET
-import pyc3dserver as c3d
+try:
+    import pyc3dserver as c3d
+except:
+    print('Could not load pyc3dserver')
 
 #%% Operations
 import math
