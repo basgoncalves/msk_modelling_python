@@ -2600,7 +2600,7 @@ class Platypus:
     def happy(self, message = ''):
         try:
             print(message) 
-            self.image_path = os.path.join(self.dir_bops,'utils\platypus.jpg')
+            self.image_path = os.path.join(self.dir_bops,'utils', 'platypus.jpg')
             self.show_image()
             self.mood = 'happy'
         except Exception as e:
@@ -2610,7 +2610,7 @@ class Platypus:
         
     def sad(self):
         try:
-            self.image_path = os.path.join(self.dir_bops,'utils\platypus_sad.jpg')
+            self.image_path = os.path.join(self.dir_bops,'utils', 'platypus_sad.jpg')
             self.show_image()
             self.mood = 'sad'
         except Exception as e:  
