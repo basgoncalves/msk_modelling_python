@@ -2,6 +2,7 @@ import os
 import msk_modelling_python as msk
 import pyperclip
 
+import xml.dom.minidom
 import xml.etree.ElementTree as ET
 import unittest
 
@@ -22,7 +23,7 @@ class cmd_function:
     def run(self, *args, **kwargs):
         self.func(*args, **kwargs)
 
-#%% OSIM DATA CLASSES
+# OSIM DATA CLASSES
 class SubjectPaths:
     def __init__(self, data_folder,subject_code='default',trial_name='trial1'):
 
@@ -773,7 +774,8 @@ class NormalizationSet:
                 self.columns = columns_to_normalise
         
 
-class XMLTools():
+# XML handling
+class XMLTools:
     """
     A class to load and create XML files for OpenSim and CEINMS.
     usage:
@@ -842,7 +844,7 @@ class XMLTools():
             
             tree = ET.ElementTree(root)
             if save_path is not None:
-                XMLTools.save_pretty_xml(tree, save_path)
+                XMLTools().save_pretty_xml(tree, save_path)
                 
             return tree
 
@@ -859,7 +861,8 @@ class XMLTools():
                 dofs = []
                 for coordinate in coordinate_set:
                     dofs.append(coordinate.getName())
-                    
+                
+                dofs = ' '.join(dofs)
                 
             else:
                 print("\033[93mNo OpenSim model file provided. Muscle groups will be from template.\033[0m")
@@ -878,7 +881,7 @@ class XMLTools():
                     "soleus_r gaslat_r gasmed_r",
                     "vasint_r vaslat_r vasmed_r"]        
 
-                dofs = ["hip_flexion_r", "hip_adduction_r", "hip_rotation_r", "knee_angle_r", "ankle_angle_r"]
+                dofs = "hip_flexion_r hip_adduction_r hip_rotation_r knee_angle_r ankle_angle_r"
             
             
             
@@ -949,7 +952,7 @@ class XMLTools():
             
             tree = ET.ElementTree(root)
             if save_path is not None:
-                XMLTools.save_pretty_xml(tree, save_path)
+                XMLTools().save_pretty_xml(tree=tree, save_path=save_path)
             
             return tree
 
@@ -1068,12 +1071,14 @@ class XMLTools():
 
 class TestXMLTools(unittest.TestCase):
     def test_load(self):
-        example_file = r"C:\Git\opensim_tutorial\tutorials\repeated_sprinting\Simulations\009_simplified\run_baseline\ceinms\calibration_setup.xml"
+        
+        
+        example_file = r"https://github.com/basgoncalves/opensim_tutorial/blob/main/tutorials/repeated_sprinting/Simulations/009/pre/inverseKinematics/RunA1/setup_IK.xml"
         self.assertIsNotNone(XMLTools.load(example_file))
     
     def test_create_ceinms_calibration_setup(self):
         xml_tool = XMLTools()
-        tree = xml_tool.create_ceinms_calibration_setup()
+        tree = xml_tool.ceinms.create_calibration_setup()
         self.assertIsNotNone(tree)
     
     def test_create_ceinms_calibration_cfg(self):
@@ -1081,25 +1086,8 @@ class TestXMLTools(unittest.TestCase):
         tree = xml_tool.create_ceinms_calibration_cfg()
         self.assertIsNotNone(tree)
     
-if __name__ == '__main__':
-    # unittest.main()
-    current_path = os.path.dirname(__file__)
-    simulation_path = os.path.join(os.path.dirname(current_path), "Simulations")
-    models_path = os.path.join(os.path.dirname(current_path), "models")
     
-    example_file = r"C:\Git\opensim_tutorial\tutorials\repeated_sprinting\Simulations\009_simplified\run_baseline\ceinms\calibration_setup.xml"
-    tool = XMLTools()
-    tree = tool.load(example_file)
-    tool.create_ceinms_calibration_setup(save_path=os.path.join(current_path, "calibration_setup.xml"))
-    
-    osim_model_path = os.path.join(models_path, "009_rajagopal_scaled.osim")
-    tool.create_ceinms_calibration_cfg(save_path=os.path.join(current_path, "calibration_cfg.xml"), osimModelFile=osim_model_path)
-    
-    
-   
-    
- 
-#%% Plotting 
+# Plotting 
 
 class Plot():
     def create_sto_plot(stoFilePath=False):
@@ -1353,5 +1341,7 @@ class Plot():
         return fig, ax
 
     
+if __name__ == '__main__':
+    unittest.main()
 
-#%% END
+# END
