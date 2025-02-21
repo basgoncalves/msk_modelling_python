@@ -957,12 +957,12 @@ class XMLTools:
             return tree
 
         def create_subject_uncalibrated(self, save_path=None, osimModelFile=None):
-            if osimModelFile == None or self.osim_model == None:
+            if osimModelFile == None:
                 print("\033[93mNo OpenSim model not file provided. FAILED!!\033[0m")
                 return None
             else:
                 try:
-                    model = osim.Model(osimModelFile)
+                    model = msk.osim.Model(osimModelFile)
                     coordinate_set = model.getCoordinateSet()
                     muscles = model.getMuscles()
                 except Exception as e:
@@ -1044,6 +1044,13 @@ class XMLTools:
             dof_set = ET.SubElement(root, "dofSet")
             
             import pdb; pdb.set_trace()
+            dofs = []
+            for coordinate in coordinate_set:
+                dof = {
+                    "name": coordinate.getName(),
+                    "mtuNameSet": "addbrev_r addlong_r addmagDist_r addmagIsch_r addmagMid_r addmagProx_r grac_r"
+                }
+                dofs.append(dof)
             dofs = [
                 {"name": "hip_flexion_r", "mtuNameSet": "addbrev_r addlong_r addmagDist_r addmagIsch_r addmagMid_r addmagProx_r bflh_r glmax1_r glmax2_r glmax3_r glmed1_r glmed2_r glmed3_r glmin1_r glmin2_r glmin3_r grac_r iliacus_r piri_r psoas_r recfem_r sart_r semimem_r semiten_r tfl_r"},
                 {"name": "hip_adduction_r", "mtuNameSet": "addbrev_r addlong_r addmagDist_r addmagIsch_r addmagMid_r addmagProx_r bflh_r glmax1_r glmax2_r glmax3_r glmed1_r glmed2_r glmed3_r glmin1_r glmin2_r glmin3_r grac_r iliacus_r piri_r psoas_r recfem_r sart_r semimem_r semiten_r tfl_r"},
