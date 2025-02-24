@@ -210,6 +210,23 @@ class Trial:
         self.jra = os.path.join(trial_path,'joint_reacton_loads.sto')
         self.grf_xml = os.path.join(trial_path,'grf.xml')
         self.settings_json = os.path.join(self.path,'settings.json')
+        
+        self.files = []
+        for file in os.listdir(self.path):
+            file_path = os.path.join(self.path, file)
+            try:
+                file_data = msk.bops.import_file(file_path)
+                time_range = [file_data['time'][0], file_data['time'][-1]]
+            except:
+                file_data = None
+                time_range  = None    
+                
+            file_dict ={'path': file_path,
+                        'name': None,
+                        'extension': None,
+                        'time_range': time_range}
+                      
+        
     
     
     def check_files(self):

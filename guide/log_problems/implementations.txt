@@ -1,9 +1,12 @@
 to implement:
 
--  GUI for batch processing
+- batch processing
 
 
 1. Change bops functions like select_file etc... to utils 
 2. SO and ID gui and batch
 3. add error log print throughtout for easier debugging in the future
 4. Add ceinms xml handling
+
+
+-
