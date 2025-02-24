@@ -259,7 +259,7 @@ class Trial:
 
 class Model:
     def __init__(self, model_path):
-        self.osim_object = osim.Model(model_path)
+        self.osim_object = msk.osim.Model(model_path)
         self.path = model_path
         self.xml = ET.parse(model_path)
         self.version = self.xml.getroot().get('Version') 
