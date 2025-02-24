@@ -1827,6 +1827,19 @@ def calculate_muscle_work(muscle_length_sto,muscle_force_sto, save = True, save_
 
     return work
 
+def edit_time_range(setup_xml_path=None, reference_file=None):
+    
+    try:
+        setup_xml = readXML(setup_xml_path)
+        reference_data = import_file(reference_file)
+        
+        import pdb; 
+    except Exception as e:
+        print('Error:', e)
+        print(f'\n check the paths: \n setup_xml_path: {setup_xml_path} \n reference_file: {reference_file}')
+        return
+        
+    
 
 
 #%% ##############################################  Data checks (to be complete) ############################################################
