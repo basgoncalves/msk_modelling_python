@@ -135,7 +135,17 @@ def dataFrame(df, x='time', single_plot=False, show=False):
         plt.show()
         set_relative_figure_size(width=0.8, height=0.8)
      
+def sto_file(filepath=None):
     
+    if not filepath:
+        filepath = select_file()
+    
+    if not filepath.endswith('.sto'):
+        print("Warning: The function may not work as expected.")
+    
+    df = pd.read_table(filepath, sep='\t', skiprows=6)
+    print(df.head())
+    import pdb; pdb.set_trace()
     
     
 # Testing the functions using unittest module when the script is run directly
