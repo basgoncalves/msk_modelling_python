@@ -1621,7 +1621,7 @@ def run_SO(model_path, trialpath, actuators_file_path):
     # create directories
     results_directory = os.path.relpath(trialpath, trialpath)
     coordinates_file =  os.path.relpath(trialpath, trial.ik)
-    modelpath_relative = os.path.relpath(modelpath, trialpath)
+    modelpath_relative = os.path.relpath(model_path, trialpath)
 
     # create a local copy of the actuator file path and update name
     actuators_file_path = os.path.relpath(actuators_file_path, trialpath)

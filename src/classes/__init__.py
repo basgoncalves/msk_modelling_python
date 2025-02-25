@@ -1,7 +1,7 @@
 import os
 import msk_modelling_python as msk
 import pyperclip
-
+import opensim as osim
 import xml.dom.minidom
 import xml.etree.ElementTree as ET
 import unittest
@@ -226,8 +226,6 @@ class Trial:
                         'extension': None,
                         'time_range': time_range}
                       
-        
-    
     
     def check_files(self):
         '''
@@ -571,6 +569,16 @@ class osimSetup:
             model1.printToXML(output_model_path)
             print(f'Model saved to: {output_model_path}')
 
+    def find_file_endheader_line(file_path):
+        #Read .mot files
+        with open(file_path, "r") as file:
+            lines = file.readlines()
+
+        # Find the line where actual data starts (usually after 'endheader')
+        start_row = next((i + 1 for i, line in enumerate(lines) if "endheader" in line), 0)
+        
+        return start_row
+        
     # Operations    
     def sum_body_mass(model_path):
         '''
@@ -686,6 +694,154 @@ class osimSetup:
 
         return work
 
+
+    # RUN OSIM TOOLS
+    def run_ik_tool(model, folder, marker_file = None, output_file = None, results_directory = None, task_set = None , run_tool = True):
+        # Find marker file and task set file
+        for root, dirs, files in os.walk(folder):
+            for file in files:
+                if file.endswith(".trc"):
+                    marker_file = os.path.join(root, file)
+                elif "taskset" in file:
+                    task_set = os.path.join(root, file)
+            # Define output file   
+            output_file = os.path.join(root, "IK" + ".mot") 
+            # Define results dir
+            results_directory = root
+        # Add time ranges
+        # Create inverse kinematics tool, set parameters and run
+        ik_tool = osim.InverseKinematicsTool()
+        ik_tool.setModel(model)
+        ik_tool.set_marker_file(marker_file)
+        ik_tool.set_output_motion_file(output_file)
+        ik_tool.set_results_directory(results_directory)
+        ik_task_set = osim.IKTaskSet(task_set)
+        ik_tool.set_IKTaskSet(ik_task_set)
+        ik_tool.printToXML(os.path.join(folder, "setup_IK.xml"))
+        
+        if run_tool:
+            ik_tool.run()
+
+    def run_ik_tool_from_xml(model_path, setup_file_path, run_tool = True):
+        # Create inverse kinematics tool, set parameters and run
+        ik_tool = osim.InverseKinematicsTool(setup_file_path)
+        model = osim.Model(model_path)
+        ik_tool.setModel(model)
+
+        model.addAnalysis(ik_tool)
+
+        
+        if run_tool:
+            ik_tool.run()
+
+    def run_id_tool(model, folder, LowpassCutoffFrequency = 6, run_tool = True):
+        
+        for root, dirs, files in os.walk(folder):
+            # Find coordinates file
+            for file in files:
+                if file == "IK.mot":
+                    coordinates_file = os.path.join(root, file)
+            # Find external loads file
+                elif file == "externalloads.xml":
+                    external_loads_file = os.path.join(root, file)
+            # Set output file
+            output_file = os.path.join(root, "ID.sto")
+        
+        # Setup for excluding muscles from ID
+        exclude = osim.ArrayStr()
+        exclude.append("Muscles")
+        # Setup for setting time range
+        IKData = osim.Storage(coordinates_file)
+
+        # Create inverse dynamics tool, set parameters and run
+        id_tool = osim.InverseDynamicsTool()
+        id_tool.setModel(model)
+        id_tool.setCoordinatesFileName(coordinates_file)
+        id_tool.setExternalLoadsFileName(external_loads_file)
+        id_tool.setOutputGenForceFileName(output_file)
+        id_tool.setLowpassCutoffFrequency(LowpassCutoffFrequency)
+        id_tool.setStartTime(IKData.getFirstTime())
+        id_tool.setEndTime(IKData.getLastTime())
+        id_tool.setExcludedForces(exclude)
+        id_tool.setResultsDir(folder)
+        id_tool.printToXML(os.path.join(folder, "setup_ID.xml"))
+        
+        if run_tool:
+            id_tool.run()
+
+    def run_so_tool(model, folder, run_tool = True):
+        model = osim.Model(model)
+        state = model.initSystem()
+
+        # Finding data
+        for root, dirs, files in os.walk(folder):
+            # Find coordinates file
+            for file in files:
+                if file == "IK.mot":
+                    coordinates_file = os.path.join(root, file)
+                    coordinates_file_sto = osim.Storage(coordinates_file)
+            # Find external loads file
+                elif file == "externalloads.xml":
+                    external_loads_file = os.path.join(root, file)
+            # Find actuators file
+                elif file == "actuators_so.xml":
+                    actuators_file = os.path.join(root, file)
+                    try:
+                        if os.path.exists(actuators_file):
+                            actuators = osim.ArrayStr()
+                            actuators.append(actuators_file)
+
+                    except: 
+                        print("No actuators file found")
+            # Set results directory
+            results_directory = root
+        
+
+
+        #Create the AnalyzeTool
+        analyze_tool = osim.AnalyzeTool()
+        analyze_tool.setModel(model)
+        # analyze_tool.setLowpassCutoffFrequency(6)
+        analyze_tool.setStatesFromMotion(state, coordinates_file_sto, True)
+        analyze_tool.setStartTime(coordinates_file_sto.getFirstTime())
+        analyze_tool.setFinalTime(coordinates_file_sto.getLastTime())
+        analyze_tool.setReplaceForceSet(False)
+        analyze_tool.setSolveForEquilibrium(False)
+    
+    # Initialize the StaticOptimization
+        static_opt = osim.StaticOptimization()
+        static_opt.setName("StaticOptimization")
+        static_opt.setUseModelForceSet(True)
+        static_opt.setStartTime(coordinates_file_sto.getFirstTime())
+        static_opt.setEndTime(coordinates_file_sto.getLastTime())
+
+        #analyze
+        analysis_set = analyze_tool.getAnalysisSet()
+        analysis_set.cloneAndAppend(static_opt)
+        analyze_tool.addAnalysisSetToModel()
+        analyze_tool.setCoordinatesFileName(coordinates_file)
+        analyze_tool.setExternalLoadsFileName(external_loads_file)
+        analyze_tool.setForceSetFiles(actuators)
+        # analyze_tool.setStatesFileName()
+
+        # Save setup and results
+        analyze_tool.setResultsDir(results_directory)
+        analyze_tool.printToXML(os.path.join(folder, "setup_so.xml"))
+        
+        if run_tool:
+
+            analyze_tool.run()
+
+            # Change naming of output files
+            for root, dirs, files in os.walk(folder):
+                for file in files:
+                    if "force" in file:
+                        os.rename(os.path.join(root, file), os.path.join(root, "so_forces.sto"))
+                    elif "activation" in file:
+                        os.rename(os.path.join(root, file), os.path.join(root, "so_activation.sto"))
+                    elif "controls" in file:
+                        os.rename(os.path.join(root, file), os.path.join(root, "so_controls.xml"))
+    
 class SimpleProject:
     '''
     class for later to use in a simple project data structure
