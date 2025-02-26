@@ -1,6 +1,8 @@
 import sys
 import os
 import time
+start_time = time.time()
+
 import math
 import unittest
 # import src modules first
@@ -11,12 +13,12 @@ from msk_modelling_python.src import pd, np, osim, classes
 from msk_modelling_python.src import osim
 from msk_modelling_python.src import classes
 from msk_modelling_python.src.tools import bops, ceinms 
-from msk_modelling_python.src.utils import general_utils as ut
+import msk_modelling_python.src.utils as ut
 import msk_modelling_python.src.plot as plot
 from msk_modelling_python.src import ui # import ui modules (not finished yet...)
 
 __version__ = '0.1.8'
-__testing__ = False
+__testing__ = True
 
 if __testing__:
     print("msk_modelling_python package loaded.")
@@ -26,6 +28,8 @@ if __testing__:
     
     print("Python version: 3.8.10")
     print("For the latest version, visit " + r'GitHub\basgoncalves\msk_modelling_python')
+    
+    print("Time to load package: ", time.time() - start_time)
     
 def update_version(level=3, module=__file__, invert=False):
     '''
@@ -94,7 +98,7 @@ def update_version(level=3, module=__file__, invert=False):
         print("Error: Could not update the version")
         return
     
-    ut.pop_warning(f'msk_modelling_python udpated \n old version: {current_version} \n version to {updated_version} \n')
+    ui.show_warning(f'msk_modelling_python udpated \n old version: {current_version} \n version to {updated_version} \n')
     
     return updated_version
     
