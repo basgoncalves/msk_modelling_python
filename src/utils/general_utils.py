@@ -252,7 +252,7 @@ files_above_100mb = cmd_function(files_above_100mb_def)
 create_template = cmd_function(create_template_def)
 
 
-#%% Run if the script is executed
+# main
 if __name__ == "__main__":
     select_option_to_run()
 
