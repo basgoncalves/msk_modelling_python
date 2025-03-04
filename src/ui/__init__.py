@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 import screeninfo as si
 import msk_modelling_python as msk
 from msk_modelling_python import bops
-from msk_modelling_python.src.ui.ui_examples import get_ui_settings, show_warning, select_folder, create_folder, select_file
+from msk_modelling_python.src.ui.ui_examples import (get_ui_settings, show_warning, 
+                                                     select_folder, create_folder, select_file, box_list_selection)
 
 class Element:
         def __init__(self, root=None, type='', location=[], size=[], name="element", value=None, command=None, text=""):

@@ -216,17 +216,13 @@ class Trial:
             file_path = os.path.join(self.path, file)
             try:
                 file_data = msk.bops.import_file(file_path)
-                time_range = [file_data['time'][0], file_data['time'][-1]]
+                self.files.append(file_data)
             except:
                 file_data = None
-                time_range  = None    
+                self.files.append(file_data)
+  
                 
-            file_dict ={'path': file_path,
-                        'name': None,
-                        'extension': None,
-                        'time_range': time_range}
                       
-    
     def check_files(self):
         '''
         Output: True if all files exist, False if any file is missing

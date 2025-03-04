@@ -10,6 +10,7 @@ from msk_modelling_python.src.utils import general_utils as ut
 from msk_modelling_python.src.tools import *
 from msk_modelling_python.src.classes import *
 import msk_modelling_python as msk
+import c3d
 from msk_modelling_python import osim
 
 def update_version(level=3, module='', invert=False):
@@ -543,7 +544,6 @@ def c3d_osim_export(c3dFilePath, replace = True):
     try:
         settings = get_bops_settings()
         analog_df = c3d_analog_export(c3dFilePath)
-        
     except Exception as e:
         ut.print_warning(c3dFilePath + 'could not export emg.mot')
         print(e)

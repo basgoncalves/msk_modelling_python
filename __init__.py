@@ -18,7 +18,7 @@ import msk_modelling_python.src.plot as plot
 from msk_modelling_python.src import ui # import ui modules (not finished yet...)
 
 __version__ = '0.1.8'
-__testing__ = True
+__testing__ = False
 
 if __testing__:
     print("msk_modelling_python package loaded.")

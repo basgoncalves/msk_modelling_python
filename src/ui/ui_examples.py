@@ -90,6 +90,9 @@ def create_folder(folder_path = ''):
     return folder_path
 
 def create_subfolders(main_dir, subfolder_name):
+    """
+    Create subfolders in the main directory
+    """
     for folder in os.listdir(main_dir):
         
         folder_path = os.path.join(main_dir, folder)
@@ -101,7 +104,32 @@ def create_subfolders(main_dir, subfolder_name):
             print(sub_folder_path)
             create_folder(sub_folder_path)
 
-
+def box_list_selection(title, options):
+    root = ctk.CTk()
+    root.title(title)
+    
+    screen = si.get_monitors()[0]
+    width = 300
+    height = 150
+    x = (screen.width - width) // 2
+    y = (screen.height - height) // 2
+    root.geometry(f"{width}x{height}+{x}+{y}")
+    
+    selected_option = ctk.CTkIntVar()
+    selected_option.set(0)
+    
+    for i, option in enumerate(options):
+        ctk.CTkRadiobutton(root, text=option, variable=selected_option, value=i).pack()
+        
+    button = ctk.CTkButton(root, text="OK", command=root.quit)
+    button.pack(pady=10)
+    
+    root.mainloop()
+    
+    return selected_option.get()
+    
+    
+    
 # BOPS specific functions
 
 
