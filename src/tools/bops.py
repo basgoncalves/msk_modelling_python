@@ -11,6 +11,7 @@ import json
 import time
 import opensim as osim
 import unittest
+import numpy as np
 
 path = os.path.dirname(os.path.realpath(__file__))
 
@@ -50,8 +51,6 @@ def is_setup_file(file_path, type = 'OpenSimDocument', print_output=False):
         
     return is_setup  
 
-def get_dir_bops():
-    return os.path.dirname(os.path.realpath(__file__))
 
 class log:
     def error(error_message):
@@ -121,8 +120,6 @@ class read:
         except:
             print('Error saving json file path')
                 
-        
-  
 class convert:
     def c3d_to_osim(file_path):
         pass
@@ -143,12 +140,113 @@ class run:
         except Exception as e:
             print(f"Error running inverse kinematics: {e}")
     
-def settings():
-    import pdb; pdb.set_trace()
-    return(read.json(os.path.join(path,'settings.json')))
+class settings:
+    def __init__():
+        pass
+            
+    def read():
+        try:
+            return(read.json(os.path.join(path,'settings.json')))
+        except:
+            return(read.file(os.path.join(path,'settings.json')))
+    
+    def _list(self):
+        settings = read.json(os.path.join(path,'settings.json'))
+        for key in settings:
+            print(f'{key}: {settings[key]}')
 
+class Trial:
+    '''
+    Class to store trial information and file paths, and export files to OpenSim format
+    
+    Inputs: trial_path (str) - path to the trial folder
+    
+    Attributes:
+    path (str) - path to the trial folder
+    name (str) - name of the trial folder
+    og_c3d (str) - path to the original c3d file
+    c3d (str) - path to the c3d file in the trial folder
+    markers (str) - path to the marker trc file
+    grf (str) - path to the ground reaction force mot file
+    ...
+    
+    Methods: use dir(Trial) to see all methods
+    
+    '''
+    def __init__(self, trial_path):        
+        self.path = trial_path
+        self.name = os.path.basename(trial_path)
+        self.c3d = os.path.join(os.path.dirname(trial_path), self.name + '.c3d')
+        self.markers = os.path.join(trial_path,'markers_experimental.trc')
+        self.grf = os.path.join(trial_path,'grf.mot')
+        self.emg = os.path.join(trial_path,'emg.csv')
+        self.ik = os.path.join(trial_path,'ik.mot')
+        self.id = os.path.join(trial_path,'inverse_dynamics.sto')
+        self.so_force = os.path.join(trial_path,'static_optimization_force.sto')
+        self.so_activation = os.path.join(trial_path,'static_optimization_activation.sto')
+        self.jra = os.path.join(trial_path,'joint_reacton_loads.sto')
+        self.grf_xml = os.path.join(trial_path,'grf.xml')
+        self.settings_json = os.path.join(self.path,'settings.json')
+        
+        self.files = []
+        for file in os.listdir(self.path):
+            file_path = os.path.join(self.path, file)
+            try:
+                file_data = msk.bops.import_file(file_path)
+                self.files.append(file_data)
+            except:
+                file_data = None
+                self.files.append(file_data)
+  
+                
+                      
+    def check_files(self):
+        '''
+        Output: True if all files exist, False if any file is missing
+        '''
+        files = self.__dict__.values()
+        all_files_exist = True
+        for file in files:
+            if not os.path.isfile(file):
+                print('File not found: ' + file)
+                all_files_exist = False
+                
+        return all_files_exist
+    
+    def create_settings_json(self, overwrite=False):
+        if os.path.isfile(self.settings_json) and not overwrite:
+            print('settings.json already exists')
+            return
+        
+        settings_dict = self.__dict__
+        msk.bops.save_json_file(settings_dict, self.settings_json)
+        print('trial settings.json created in ' + self.path)
+    
+    def exportC3D(self):
+        msk.bops.c3d_osim_export(self.og_c3d) 
 
+    def create_grf_xml(self):
+        msk.bops.create_grf_xml(self.grf, self.grf_xml)
 
+class Project:
+    
+    def __init__(self, file_path=None):        
+        # load settings
+        try:
+            if file_path.endswith('.json'):
+                self.settings = read.json(file_path)
+            else:
+                self.settings = read.json(os.path.join(file_path,'settings.json'))
+        except Exception as e:
+            print(f"Error loading project settings: {e}")
+            
+        
+            
+                      
+
+def load_current_project():
+    settings = settings.read()
+    
 
 #%% ######################################################  General  #####################################################################
 

@@ -1,4 +1,5 @@
 {
+  "identifier": "msk_modelling_python",
   "__version__": "0.1.8",
   "__testing__": false,
   "update": false,
