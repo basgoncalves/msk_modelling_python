@@ -5,19 +5,12 @@ start_time = time.time()
 
 import math
 import unittest
-# import src modules first
 import msk_modelling_python as msk
-from msk_modelling_python import src
-from msk_modelling_python.src import pd, np, osim, classes
-# from msk_modelling_python.src import tests
-from msk_modelling_python.src import osim
-from msk_modelling_python.src import classes
-from msk_modelling_python.src.tools import bops, ceinms 
-import msk_modelling_python.src.utils as ut
-import msk_modelling_python.src.plot as plot
 from msk_modelling_python.src import ui # import ui modules (not finished yet...)
+from msk_modelling_python.src.utils import *
+from msk_modelling_python.src.tools import bops
 
-__version__ = '0.1.8'
+__version__ = '0.1.9'
 __testing__ = False
 
 if __testing__:

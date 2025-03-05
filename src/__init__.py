@@ -23,7 +23,7 @@ except:
 import msk_modelling_python as msk
 
 class test(unittest.TestCase):
-    
+
     def test_1(self):
         self.assertTrue(True)
           

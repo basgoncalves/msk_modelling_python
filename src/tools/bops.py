@@ -3,15 +3,14 @@
 # BOPS: a Matlab toolbox to batch musculoskeletal data processing for OpenSim, Computer Methods in Biomechanics and Biomedical Engineering
 # DOI: 10.1080/10255842.2020.1867978
 
-__version__ = '0.1.8'
+__version__ = '0.2.0'
 __testing__ = False
 
-from msk_modelling_python.src.utils import general_utils as ut
-from msk_modelling_python.src.tools import *
-from msk_modelling_python.src.classes import *
-import msk_modelling_python as msk
-import c3d
-from msk_modelling_python import osim
+import os
+import json
+import time
+import opensim as osim
+import unittest
 
 path = os.path.dirname(os.path.realpath(__file__))
 
@@ -54,6 +53,16 @@ def is_setup_file(file_path, type = 'OpenSimDocument', print_output=False):
 def get_dir_bops():
     return os.path.dirname(os.path.realpath(__file__))
 
+class log:
+    def error(error_message):
+        try:
+            with open(os.path.join(path,"error_log.txt"), 'a') as file:
+                date = time.strftime("%Y-%m-%d %H:%M:%S")
+                file.write(f"{date}: {error_message}\n")
+        except:
+            print("Error: Could not log the error")
+            return
+
 class read:    
     def json(file_path, check=False):
         with open(file_path, 'r') as f:
@@ -71,47 +80,74 @@ class read:
             print(f"Error reading file: {e}")
         
         return data
+
+    def project_settings(settings_file_json):    
+        '''
+        open the json file and check if all the necessary variables are present
+        valid_vars = ['project_folder','subjects','emg_labels','analog_labels','filters']
         
+        '''
+        
+        valid_vars = ['project_folder','subjects','emg_labels','analog_labels','filters']
+        
+        
+        # Open settings file
+        try:
+            with open(settings_file_json, 'r') as f:
+                settings = json.load(f)
+        except:
+            print('Error loading settings file')  
+            
+                        
+        # Check if contains all the necessary variables
+        try:
+            for var in valid_vars:
+                if var not in settings:
+                    settings[var] = None
+                    print(f'{var} not in settings. File might be corrupted.')
+            
+            # look for subjects in the simulations folder and update list
+            if settings['project_folder']:
+                settings['subjects'] = get_subject_folders(settings['project_folder'])
+                
+        except Exception as e:
+            print('Error checking settings variables')
+            
+        
+        # save the json file path
+        try:
+            settings['jsonfile'] = settings_file_json
+            settings.pop('jsonfile', None)
+        except:
+            print('Error saving json file path')
+                
+        
+  
+class convert:
+    def c3d_to_osim(file_path):
+        pass
+
+class run:
+    
+    def c3d_to_trc(c3d_file, trc_file):
+        try:
+            writeTRC(c3d_file, trc_file)
+        except Exception as e:
+            print(f"Error converting c3d to trc: {e}")
+    
+    def inverse_kinematics(model_path, marker_path, output_folder):
+        try:
+            print('Running inverse kinematics ...')
+            
+            
+        except Exception as e:
+            print(f"Error running inverse kinematics: {e}")
+    
 def settings():
     import pdb; pdb.set_trace()
     return(read.json(os.path.join(path,'settings.json')))
 
 
-
-def load_settings(settings_file_json):
-    # Open settings file
-    try:
-        with open(settings_file_json, 'r') as f:
-            settings = json.load(f)
-    except:
-        print('Error loading settings file')  
-        
-                    
-    # Check if contains all the necessary variables
-    try:
-        valid_vars = ['project_folder','subjects','emg_labels','analog_labels','filters']
-        for var in valid_vars:
-            if var not in settings:
-                settings[var] = None
-                print(f'{var} not in settings. File might be corrupted.')
-        
-        # look for subjects in the simulations folder and update list
-        if settings['project_folder']:
-            settings['subjects'] = get_subject_folders(settings['project_folder'])
-            
-    except Exception as e:
-        print('Error checking settings variables')
-        
-    
-    # save the json file path
-    try:
-        settings['jsonfile'] = settings_file_json
-        settings.pop('jsonfile', None)
-    except:
-        print('Error saving json file path')
-             
-        
-  
 
 
 #%% ######################################################  General  #####################################################################
