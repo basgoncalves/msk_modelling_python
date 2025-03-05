@@ -13,6 +13,8 @@ import msk_modelling_python as msk
 import c3d
 from msk_modelling_python import osim
 
+path = os.path.dirname(os.path.realpath(__file__))
+
 def update_version(level=3, module='', invert=False):
     try:
         if not module:
@@ -22,7 +24,11 @@ def update_version(level=3, module='', invert=False):
         print(f"Error updating version: {e}")
         
 def is_setup_file(file_path, type = 'OpenSimDocument', print_output=False):
+    '''
+    Function to check if a file is an OpenSim setup file. 
+    The function reads the file and checks if the type is present in the file.
     
+    '''
     is_setup = False
     try:
         with open(file_path, 'r') as file:
@@ -47,6 +53,65 @@ def is_setup_file(file_path, type = 'OpenSimDocument', print_output=False):
 
 def get_dir_bops():
     return os.path.dirname(os.path.realpath(__file__))
+
+class read:    
+    def json(file_path, check=False):
+        with open(file_path, 'r') as f:
+            data = json.load(f)
+        return data
+    
+    def file(file_path):
+        data=[]
+        try:
+            with open(file_path, 'r') as file:
+                for line in file:
+                    data.append(line)
+                    
+        except Exception as e:
+            print(f"Error reading file: {e}")
+        
+        return data
+        
+def settings():
+    import pdb; pdb.set_trace()
+    return(read.json(os.path.join(path,'settings.json')))
+
+
+
+def load_settings(settings_file_json):
+    # Open settings file
+    try:
+        with open(settings_file_json, 'r') as f:
+            settings = json.load(f)
+    except:
+        print('Error loading settings file')  
+        
+                    
+    # Check if contains all the necessary variables
+    try:
+        valid_vars = ['project_folder','subjects','emg_labels','analog_labels','filters']
+        for var in valid_vars:
+            if var not in settings:
+                settings[var] = None
+                print(f'{var} not in settings. File might be corrupted.')
+        
+        # look for subjects in the simulations folder and update list
+        if settings['project_folder']:
+            settings['subjects'] = get_subject_folders(settings['project_folder'])
+            
+    except Exception as e:
+        print('Error checking settings variables')
+        
+    
+    # save the json file path
+    try:
+        settings['jsonfile'] = settings_file_json
+        settings.pop('jsonfile', None)
+    except:
+        print('Error saving json file path')
+             
+        
+  
 
 
 #%% ######################################################  General  #####################################################################
@@ -815,8 +880,6 @@ def create_grf_xml(grf_file, output_file= '', apply_force_body_name='calcn_r', f
         if msk.__testing__: 
             msk.bops.Platypus().sad() 
             
-
-
 # sto functions
 
 def write_sto_file(dataframe, file_path): # not working yet
@@ -2787,8 +2850,9 @@ if __name__ == '__main__':
     if bops.__testing__:
         print('runnung all tests ...')
         unittest.main()
+        Platypus().happy()
         
-    Platypus().happy()
+    settings = load_settings()
     
     
     
