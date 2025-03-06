@@ -12,16 +12,11 @@ import time
 import opensim as osim
 import unittest
 import numpy as np
+import c3d
+import tkinter as tk
+from tkinter import filedialog
 
 path = os.path.dirname(os.path.realpath(__file__))
-
-def update_version(level=3, module='', invert=False):
-    try:
-        if not module:
-            module = __file__
-        msk.update_version(level, module, invert)
-    except Exception as e:
-        print(f"Error updating version: {e}")
         
 def is_setup_file(file_path, type = 'OpenSimDocument', print_output=False):
     '''
@@ -62,10 +57,67 @@ class log:
             print("Error: Could not log the error")
             return
 
-class read:    
-    def json(file_path, check=False):
+class read: 
+    def __init__(self):
+        pass
+    
+    def c3d(self, filepath=None):
+        
+        if not filepath:
+            filepath = filedialog.askopenfilename()
+            
+        c3d_dict = {
+            'markers': [],
+            'analog': [],
+            'info': {
+            'frame_rate': None,
+            'analog_rate': None,
+            'start_frame': None,
+            'end_frame': None,
+            'num_frames': None,
+            'num_markers': None,
+            'num_analog_channels': None,
+            'marker_labels': [],
+            'analog_labels': []
+            }
+        }
+        
+        # Get the COM object of C3Dserver (https://pypi.org/project/pyc3dserver/)
+        r = c3d.Reader(open(filepath, 'rb'))
+        
+        # Extract general information
+        c3d_dict['info']['frame_rate'] = r.header.frame_rate
+        c3d_dict['info']['analog_rate'] = r.header.analog_per_frame
+        c3d_dict['info']['start_frame'] = r.header.first_frame
+        c3d_dict['info']['end_frame'] = r.header.last_frame
+        c3d_dict['info']['num_frames'] = r.header.last_frame - r.header.first_frame + 1
+        c3d_dict['info']['num_markers'] = r.header.point_count
+        c3d_dict['info']['marker_labels'] = r.point_labels
+        c3d_dict['info']['analog_labels'] = r.analog_labels
+        
+        # Read frames and store marker and analog data
+        for frame_no, points, analog in r.read_frames():
+            c3d_dict['markers'].append(points)
+            c3d_dict['analog'].append(analog)
+        
+        return c3d_dict
+    
+        
+    def json(self, check=False):
         with open(file_path, 'r') as f:
             data = json.load(f)
+        return data
+    
+    def mot(file_path):
+        data=[]
+        try:
+            with open(file_path, 'r') as file:
+                for line in file:
+                    data.append(line)
+                    
+        except Exception as e:
+            print(f"Error reading file: {e}")
+        
         return data
     
     def file(file_path):
@@ -121,8 +173,11 @@ class read:
             print('Error saving json file path')
                 
 class convert:
-    def c3d_to_osim(file_path):
-        pass
+    def c3d_to_osim(file_path=None):
+        
+        if not file_path:
+            file_path = filedialog.askopenfilename()
+        
 
 class run:
     
@@ -228,6 +283,11 @@ class Trial:
     def create_grf_xml(self):
         msk.bops.create_grf_xml(self.grf, self.grf_xml)
 
+
+class Subject:
+    def __init__(self, subject_json):
+        self = read.json(subject_json)
+
 class Project:
     
     def __init__(self, file_path=None):        
@@ -239,6 +299,18 @@ class Project:
                 self.settings = read.json(os.path.join(file_path,'settings.json'))
         except Exception as e:
             print(f"Error loading project settings: {e}")
+            
+            
+    def start(self, project_folder=''):
+    
+        if not project_folder:
+            settings = settings.read()
+        else:
+            pass
+        
+        print('NOT FINISHED....')
+        
+
             
         
             
