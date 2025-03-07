@@ -8,7 +8,7 @@ import unittest
 import msk_modelling_python as msk
 from msk_modelling_python.src import ui # import ui modules (not finished yet...)
 from msk_modelling_python.src.utils import *
-from msk_modelling_python.src.tools import bops
+from msk_modelling_python.src.tools.bops import *
 
 __version__ = '0.1.9'
 __testing__ = False

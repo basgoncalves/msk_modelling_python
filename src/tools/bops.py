@@ -62,47 +62,54 @@ class read:
         pass
     
     def c3d(self, filepath=None):
-        
+        ''''
+        bops.read().c3d()
+        '''
         if not filepath:
             filepath = filedialog.askopenfilename()
-            
-        c3d_dict = {
-            'markers': [],
-            'analog': [],
-            'info': {
-            'frame_rate': None,
-            'analog_rate': None,
-            'start_frame': None,
-            'end_frame': None,
-            'num_frames': None,
-            'num_markers': None,
-            'num_analog_channels': None,
-            'marker_labels': [],
-            'analog_labels': []
-            }
-        }
         
-        # Get the COM object of C3Dserver (https://pypi.org/project/pyc3dserver/)
+        class C3DData:
+            def __init__(self):
+                self.header = None
+                self.points = None
+                self.analog = None
+                self.events = None
+                self.parameters = None
+                self.trials = None
+                self.groups = None
+                self.force_platforms = None
+                self.camera_info = None
+                self.analog_info = None
+                self.markers = []
+                self.analog = []
+                
+        c3d_data = C3DData()
         r = c3d.Reader(open(filepath, 'rb'))
+        c3d_data.header = r.header
         
-        # Extract general information
-        c3d_dict['info']['frame_rate'] = r.header.frame_rate
-        c3d_dict['info']['analog_rate'] = r.header.analog_per_frame
-        c3d_dict['info']['start_frame'] = r.header.first_frame
-        c3d_dict['info']['end_frame'] = r.header.last_frame
-        c3d_dict['info']['num_frames'] = r.header.last_frame - r.header.first_frame + 1
-        c3d_dict['info']['num_markers'] = r.header.point_count
-        c3d_dict['info']['marker_labels'] = r.point_labels
-        c3d_dict['info']['analog_labels'] = r.analog_labels
-        
-        # Read frames and store marker and analog data
         for frame_no, points, analog in r.read_frames():
-            c3d_dict['markers'].append(points)
-            c3d_dict['analog'].append(analog)
+            c3d_data.markers.append(points)
+            c3d_data.analog.append(analog)
+        
+        # convert markers to a pandas dataframe with first row marker names and second row columns x,y,z
+        c3d_data.markers = np.array(c3d_data.markers)
+        c3d_data.markers = np.swapaxes(c3d_data.markers, 0, 1)
+        c3d_data.markers = np.swapaxes(c3d_data.markers, 1, 2)
+        
+        # make dataframes
+        
+        
+        
+        import pdb; pdb.set_trace()
+        
+      
+        def _to_osim():
+            pass    
+        
+        c3d_dict['to_osim'] = _to_osim
         
         return c3d_dict
     
-        
     def json(self, check=False):
         with open(file_path, 'r') as f:
             data = json.load(f)
@@ -178,7 +185,6 @@ class convert:
         if not file_path:
             file_path = filedialog.askopenfilename()
         
-
 class run:
     
     def c3d_to_trc(c3d_file, trc_file):
