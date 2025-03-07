@@ -205,8 +205,8 @@ class unittest_Muscle(unittest.TestCase):
       
 if __name__ == '__main__':
     
-    unittest.main()
-    exit()
+    # unittest.main()
+    # exit()
     
     biceps = Muscle(name='biceps', max_force=100, opt_length=0.1, length=0.1, velocity=0.0, activation=0.0, pennation_angle=0.0)
     
