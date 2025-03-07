@@ -12,6 +12,7 @@ import time
 import opensim as osim
 import unittest
 import numpy as np
+import pandas as pd
 import c3d
 import tkinter as tk
 from tkinter import filedialog
@@ -57,7 +58,11 @@ class log:
             print("Error: Could not log the error")
             return
 
-class read: 
+class reader: 
+    '''
+    Class to store data from different file types
+    
+    '''
     def __init__(self):
         pass
     
@@ -82,6 +87,29 @@ class read:
                 self.analog_info = None
                 self.markers = []
                 self.analog = []
+                self.df = None
+                
+            def trcData(self):
+                self.df = pd.DataFrame(self.markers)
+                # add headings
+                self.df.columns = self.header['point_labels']
+                
+                return self.df
+            
+            def _to_osim(self): 
+                
+                # create .trc 
+                self.markers = np.array(self.markers)
+                print('not finished ...')
+                
+                raise Exception('Not finished')
+                
+                return self.markers
+            
+            def _to_json(self):
+                
+                print(' not implemented')
+                
                 
         c3d_data = C3DData()
         r = c3d.Reader(open(filepath, 'rb'))
@@ -103,12 +131,7 @@ class read:
         import pdb; pdb.set_trace()
         
       
-        def _to_osim():
-            pass    
         
-        c3d_dict['to_osim'] = _to_osim
-        
-        return c3d_dict
     
     def json(self, check=False):
         with open(file_path, 'r') as f:
