@@ -1,5 +1,8 @@
 from .general_utils import *
-
+import tkinter as tk
+from tkinter import filedialog
+import json
+import os
 
 def security_check(filepath, identifier=None):
     '''
@@ -15,3 +18,25 @@ def security_check(filepath, identifier=None):
             return False
         else:
             return True
+        
+
+
+def print_json(filepath=None):
+    '''Print the contents of a json file'''
+    
+    if not filepath:
+        root = tk.Tk()
+        filepath = filedialog.askopenfilename(title = "Select .json file", filetypes = (("json files","*.json"),("all files","*.*")))
+    
+    with open(filepath, 'r') as f:
+        data = json.load(f)
+        
+    print(data)
+    
+    # close dialog box
+    root.withdraw()
+    root.destroy()
+    
+    return data
+
+# End
