@@ -747,3 +747,17 @@
 2025-03-06 22:38:33: msk tests all passsed!
 2025-03-06 22:42:50: msk tests all passsed!
 2025-03-07 19:22:12: msk tests all passsed!
+2025-03-07 21:13:25: msk tests all passsed!
+2025-03-07 21:15:47: msk tests all passsed!
+2025-03-07 21:16:46: msk tests all passsed!
+2025-03-07 21:20:12: msk tests all passsed!
+2025-03-07 21:21:52: msk tests all passsed!
+2025-03-07 21:24:36: msk tests all passsed!
+2025-03-07 21:51:35: msk tests all passsed!
+2025-03-07 21:52:20: msk tests all passsed!
+2025-03-07 21:54:04: msk tests all passsed!
+2025-03-07 21:54:05: module 'msk_modelling_python.src.tools.bops' has no attribute 'Platypus'
+2025-03-07 21:54:36: msk tests all passsed!
+2025-03-07 21:54:37: name 'get_dir_bops' is not defined
+2025-03-07 22:00:02: msk tests all passsed!
+2025-03-07 22:08:24: msk tests all passsed!

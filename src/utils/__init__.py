@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import filedialog
 import json
 import os
+import customtkinter as ctk
 
 def security_check(filepath, identifier=None):
     '''
@@ -25,8 +26,8 @@ def print_json(filepath=None):
     '''Print the contents of a json file'''
     
     if not filepath:
-        root = tk.Tk()
-        filepath = filedialog.askopenfilename(title = "Select .json file", filetypes = (("json files","*.json"),("all files","*.*")))
+        root = ctk.CTk()
+        filepath = ctk.filedialog.askopenfilename(title="Select .json file", filetypes=(("json files", "*.json"), ("all files", "*.*")))
     
     with open(filepath, 'r') as f:
         data = json.load(f)
@@ -38,5 +39,6 @@ def print_json(filepath=None):
     root.destroy()
     
     return data
+
 
 # End

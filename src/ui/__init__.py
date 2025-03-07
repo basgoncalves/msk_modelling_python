@@ -17,5 +17,5 @@ if __name__ == "__main__":
     except Exception as e:
         print("Error: ", e)
         msk.log_error(e)
-        msk.bops.Platypus().sad()
+        msk.Platypus().sad()
     

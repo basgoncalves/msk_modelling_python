@@ -2,14 +2,15 @@ import sys
 import os
 import time
 start_time = time.time()
+msk_module_path = os.path.dirname(os.path.abspath(__file__))
 
-import math
 import unittest
-import msk_modelling_python as msk
+from PIL import Image
+from PIL import ImageTk
 from msk_modelling_python.src import ui # import ui modules (not finished yet...)
 from msk_modelling_python.src.utils import *
+from msk_modelling_python.src.tools import bops
 from msk_modelling_python.src.tools.bops import *
-
 __version__ = '0.1.9'
 __testing__ = False
 
@@ -122,15 +123,13 @@ def run_bops():
     '''
     # run the tests
     try:
-        if bops.__testing__:
+        if __testing__:
             msk.test()
             msk.ui.test()
-            msk.src.test()
-            msk.plot.basics.test()
             msk.bops.test()
             msk.log_error('All tests passed for msk_modelling_python package.')
     except Exception as e:
-        ut.print_warning("Error running package testing: ", e)
+        print_warning("Error running package testing: ", e)
         msk.log_error(e)
     
     # run the steps based on the settings.json file in the bops package
@@ -145,8 +144,8 @@ def run_bops():
             msk.update_version(3, msk, invert=False)
         
         if settings['bops']['analyses']['run']['IK']:
-            osim_model_path = msk.bops.select_file('Select the osim model file')
-            trc_marker_path = msk.bops.select_file('Select the marker file')
+            osim_model_path = msk.ui.select_file('Select the osim model file')
+            trc_marker_path = msk.ui.select_file('Select the marker file')
             output_folder_path = msk.os.path.dirname(trc_marker_path)
             msk.bops.run_inverse_kinematics(model_file=osim_model_path, marker_file=trc_marker_path , output_folder=output_folder_path)
         
@@ -155,17 +154,93 @@ def run_bops():
         print('Check the log file for any errors')
         print('.\msk_modelling_python\guide\log_problems\log.txt')
         
-        msk.bops.Platypus().happy()
+        msk.Platypus().happy()
     except Exception as e:
         print("Error: ", e)
         msk.log_error(e)
-        msk.bops.Platypus().sad()
+        msk.Platypus().sad()
+
+class Platypus:
+    '''
+    Platypus class to test the bops package
+    usage:
+        platypus = Platypus() # create an instance of the Platypus class
+        platypus.run_tests() # run all tests
+        platypus.print_happy() # print a happy platypus
+        platypus.print_sad() # print a sad platypus
+    '''
+    def __init__(self):
+        self.name = 'Platypus'
+        self.mood = 'sad'
+        self.output = None
+        self.images_path = os.path.join(msk_module_path,'src','images')
+        self.current_image_path = None
+        self.photo = None
+        
+    def greet(self):
+        print(f"Hello, my name is {self.name}!")
+        
+    def happy(self, message = ''):
+        try:
+            print(message) 
+            self.current_image_path = os.path.join(self.images_path, 'platypus.jpg')
+            self.show_image()
+            self.mood = 'happy'
+        except Exception as e:
+            self.mood = 'sad'
+            print('happy platypus image not found in ' + self.current_image_path)
+            print(e)
+        
+    def sad(self):
+        try:
+            self.current_image_path = os.path.join(self.images_path, 'platypus_sad.jpg')
+            self.show_image()
+            self.mood = 'sad'
+        except Exception as e:  
+            print('sad platypus image not found in ' + self.current_image_path)
+            print(e)
+        
+    def show_image(self):
+        # Create a Tkinter window
+        window = tk.Tk()
+        
+        # Load the image using PIL
+        image = Image.open(self.current_image_path)
+        # Create a Tkinter PhotoImage from the PIL image
+        photo = ImageTk.PhotoImage(image)
+        
+        label = tk.Label(window, image=photo)
+        label.image = photo
+        label.pack()
+        
+        # center image on the screen
+        try:
+            window_width = window.winfo_reqwidth()
+            window_height = window.winfo_reqheight()
+            position_right = int((window.winfo_screenwidth()/2 - window_width*3)) 
+            position_down = int((window.winfo_screenheight()/2 - window_height*2))
+            window.geometry("+{}+{}".format(position_right, position_down))
+        except Exception as e:
+            msk.log_error('Error bops.Platypus: ' + e)
+            print('Could not center image on screen: ' + str(e))
+            
+        # Start the image loop
+        window.mainloop()
     
+    def run_tests(self):
+        print('running all tests ...')
+        unittest.main()
+        
+        if self.mood == 'sad':
+            self.sad()
+        else:
+            self.happy()
+        
 class test(unittest.TestCase):
     def test_update_version(self):
         pass
     
-    msk.log_error('msk tests all passsed!')
+    log_error('msk tests all passsed!')
 
     def test_log_error(self):
         pass
@@ -177,17 +252,15 @@ class test(unittest.TestCase):
         pass
     
     def test_platypus(self):
-        msk.bops.Platypus().happy()
+        Platypus().happy()
         self.assertTrue(True)
         
     def test_run_bops(self):
         run_bops()
-        
-    def test_src(self):
-        src.test()
+
         
     def test_ui(self):
-        msk.ui.test()
+        ui.test()
         
             
 if __name__ == "__main__":
@@ -196,8 +269,8 @@ if __name__ == "__main__":
         msk.log_error('Tests passed for msk_modelling_python package')
     except Exception as e:
         print("Error: ", e)
-        msk.log_error(e)
-        msk.bops.Platypus().sad()
+        log_error(e)
+        Platypus().sad()
     
     
 #%% END
