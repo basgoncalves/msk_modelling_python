@@ -81,19 +81,13 @@ def update_version(level=3, module=__file__, invert=False):
                     file.write(f"__version__ = '{updated_version}'\n")
                 else:
                     file.write(line)
-        
-        # Update settings.json file with False update
-        settings = msk.bops.get_bops_settings()
-        settings['update'] = False
-        settings['__version__'] = updated_version
-        msk.bops.save_bops_settings(settings)
             
     except:
         print("Error: Could not update the version")
         return
     
-    ui.show_warning(f'msk_modelling_python udpated \n old version: {current_version} \n version to {updated_version} \n')
-    
+    ui.pop_up_message(f'msk_modelling_python udpated \n old version: {current_version} \n version to {updated_version} \n')
+    ui.close_all()
     return updated_version
     
 def log_error(error_message, error_log_path=''):
