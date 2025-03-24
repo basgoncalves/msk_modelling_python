@@ -46,7 +46,6 @@ class Muscle:
             
         return (1 - muscle_velocity / self.max_contractile_velocity) / (a_f + b_f * (1 - muscle_velocity / self.max_contractile_velocity))
     
-
     def passive_force_length_curve(self, muscle_length):
         # Implement your desired passive force-length curve function here
         k_pe = 4.0  # Passive force-length shape factor
@@ -138,8 +137,7 @@ class Muscle:
         plt.ylabel('activation')
         
         plt.xlabel('time (s)')
-        
-    
+           
     def plot(self, parameter = 'force'):
         """
         Plots the muscle state.

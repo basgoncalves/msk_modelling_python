@@ -422,8 +422,6 @@ class TestXMLTools(unittest.TestCase):
         tree = xml_tool.create_ceinms_calibration_cfg()
         self.assertIsNotNone(tree)
     
-
-
 class log:
     def error(error_message):
         try:
@@ -532,8 +530,12 @@ class convert:
         
         if not file_path:
             file_path = filedialog.askopenfilename()
+            
+        try:
         
 class run:
+    def __init__(self):
+        pass
     
     def c3d_to_trc(c3d_file, trc_file):
         try:
@@ -636,7 +638,6 @@ class Trial:
 
     def create_grf_xml(self):
         msk.bops.create_grf_xml(self.grf, self.grf_xml)
-
 
 class Subject:
     def __init__(self, subject_json):
