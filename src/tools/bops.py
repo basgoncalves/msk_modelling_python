@@ -48,7 +48,69 @@ def is_setup_file(file_path, type = 'OpenSimDocument', print_output=False):
 def get_dir_bops():
     return os.path.dirname(os.path.realpath(__file__))
 
+def export_c3d(c3dFilePath=''):
+    analog_file_path = os.path.join(os.path.dirname(c3dFilePath),'analog.csv')
+    
+    if not c3dFilePath:
+        c3dFilePath = msk.ui.select_file()
+    
+    # if the file already exists, return the file
+    if os.path.isfile(analog_file_path):
+        df = msk.pd.read_csv(analog_file_path)
+        return df
+    
+    print('Exporting analog data to csv ...')
+    
+    # read c3d file
+    reader = c3d.Reader(open(c3dFilePath, 'rb'))
 
+    # get analog labels, trimmed and replace '.' with '_'
+    analog_labels = reader.analog_labels
+    analog_labels = [label.strip() for label in analog_labels]
+    analog_labels = [label.replace('.', '_') for label in analog_labels]
+
+    # get analog labels, trimmed and replace '.' with '_'
+    first_frame = reader.first_frame
+    num_frames = reader.frame_count
+    fs = reader.analog_rate
+
+    # add time to dataframe
+    frame_time = 1/fs
+    initial_time = first_frame / fs
+    final_time = (first_frame + num_frames-1) / fs
+    time = np.arange(initial_time-frame_time, final_time, 1 / fs) 
+
+    df = msk.pd.DataFrame(index=range(num_frames),columns=analog_labels)
+    import pdb; pdb.set_trace()
+    df['time'] = time
+    
+    # move time to first column
+    cols = df.columns.tolist()
+    cols = cols[-1:] + cols[:-1]
+    df = df[cols]    
+    
+    # loop through frames and add analog data to dataframe
+    for i_frame, points, analog in reader.read_frames():
+        
+        # get row number and print loading bar
+        i_row = i_frame - reader.first_frame
+        # msk.ut.print_loading_bar(i_row/num_frames)
+        
+        # convert analog data to list
+        analog_list  = analog.data.tolist()
+        
+        # loop through analog channels and add to dataframe
+        for i_channel in range(len(analog_list)):
+            channel_name = analog_labels[i_channel]
+            
+            # add channel to dataframe
+            df.loc[i_row, channel_name] = analog[i_channel][0]
+    
+    # save emg data to csv   
+    df.to_csv(analog_file_path)
+    print('analog.csv exported to ' + analog_file_path)  
+    
+    return df
 #%% ######################################################  General  #####################################################################
 
 def get_dir_simulations():
@@ -1342,7 +1404,7 @@ def scale_model(originalModelPath,targetModelPath,trcFilePath,setupScaleXML):
     print('Osim model scaled and saved in ' + targetModelPath)
     print()
 
-def run_IK(osim_modelPath, trc_file, resultsDir):
+def run_IK(osim_modelPath, trc_file='', resultsDir=''):
     '''
     Function to run Inverse Kinematics using the OpenSim API.
     
@@ -1352,39 +1414,50 @@ def run_IK(osim_modelPath, trc_file, resultsDir):
             resultsDir(str): path to the directory where the results will be saved
     '''
 
-    # Load the TRC file
-    import pdb; pdb.set_trace()
-    tuple_data = import_trc_file(trc_file)
-    df = pd.DataFrame.from_records(tuple_data, columns=[x[0] for x in tuple_data])
-    column_names = [x[0] for x in tuple_data]
-    if len(set(column_names)) != len(column_names):
-        print("Error: Duplicate column names found.")
-    # Load the model
-    osimModel = osim.Model(osim_modelPath)                              
-    state = osimModel.initSystem()
-
-    # Define the time range for the analysis
     
-    initialTime = TRCData.getIndependentColumn()
-    finalTime = TRCData.getLastTime()
+    try:
+       ik_tool = osim.InverseKinematicsTool(osim_modelPath)
+       ik_tool.run()
+       return
+    except Exception as e:
+        print(e)
+        return
+    
+    try:
+        # Load the TRC file
+        tuple_data = import_trc_file(trc_file)
+        df = pd.DataFrame.from_records(tuple_data, columns=[x[0] for x in tuple_data])
+        column_names = [x[0] for x in tuple_data]
+        if len(set(column_names)) != len(column_names):
+            print("Error: Duplicate column names found.")
+        # Load the model
+        osimModel = osim.Model(osim_modelPath)                              
+        state = osimModel.initSystem()
 
-    # Create the inverse kinematics tool
-    ikTool = osim.InverseKinematicsTool()
-    ikTool.setModel(osimModel)
-    ikTool.setStartTime(initialTime)
-    ikTool.setEndTime(finalTime)
-    ikTool.setMarkerDataFileName(trc_file)
-    ikTool.setResultsDir(resultsDir)
-    ikTool.set_accuracy(1e-6)
-    ikTool.setOutputMotionFileName(os.path.join(resultsDir, "ik.mot"))
+        # Define the time range for the analysis
+        
+        initialTime = TRCData.getIndependentColumn()
+        finalTime = TRCData.getLastTime()
 
-    # print setup
-    ikTool.printToXML(os.path.join(resultsDir, "ik_setup.xml"))         
+        # Create the inverse kinematics tool
+        ikTool = osim.InverseKinematicsTool()
+        ikTool.setModel(osimModel)
+        ikTool.setStartTime(initialTime)
+        ikTool.setEndTime(finalTime)
+        ikTool.setMarkerDataFileName(trc_file)
+        ikTool.setResultsDir(resultsDir)
+        ikTool.set_accuracy(1e-6)
+        ikTool.setOutputMotionFileName(os.path.join(resultsDir, "ik.mot"))
 
-    # Run inverse kinematics
-    print("running ik...")                                             
-    ikTool.run()
+        # print setup
+        ikTool.printToXML(os.path.join(resultsDir, "ik_setup.xml"))         
 
+        # Run inverse kinematics
+        print("running ik...")                                             
+        ikTool.run()
+    except exception as e:
+        print(e)
+        
 def run_inverse_kinematics(model_file, marker_file, output_motion_file):
     # Load model and create an InverseKinematicsTool
     model = osim.Model(model_file)

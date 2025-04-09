@@ -55,7 +55,9 @@ def show_warning(message, settings_type = 'Default'):
     
     root.mainloop()
 
-def select_folder(prompt='Please select your folder', staring_path=''):    
+def select_folder(prompt='Please select your folder', staring_path=''): 
+    root = ctk.CTk()
+    root.withdraw()    
     try:
         selected_folder = ctk.filedialog.askdirectory(initialdir=staring_path, title=prompt)
     except Exception as e:
