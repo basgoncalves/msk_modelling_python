@@ -22,7 +22,25 @@
     [Open-source and cross-platform software to easily analyze biomechanical data](https://biomechanical-toolkit.github.io/mokka/)
 ---
 
-## Usage
+# msk_modelling_python
+
+A Python package for musculoskeletal modelling (initial).
+
+## Pip installation (testing...)
+
+```bash
+pip install msk_modelling_python
+
+```
+
+## Test usage
+``` python
+import msk_modelling_python as msk
+
+print(msk.greet())
+```
+
+## Work with the code 
 
 1. **Create a Virtual Environment**
      ```sh
