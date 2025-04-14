@@ -530,8 +530,7 @@ class convert:
         
         if not file_path:
             file_path = filedialog.askopenfilename()
-            
-        try:
+
         
 class run:
     def __init__(self):

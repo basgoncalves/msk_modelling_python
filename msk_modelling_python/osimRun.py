@@ -5,7 +5,7 @@
 
 
 def greet():
-    return "Are you ready to run openSim?!"
+    print("Are you ready to run openSim?!")
 
 if __name__ == "__main__":
-    print(greet())
+    greet()

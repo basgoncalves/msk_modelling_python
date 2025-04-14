@@ -17,16 +17,11 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import msk_modelling_python as msk
 
-model_path = r'C:\Git\1_current_projects\Fatigue-prediction-MSC-Thesis\simulations\009\scaled_models\009_Rajagopal2015_FAI_v4.osim'
-trial_path = r'C:\Git\1_current_projects\Fatigue-prediction-MSC-Thesis\simulations\009\Run_baselineA1_BG1'
-setup_file_path = os.path.join(trial_path, 'setup_ik.xml')
-print(model_path)
+filename = r"C:\Git\research_data\Projects\squatting_fais\c3dfiles\009\SJ\SJ_post1.c3d"
 
-osimAnalysis = msk.classes.osimSetup()
+data = open(filename, 'rb').read()
 
-# osimAnalysis.run_ik_tool_from_xml(model_path, setup_file_path=setup_file_path, run_tool = True)
-
-osimAnalysis.run_ik_tool_from_xml(model_path, setup_file_path)  # Correct
+print(data)
 
 ################
 print(f"--- {time.time() - start_time} seconds ---")

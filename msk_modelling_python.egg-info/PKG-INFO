@@ -1,6 +1,20 @@
-# msk_modelling_python (pre-release)
+Metadata-Version: 2.1
+Name: msk_modelling_python
+Version: 0.1.0
+Summary: A Python package for musculoskeletal modelling (initial)
+Home-page: https://github.com/your_username/msk_modelling_python
+Author: Your Name
+Author-email: your.email@example.com
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE.md
+Requires-Dist: numpy
+Requires-Dist: numpy-stl
 
-A Python package for musculoskeletal modelling.
+# msk_modelling_python (pre-release)
 
 **Author:** Basilio Goncalves, PhD, University of Vienna, 2024
 
@@ -11,7 +25,7 @@ A Python package for musculoskeletal modelling.
 1. **Download a Code Interpreter**  
     I recommend [Visual Studio Code](https://code.visualstudio.com/download), but use your preferred one.
 
-2. **Download and Install Python (>= 3.8)**  
+2. **Download and Install Python (suggest 3.8)**  
     Make sure it is the correct bit version: [Python 3.8](https://www.python.org/downloads/release/python-380/)
 
 3. **Download and Install OpenSim (suggest >=4.3)**  
@@ -24,6 +38,10 @@ A Python package for musculoskeletal modelling.
     [Open-source and cross-platform software to easily analyze biomechanical data](https://biomechanical-toolkit.github.io/mokka/)
 ---
 
+# msk_modelling_python
+
+A Python package for musculoskeletal modelling (initial).
+
 ## Pip installation (testing...)
 
 ```bash
@@ -35,20 +53,20 @@ pip install msk_modelling_python
 ``` python
 import msk_modelling_python as msk
 
-msk.greet()
+print(msk.greet())
 ```
 
 ## Work with the code 
 
 1. **Create a Virtual Environment**
      ```sh
-     python -m venv msk
+     python -m venv <myenv>
      ```
-     Note: replace 'msk' if you want a different name
+     Note: use any name you want for <\myenv>
 ---
 2. **Clone this Module "msk_modelling_python" to your virtual environment**
    ```
-   cd .\msk\Lib\site-packages
+   cd .\<myenv>\Lib\site-packages
    ```
      ```
      git clone https://github.com/basgoncalves/msk_modelling_python.git
@@ -162,23 +180,9 @@ For any questions or inquiries, please contact:
 - **Email:** basilio.goncalves@univie.ac.at
 - **ResearchGate:** [Basilio Goncalves](https://www.researchgate.net/profile/Basilio-Goncalves)
 
-## References
 
-Thelen, D. G. -2003- J. Biomech. Eng. 125, 70–77
 
-Lloyd, D. G. et al. -2003- J. Biomech. 36, 765–776
 
-Delp, S. L. et al. -2007- IEEE Trans. Biomed. Eng. 54, 1940–1950
-
-Pizzolato, C. et al. -2015- J. Biomech. 48, 3929–3936
-
-Hicks, J. L. et al. -2015- J. Biomech. Eng. 137,
-
-Rajagopal, A. et al. -2016- IEEE Trans. Biomed. Eng. 63, 2068–2079
-
-Goncalves, B. A. M. et al. -2023- Gait Posture 106, S68
-
-Goncalves, B. A. M. et al. -2024- Med. Sci. Sport. Exerc. 56, 402–410
 
 
 

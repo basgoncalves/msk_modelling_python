@@ -6,9 +6,9 @@ build-backend = "setuptools.build_meta"
 name = "msk_modelling_python"
 version = "0.2.0"
 authors = [
-  { name="Your Name", email="basilio_goncalves7@gmail.com" },
+  { name="Bas", email="basilio_goncalves7@gmail.com" },
 ]
-description = "A Python package for musculoskeletal modelling (initial)"
+description = "A Python package for musculoskeletal modelling (Beta)"
 readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
@@ -22,6 +22,12 @@ dependencies = [
     # Add other dependencies here
 ]
 dynamic = ["version"]
+license = "MIT"
+license-files = ["LICEN[CS]E*"]
 
 [tool.setuptools.dynamic]
 version = {file = "setup.py", attr = "__version__"}
+
+[pypi]
+  username = __token__
+  password = pypi-AgEIcHlwaS5vcmcCJDJhYWE4MDc1LTQ4OTktNDU5OS05YmJkLTY1ODQ2ODAyNDQ5NAACKlszLCJiMWQzNjVlMy1hOTkzLTRmMWUtYWQ1NC0xMjFkOTJkYTk0OTQiXQAABiAE2-iydcqJYe_Xb9YMsFEkq_pHJEXCmvuOojcOIRfJPQ
