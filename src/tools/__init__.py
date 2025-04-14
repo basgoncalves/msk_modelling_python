@@ -36,7 +36,6 @@ import tkinter as tk
 from tkinter import messagebox
 import tkinter.messagebox as mbox
 from tkinter import filedialog
-import tkfilebrowser
 import customtkinter as ctk
 import screeninfo as si
 from tqdm import tqdm

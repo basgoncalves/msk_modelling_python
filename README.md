@@ -75,20 +75,20 @@ msk.greet()
      ```
      Note: see for help https://answers.microsoft.com/en-us/windows/forum/all/change-system-variables-on-windows-11/f172c29e-fd9e-4f0b-949d-c4696bd656b8
 ---
-5. **Verify the OpenSim Installation**
+5. **Verify the OpenSim Installation (in python)**
      ```python
      import opensim as osim
      model = osim.Model()
      print("OpenSim model created successfully!")
      ```
 ---
-6. **Install requirements**
+6. **Install requirements (in the terminal)**
      ```powershell
      cd .\<myenv>\Lib\site-packages\msk_modelling_python
      pip install -r requirements.txt
      ```
 ---
-7. **Testing msk_modelling_python**
+7. **Testing msk_modelling_python (in python)**
      ```python
      import msk_modelling_python as msk
      msk.run_bops()
