@@ -1,10 +1,13 @@
 try:
     import bops as bops
     from classes import *
+    from src import *
+    from utils import *
     
 except:
     from . import bops as bops
     from .classes import *
+    from .utils import *
     
 if __name__ == "__main__":
     bops.greet()
@@ -19,6 +22,6 @@ if __name__ == "__main__":
         data_json = bops.reader.json()
         print(data_json)
     
-    if True:
+    if False:
         data_mot = bops.reader.mot()
         print(data_mot)

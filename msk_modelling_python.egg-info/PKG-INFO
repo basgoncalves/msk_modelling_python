@@ -1,7 +1,7 @@
 Metadata-Version: 2.1
 Name: msk-modelling-python
-Version: 0.0.2
-Summary: A Python package for musculoskeletal modelling (version 0.0.2)
+Version: 0.0.4
+Summary: A Python package for musculoskeletal modelling (version 0.0.4)
 Home-page: https://github.com/your_username/msk_modelling_python
 Author: Bas
 Author-email: basilio.goncalves7@gmail.com
@@ -196,7 +196,7 @@ Description: # msk_modelling_python (pre-release)
         
         
         
-        Version: 0.0.2
+        Version: 0.0.4
 Platform: UNKNOWN
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
