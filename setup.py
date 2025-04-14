@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-__version__ = '0.0.2'  # Define the version here
+__version__ = '0.0.4'  # Define the version here
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
@@ -27,7 +27,8 @@ setup(
         "c3d",
         "pyperclip",
         "customtkinter",
-        "matplotlib"
+        "matplotlib",
+        "febio "
     ],
     
     package_data={
