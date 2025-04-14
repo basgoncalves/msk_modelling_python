@@ -1,5 +1,7 @@
 # msk_modelling_python (pre-release)
 
+A Python package for musculoskeletal modelling.
+
 **Author:** Basilio Goncalves, PhD, University of Vienna, 2024
 
 ---
@@ -9,7 +11,7 @@
 1. **Download a Code Interpreter**  
     I recommend [Visual Studio Code](https://code.visualstudio.com/download), but use your preferred one.
 
-2. **Download and Install Python (suggest 3.8)**  
+2. **Download and Install Python (>= 3.8)**  
     Make sure it is the correct bit version: [Python 3.8](https://www.python.org/downloads/release/python-380/)
 
 3. **Download and Install OpenSim (suggest >=4.3)**  
@@ -22,17 +24,31 @@
     [Open-source and cross-platform software to easily analyze biomechanical data](https://biomechanical-toolkit.github.io/mokka/)
 ---
 
-## Usage
+## Pip installation (testing...)
+
+```bash
+pip install msk_modelling_python
+
+```
+
+## Test usage
+``` python
+import msk_modelling_python as msk
+
+msk.greet()
+```
+
+## Work with the code 
 
 1. **Create a Virtual Environment**
      ```sh
-     python -m venv <myenv>
+     python -m venv msk
      ```
-     Note: use any name you want for <\myenv>
+     Note: replace 'msk' if you want a different name
 ---
 2. **Clone this Module "msk_modelling_python" to your virtual environment**
    ```
-   cd .\<myenv>\Lib\site-packages
+   cd .\msk\Lib\site-packages
    ```
      ```
      git clone https://github.com/basgoncalves/msk_modelling_python.git
@@ -146,9 +162,27 @@ For any questions or inquiries, please contact:
 - **Email:** basilio.goncalves@univie.ac.at
 - **ResearchGate:** [Basilio Goncalves](https://www.researchgate.net/profile/Basilio-Goncalves)
 
+## References
 
+Thelen, D. G. -2003- J. Biomech. Eng. 125, 70–77
 
+Lloyd, D. G. et al. -2003- J. Biomech. 36, 765–776
 
+Delp, S. L. et al. -2007- IEEE Trans. Biomed. Eng. 54, 1940–1950
 
+Pizzolato, C. et al. -2015- J. Biomech. 48, 3929–3936
 
+Hicks, J. L. et al. -2015- J. Biomech. Eng. 137,
+
+Rajagopal, A. et al. -2016- IEEE Trans. Biomed. Eng. 63, 2068–2079
+
+Goncalves, B. A. M. et al. -2023- Gait Posture 106, S68
+
+Goncalves, B. A. M. et al. -2024- Med. Sci. Sport. Exerc. 56, 402–410
+
+## Version updates 0.3.0
+
+- fix import bops
+- testing the inclusion of opensim (v.4.5)
+- classes should be working
 

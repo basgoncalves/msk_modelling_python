@@ -1,6 +1,0 @@
-[submodule "ExampleScripts/pymuscle"]
-	path = ExampleScripts/pymuscle
-	url = https://github.com/iandanforth/pymuscle
-[submodule "example_data/ischemia_amin"]
-	path = example_data/ischemia_amin
-	url = https://github.com/basgoncalves/ischemia_amin

@@ -130,10 +130,34 @@ def box_list_selection(title, options):
     
     return selected_option.get()
     
-    
-    
-# BOPS specific functions
+ 
+# Under development
 
+def pop_up_message(message):
+    root = ctk.CTk()
+    root.title("Pop message")    
+    
+    screen = si.get_monitors()[0]
+    width = 300
+    height = 150
+    x = (screen.width - width) // 2
+    y = (screen.height - height) // 2
+    root.geometry(f"{width}x{height}+{x}+{y}")
+    
+    label = ctk.CTkLabel(root, text=message, wraplength=280)
+    label.pack(pady=20)
+    
+    button = ctk.CTkButton(root, text="OK", command=root.quit)
+    button.pack(pady=10)
+    
+    root.mainloop()
+
+def close_all():
+    root = ctk.CTk()
+    root.quit()
+    root.destroy()
+    
+    return
 
 
 # TESTS
