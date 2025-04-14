@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-__version__ = '0.1.32'  # Define the version here
+__version__ = '0.1.35'  # Define the version here
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
@@ -21,12 +21,13 @@ setup(
         "Operating System :: OS Independent",
     ],
     install_requires=[
-        "numpy>=1.21.0",
-        "numpy-stl>=2.16.0",
-        "pandas>=1.3.0",
-        "c3d>=0.3.0",
-        "customtkinter>=5.2.0",
-        "tkinter>=8.6.0",
+        "numpy",
+        "numpy-stl",
+        "pandas",
+        "c3d",
+        "pyperclip",
+        "customtkinter",
+        "tkinter",
     ],
     python_requires='>=3.8',
 )
