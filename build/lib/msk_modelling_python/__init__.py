@@ -1,14 +1,24 @@
-try:
-    from .osimRun import greet
 
+import bops as bops
+from classes import *
 
-except:
-    from osimRun import greet
+import opensim as osim
 
-import src
-import src.tools
+__all__ = ["bops"]
     
 if __name__ == "__main__":
-    greet()
-    breakpoint()
-    src.tools.bops
+    bops.greet()
+    bops.about()
+    
+    
+    if False:
+        data = bops.reader.c3d()
+        print(data)
+    
+    if False:
+        data_json = bops.reader.json()
+        print(data_json)
+    
+    if True:
+        data_mot = bops.reader.mot()
+        print(data_mot)

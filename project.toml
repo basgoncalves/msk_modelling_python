@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "msk_modelling_python"
-version = "0.2.0"
+version = "0.3.0"
 authors = [
   { name="Bas", email="basilio_goncalves7@gmail.com" },
 ]
@@ -33,9 +33,5 @@ version = {file = "setup.py", attr = "__version__"}
     PROJECT_NAME
 
 [pypi]
-  username = __token__
-  password = pypi-AgEIcHlwaS5vcmcCJDIzYjI4Nzc0LTY3NTEtNGIxYy04ZTg0LTMzNGExMTFhMzNlMwACHFsxLFsibXNrLW1vZGVsbGluZy1weXRob24iXV0AAixbMixbIjNiMDMzMDI2LWJkYTUtNDAxZC05ZjQxLTBlMWUwZDQ1MTE2MyJdXQAABiCW4mB2NItosNh3zdCf3WPu4qeMSL_TdBD0AfTbprycxQ
-[PROJECT_NAME]
-  repository = https://upload.pypi.org/legacy/
-  username = __token__
-  password = pypi-AgEIcHlwaS5vcmcCJDIzYjI4Nzc0LTY3NTEtNGIxYy04ZTg0LTMzNGExMTFhMzNlMwACHFsxLFsibXNrLW1vZGVsbGluZy1weXRob24iXV0AAixbMixbIjNiMDMzMDI2LWJkYTUtNDAxZC05ZjQxLTBlMWUwZDQ1MTE2MyJdXQAABiCW4mB2NItosNh3zdCf3WPu4qeMSL_TdBD0AfTbprycxQ
+  username = msk0.2.1
+  password = pypi-msk0.2.1

@@ -30,6 +30,28 @@ py -m pip install --upgrade twine
 py setup.py sdist bdist_wheel
 ```
 
+9. Update .pypirc token [if needed]
+``` cmd
+cd %USERPROFILE%
+dir /a 
+```
+Check if a file named .pypirc exists.
+
+(if file doesnt exist create one with the text)
+[distutils]
+  index-servers =
+    pypi
+    PROJECT_NAME
+
+[pypi]
+  username = __token__
+  password = # either a user-scoped token or a project-scoped token you want to set as the default
+[PROJECT_NAME]
+  repository = https://upload.pypi.org/legacy/
+  username = __token__
+  password = # a project token 
+
+
 9. Update package on pip
 ```python
 twine upload --repository pypi dist/*

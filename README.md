@@ -180,5 +180,9 @@ Goncalves, B. A. M. et al. -2023- Gait Posture 106, S68
 
 Goncalves, B. A. M. et al. -2024- Med. Sci. Sport. Exerc. 56, 402–410
 
+## Version updates 0.3.0
 
+- fix import bops
+- testing the inclusion of opensim (v.4.5)
+- classes should be working
 
