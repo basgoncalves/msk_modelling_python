@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-__version__ = "0.1.0"  # Define the version here
+__version__ = "0.2.0"  # Define the version here
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
@@ -8,9 +8,9 @@ with open("README.md", "r", encoding="utf-8") as fh:
 setup(
     name="msk_modelling_python",
     version=__version__,
-    author="Your Name",
-    author_email="your.email@example.com",
-    description="A Python package for musculoskeletal modelling (initial)",
+    author="Bas",
+    author_email="basilio.goncalves7@gmail.com",
+    description="A Python package for musculoskeletal modelling",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/your_username/msk_modelling_python",

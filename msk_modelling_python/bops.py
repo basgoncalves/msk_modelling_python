@@ -19,7 +19,18 @@ from tkinter import filedialog
 import math
 
 path = os.path.dirname(os.path.realpath(__file__))
-        
+
+def about():
+    '''
+    Function to print the version of the package and the authors
+    '''
+    print('BOPSpy - Batch OpenSim Processing Scripts Python')
+    print('Version: ' + __version__)
+    print('Authors: Basilio Goncalves')
+    print('ispired by BOPS: MATALB DOI: 10.1080/10255842.2020.1867978 - https://pubmed.ncbi.nlm.nih.gov/33427495/')
+    print('Python version by Bas Goncalves')
+
+ 
 def is_setup_file(file_path, type = 'OpenSimDocument', print_output=False):
     '''
     Function to check if a file is an OpenSim setup file. 

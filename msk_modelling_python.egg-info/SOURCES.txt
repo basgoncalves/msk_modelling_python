@@ -1,9 +1,11 @@
 LICENSE.md
 README.md
-setup.cfg
 setup.py
 msk_modelling_python/__init__.py
+msk_modelling_python/bops.py
+msk_modelling_python/classes.py
 msk_modelling_python/osimRun.py
+msk_modelling_python/utils.py
 msk_modelling_python.egg-info/PKG-INFO
 msk_modelling_python.egg-info/SOURCES.txt
 msk_modelling_python.egg-info/dependency_links.txt
@@ -62,7 +64,6 @@ msk_modelling_python/src/tests/quick_test.py
 msk_modelling_python/src/tests/rotate_markers.py
 msk_modelling_python/src/tests/run_ik.py
 msk_modelling_python/src/tools/__init__.py
-msk_modelling_python/src/tools/bops.py
 msk_modelling_python/src/tools/c3dizy.py
 msk_modelling_python/src/tools/ceinms.py
 msk_modelling_python/src/tools/convertc3d.py

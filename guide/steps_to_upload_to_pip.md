@@ -15,4 +15,14 @@ details here [link] https://packaging.python.org/en/latest/tutorials/packaging-p
 py -m pip install --upgrade twine
 ```
 
+Delete all files in the dist folder.
+
+Update the version number in the setup.py file.
+
+py setup.py sdist bdist_wheel
+
+4. Update package on pip
+```python
+twine upload --repository pypi dist/*
+``` 
 

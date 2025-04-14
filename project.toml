@@ -22,12 +22,20 @@ dependencies = [
     # Add other dependencies here
 ]
 dynamic = ["version"]
-license = "MIT"
-license-files = ["LICEN[CS]E*"]
+
 
 [tool.setuptools.dynamic]
 version = {file = "setup.py", attr = "__version__"}
 
+[distutils]
+  index-servers =
+    pypi
+    PROJECT_NAME
+
 [pypi]
   username = __token__
-  password = pypi-AgEIcHlwaS5vcmcCJDJhYWE4MDc1LTQ4OTktNDU5OS05YmJkLTY1ODQ2ODAyNDQ5NAACKlszLCJiMWQzNjVlMy1hOTkzLTRmMWUtYWQ1NC0xMjFkOTJkYTk0OTQiXQAABiAE2-iydcqJYe_Xb9YMsFEkq_pHJEXCmvuOojcOIRfJPQ
+  password = pypi-AgEIcHlwaS5vcmcCJDIzYjI4Nzc0LTY3NTEtNGIxYy04ZTg0LTMzNGExMTFhMzNlMwACHFsxLFsibXNrLW1vZGVsbGluZy1weXRob24iXV0AAixbMixbIjNiMDMzMDI2LWJkYTUtNDAxZC05ZjQxLTBlMWUwZDQ1MTE2MyJdXQAABiCW4mB2NItosNh3zdCf3WPu4qeMSL_TdBD0AfTbprycxQ
+[PROJECT_NAME]
+  repository = https://upload.pypi.org/legacy/
+  username = __token__
+  password = pypi-AgEIcHlwaS5vcmcCJDIzYjI4Nzc0LTY3NTEtNGIxYy04ZTg0LTMzNGExMTFhMzNlMwACHFsxLFsibXNrLW1vZGVsbGluZy1weXRob24iXV0AAixbMixbIjNiMDMzMDI2LWJkYTUtNDAxZC05ZjQxLTBlMWUwZDQ1MTE2MyJdXQAABiCW4mB2NItosNh3zdCf3WPu4qeMSL_TdBD0AfTbprycxQ
