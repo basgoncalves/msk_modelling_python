@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import sys
 import re
+import pyperclip
 
 # --- Configuration ---
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__)) # Directory of this script
@@ -210,3 +211,6 @@ print(f"    - To upload to PyPI:")
 print(f"      {PYTHON_EXECUTABLE} -m twine upload --repository pypi {DIST_FOLDER}/*")
 print("-" * 25)
 print("\n👍 Preparation complete. Please perform the manual steps above before uploading.")
+
+
+pyperclip.copy(f"{PYTHON_EXECUTABLE} -m twine upload --repository pypi {DIST_FOLDER}/*")
