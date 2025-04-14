@@ -196,22 +196,100 @@ class reader:
             settings.pop('jsonfile', None)
         except:
             print('Error saving json file path')
-                
+
+class write:
+    def json(data, file_path=None):
+        if not file_path:
+            file_path = filedialog.asksaveasfilename(defaultextension=".json")
+        
+        try:
+            with open(file_path, 'w') as f:
+                json.dump(data, f, indent=4)
+        except Exception as e:
+            print(f"Error writing JSON file: {e}")
+            
+    def mot(data, file_path=None):
+        if not file_path:
+            file_path = filedialog.asksaveasfilename(defaultextension=".mot")
+        
+        try:
+            data.to_csv(file_path, sep='\t', index=False)
+        except Exception as e:
+            print(f"Error writing MOT file: {e}")
+            
+    def xml(data, file_path=None):
+        if not file_path:
+            file_path = filedialog.asksaveasfilename(defaultextension=".xml")
+        
+        try:
+            with open(file_path, 'w') as f:
+                f.write(data)
+        except Exception as e:
+            print(f"Error writing XML file: {e}")
+               
 class convert:
     def c3d_to_osim(file_path=None):
         
         if not file_path:
             file_path = filedialog.askopenfilename()
+            
+        print('Converting c3d to osim...')
+        
+        print('NOT FINISHED...')
+
+
+class create:
+    def grf_xml(grf_mot_path, save_path, nforceplates=3):
+        try:
+            with open(save_path, 'w') as file:
+                file.write('<?xml version="1.0"?>\n')
+                file.write('<OpenSimDocument Version="30000">\n')
+                file.write('  <Model>\n')
+                file.write('    <ForceSet>\n')
+                
+                for i in range(nforceplates):
+                    file.write(f'      <GroundReactionForcePlate{i+1}>\n')
+                    file.write(f'        <File>{grf_mot_path}</File>\n')
+                    file.write('      </GroundReactionForcePlate>\n')
+                
+                file.write('    </ForceSet>\n')
+                file.write('  </Model>\n')
+                file.write('</OpenSimDocument>')
+        except Exception as e:
+            print(f"Error creating XML file: {e}")
+            return
+    
+    def grf_mot(grf_path, save_path, headerlines=6):
+        try:
+            grf_data = pd.read_csv(grf_path, sep='\t', skiprows=headerlines)
+            grf_data.to_csv(save_path, sep='\t', index=False)
+        except Exception as e:
+            print(f"Error reading or writing GRF file: {e}")
+            return
+    
         
 class run:
     def __init__(self):
         pass
     
-    def c3d_to_trc(c3d_file, trc_file):
+    def c3d_to_trc(c3d_file, trc_file, headerlines=6):
         try:
-            writeTRC(c3d_file, trc_file)
+            c3d_data = c3d.Reader(open(c3d_file, 'rb'))
         except Exception as e:
-            print(f"Error converting c3d to trc: {e}")
+            print(f"Error reading c3d file: {e}")
+            return
+        
+        try:
+            with open(trc_file, 'w') as file:
+                file.write("PathFileType\t4\t(X/Y/Z)\t" + c3d_file + "\n")
+                file.write("DataRate\t" + str(c3d_data['parameters']['POINT']['DATA_RATE']) + "\n")
+                file.write("Frame#\tTime\tX1\tY1\tZ1\n")
+                
+                for i in range(c3d_data['parameters']['POINT']['NANALOG']):
+                    file.write(str(i) + "\t" + str(c3d_data['parameters']['POINT']['DATA'][i]) + "\n")
+        except Exception as e:
+            print(f"Error writing trc file: {e}")
+            return
     
     def inverse_kinematics(model_path, marker_path, output_folder, setup_template_path):
         try:

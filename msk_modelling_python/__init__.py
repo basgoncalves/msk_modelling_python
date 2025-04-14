@@ -1,6 +1,7 @@
 try:
     import bops as bops
     from classes import *
+    from src import *
     
 except:
     from . import bops as bops
