@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-__version__ = '0.3.2'  # Define the version here
+__version__ = '0.1.31'  # Define the version here
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
@@ -23,6 +23,8 @@ setup(
     install_requires=[
         "numpy",
         "numpy-stl",
+        "pandas",
+        "c3d"
     ],
     python_requires='>=3.7',
 )
