@@ -1,0 +1,3 @@
+[console_scripts]
+opensim-moco-generate-report = opensim.report:main
+

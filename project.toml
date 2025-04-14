@@ -46,6 +46,3 @@ version = {file = "setup.py", attr = "__version__"}
     pypi
     PROJECT_NAME
 
-[pypi]
-  username = msk0.2.1
-  password = pypi-msk0.2.1
