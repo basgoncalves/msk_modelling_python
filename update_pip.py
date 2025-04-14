@@ -52,6 +52,21 @@ def run_command(command, cwd=None):
         print(f"❌ An unexpected error occurred: {e}")
         return False
 
+def clean_build_folder():
+    """Deletes the build folder if it exists."""
+    build_folder = os.path.join(CURRENT_DIR, "build")
+    if os.path.isdir(build_folder):
+        print(f"\n🧹 Cleaning '{build_folder}' directory...")
+        try:
+            shutil.rmtree(build_folder)
+            print(f"✅ Successfully cleaned '{build_folder}'.")
+        except Exception as e:
+            print(f"❌ Error cleaning '{build_folder}': {e}")
+            return False
+    else:
+        print(f"'{build_folder}' directory does not exist. No cleaning needed.")
+    return True
+
 def clean_dist_folder():
     """Deletes all files within the dist folder."""
     print(f"\n🧹 Cleaning '{DIST_FOLDER}' directory...")
@@ -144,7 +159,13 @@ if not success:
     print("\n🛑 Script stopped due to error updating twine.")
     sys.exit(1)
 
-# Step 6: Delete all files in the dist folder (Automated)
+# Step 6a: Clean the build folder (Automated)
+success = clean_build_folder()
+if not success:
+    print("\n🛑 Script stopped due to error cleaning build folder.")
+    sys.exit(1)
+
+# Step 6b: Delete all files in the dist folder (Automated)
 success = clean_dist_folder()
 if not success:
     print("\n🛑 Script stopped due to error cleaning dist folder.")
@@ -186,6 +207,6 @@ print(f"    - Ensure they contain the expected files and look correct.")
 print(f"    - You can use `twine check dist/*` to perform some basic checks.")
 print(f"\n5.  **Upload to PyPI (PyPI first recommended):**")
 print(f"    - To upload to PyPI:")
-print(f"      `{PYTHON_EXECUTABLE} -m twine upload --repository pypi {DIST_FOLDER}/*`")
+print(f"      {PYTHON_EXECUTABLE} -m twine upload --repository pypi {DIST_FOLDER}/*")
 print("-" * 25)
 print("\n👍 Preparation complete. Please perform the manual steps above before uploading.")
