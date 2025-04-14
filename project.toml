@@ -19,10 +19,20 @@ classifiers = [
 dependencies = [
     "numpy",
     "numpy-stl",
-    # Add other dependencies here
+    "scipy",
+    "matplotlib",
+    "pandas",
+    "sympy",
+    "pytest",
+    "pyyaml",
+    "scikit-learn",
+    "seaborn",
+    "tqdm",
+    "pyvista",
+    "c3d",
+    "customtkinter"
 ]
 dynamic = ["version"]
-
 
 [tool.setuptools.dynamic]
 version = {file = "setup.py", attr = "__version__"}
@@ -31,4 +41,3 @@ version = {file = "setup.py", attr = "__version__"}
   index-servers =
     pypi
     PROJECT_NAME
-
