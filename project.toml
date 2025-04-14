@@ -19,7 +19,21 @@ classifiers = [
 dependencies = [
     "numpy",
     "numpy-stl",
-    # Add other dependencies here
+    "scipy",
+    "matplotlib",
+    "pandas",
+    "sympy",
+    "pytest",
+    "pyyaml",
+    "scikit-learn",
+    "seaborn",
+    "tqdm",
+    "pyvista",
+    "c3d",
+    "customtkinter",
+    "math",
+    "tkinter",
+    "unittest"
 ]
 dynamic = ["version"]
 

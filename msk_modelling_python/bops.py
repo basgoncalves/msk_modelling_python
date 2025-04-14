@@ -3,29 +3,33 @@
 # BOPS: a Matlab toolbox to batch musculoskeletal data processing for OpenSim, Computer Methods in Biomechanics and Biomedical Engineering
 # DOI: 10.1080/10255842.2020.1867978
 
-__version__ = '0.2.0'
 __testing__ = False
 
 import os
 import json
 import time
-import opensim as osim
 import unittest
 import numpy as np
 import pandas as pd
 import c3d
+import customtkinter as ctk
 import tkinter as tk
 from tkinter import filedialog
 import math
 
-path = os.path.dirname(os.path.realpath(__file__))
+try:
+    import opensim as osim
+except:
+    print('OpenSim not installed.')
+    osim = None
+
+BOPS_PATH = os.path.dirname(os.path.realpath(__file__))
 
 def about():
     '''
     Function to print the version of the package and the authors
     '''
     print('BOPSpy - Batch OpenSim Processing Scripts Python')
-    print('Version: ' + __version__)
     print('Authors: Basilio Goncalves')
     print('ispired by BOPS: MATALB DOI: 10.1080/10255842.2020.1867978 - https://pubmed.ncbi.nlm.nih.gov/33427495/')
     print('Python version by Bas Goncalves')
@@ -74,7 +78,7 @@ def check_file_path(filepath, prompt = 'Select file'):
 class log:
     def error(error_message):
         try:
-            with open(os.path.join(path,"error_log.txt"), 'a') as file:
+            with open(os.path.join(BOPS_PATH,"error_log.txt"), 'a') as file:
                 date = time.strftime("%Y-%m-%d %H:%M:%S")
                 file.write(f"{date}: {error_message}\n")
         except:
@@ -209,7 +213,7 @@ class run:
         except Exception as e:
             print(f"Error converting c3d to trc: {e}")
     
-    def inverse_kinematics(model_path, marker_path, output_folder):
+    def inverse_kinematics(model_path, marker_path, output_folder, setup_template_path):
         try:
             print('Running inverse kinematics ...')
             
@@ -217,18 +221,44 @@ class run:
         except Exception as e:
             print(f"Error running inverse kinematics: {e}")
     
+    
+    def ceinms_calibration(xml_setup_file=None):
+        '''
+        msk.bops.run.ceinms_calibration(xml_setup_file)
+        
+        
+        '''
+        
+        if xml_setup_file is None:
+            print('Please provide the path to the xml setup file for calibration')
+            return
+        elif not os.path.isfile(xml_setup_file):
+            print('The path provided does not exist')
+            return
+        
+        try:        
+            ceinms_install_path = os.path.join(BOPS_PATH, 'src', 'ceinms2', 'src')
+            command = " ".join([ceinms_install_path + "\CEINMScalibrate.exe -S", xml_setup_file])
+            print(command)
+            # result = subprocess.run(command, capture_output=True, text=True, check=True)
+            result = None
+            return result
+        except Exception as e:
+            print(e)
+            return None
+    
 class settings:
     def __init__():
         pass
             
     def read():
         try:
-            return(reader.json(os.path.join(path,'settings.json')))
+            return(reader.json(os.path.join(BOPS_PATH,'settings.json')))
         except:
-            return(read.file(os.path.join(path,'settings.json')))
+            return(read.file(os.path.join(BOPS_PATH,'settings.json')))
     
     def _list(self):
-        settings = read.json(os.path.join(path,'settings.json'))
+        settings = read.json(os.path.join(BOPS_PATH,'settings.json'))
         for key in settings:
             print(f'{key}: {settings[key]}')
 
@@ -338,27 +368,6 @@ def load_current_project():
 
 #%% ######################################################  General  #####################################################################
 
-def get_dir_simulations():
-    return os.path.join(get_current_project_folder(),'simulations')
-
-def add_bops_to_python_path():        
-
-    # Directory to be added to the path
-    directory_to_add = get_dir_bops()
-
-    # Get the site-packages directory
-    site_packages_dir = os.path.dirname(os.path.dirname(os.__file__))
-    custom_paths_file = os.path.join(site_packages_dir, 'custom_paths.pth')
-
-    # Check if the custom_paths.pth file already exists
-    if not os.path.exists(custom_paths_file):
-        with open(custom_paths_file, 'w') as file:
-            file.write(directory_to_add)
-        
-        print(f"Added '{directory_to_add}' to custom_paths.pth")
-    else:
-        print(f"'{custom_paths_file}' already exists")
-        
 def get_subject_folders(dir_simulations = ''):
     if dir_simulations:
         return [f.path for f in os.scandir(dir_simulations) if f.is_dir()] # (for all subdirectories) [x[0] for x in os.walk(dir_simulations())]
