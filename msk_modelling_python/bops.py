@@ -74,6 +74,140 @@ def check_file_path(filepath, prompt = 'Select file'):
         
     return filepath
 
+def check_folder_path(folderpath, prompt = 'Select folder'):
+    if not folderpath or not os.path.isdir(folderpath):
+        root = ctk.CTk(); root.withdraw()
+        folderpath = ctk.filedialog.askdirectory(title=prompt)
+        root.destroy()
+        
+    return folderpath
+
+def export_c3d(c3dFilePath):
+    
+    c3dFilePath = check_file_path(c3dFilePath, prompt = 'Select c3d file')
+    
+    analog_file_path = os.path.join(os.path.dirname(c3dFilePath),'analog.csv')
+    
+    # if the file already exists, return the file
+    if os.path.isfile(analog_file_path):
+        df = pd.read_csv(analog_file_path)
+        return df
+    
+    print('Exporting analog data to csv ...')
+    
+    # read c3d file
+    reader = c3d.Reader(open(c3dFilePath, 'rb'))
+
+    # get analog labels, trimmed and replace '.' with '_'
+    analog_labels = reader.analog_labels
+    analog_labels = [label.strip() for label in analog_labels]
+    analog_labels = [label.replace('.', '_') for label in analog_labels]
+
+    # get analog labels, trimmed and replace '.' with '_'
+    first_frame = reader.first_frame
+    num_frames = reader.frame_count
+    fs = reader.analog_rate
+
+    # add time to dataframe
+    initial_time = first_frame / fs
+    final_time = (first_frame + num_frames-1) / fs
+    time = np.arange(first_frame / fs, final_time, 1 / fs) 
+
+    df = pd.DataFrame(index=range(num_frames),columns=analog_labels)
+    df['time'] = time
+    
+    # move time to first column
+    cols = df.columns.tolist()
+    cols = cols[-1:] + cols[:-1]
+    df = df[cols]    
+    
+    # loop through frames and add analog data to dataframe
+    for i_frame, points, analog in reader.read_frames():
+        
+        # get row number and print loading bar
+        i_row = i_frame - reader.first_frame
+        # msk.ut.print_loading_bar(i_row/num_frames)
+        
+        # convert analog data to list
+        analog_list  = analog.data.tolist()
+        
+        # loop through analog channels and add to dataframe
+        for i_channel in range(len(analog_list)):
+            channel_name = analog_labels[i_channel]
+            
+            # add channel to dataframe
+            df.loc[i_row, channel_name] = analog[i_channel][0]
+    
+    # save emg data to csv   
+    df.to_csv(analog_file_path)
+    print('analog.csv exported to ' + analog_file_path)  
+    
+    return df
+
+def export_analog(c3dFilePath=None, columns_to_mot='all'):
+    
+    c3dFilePath = check_file_path(c3dFilePath, prompt = 'Select c3d file')
+    
+    reader = c3d.Reader(open(c3dFilePath, 'rb'))
+
+    # get analog labels, trimmed and replace '.' with '_'
+    analog_labels = reader.analog_labels
+    analog_labels = [label.strip() for label in analog_labels]
+    analog_labels = [label.replace('.', '_') for label in analog_labels]
+    
+    # remove those not in columns_to_mot (fix: use column names to filter and get indices)
+    if columns_to_mot != 'all':
+        indices = [i for i, label in enumerate(analog_labels) if label in columns_to_mot]
+        analog_labels = [analog_labels[i] for i in indices]
+    else:
+        indices = list(range(len(analog_labels)))
+        columns_to_mot = analog_labels
+
+    # get analog labels, trimmed and replace '.' with '_'
+    fs = reader.analog_rate
+
+    # add time to dataframe
+    marker_fs = reader.point_rate  # This is the actual frame rate for kinematics
+   
+
+    first_time = reader.first_frame / marker_fs
+    final_time = (reader.first_frame + reader.frame_count - 1) / marker_fs
+    time = np.arange(first_time, final_time + 1 / marker_fs, 1 / marker_fs)
+  
+    num_frames = len(time)
+    df = msk.pd.DataFrame(index=range(num_frames), columns=analog_labels)
+    df['time'] = time
+
+    # move time to first column
+    cols = df.columns.tolist()
+    cols = cols[-1:] + cols[:-1]
+    df = df[cols] 
+
+    # loop through frames and add analog data to dataframe
+    for i_frame, points, analog in reader.read_frames():
+        
+        # get row number and print loading bar
+        i_row = i_frame - reader.first_frame
+        # msk.ut.print_loading_bar(i_row/num_frames)
+        
+        # loop through selected analog channels and add to dataframe (fix: iterate over filtered indices)
+        for idx, i_channel in enumerate(indices):
+            channel_name = analog_labels[idx]
+            df.loc[i_row, channel_name] = analog[i_channel][0]
+    
+    # remove rows with NaN values
+    df = df.dropna()
+    
+    # save emg data to csv
+    analog_csv_path = c3dFilePath.replace('.c3d', '_analog.csv')
+    df.to_csv(analog_csv_path, index=False)
+    
+    # save to mot
+    # self.csv_to_mot()
+    
+    return analog_csv_path
+
+
 # XML handling
 class log:
     def error(error_message):
@@ -102,12 +236,21 @@ class reader:
         
         try:
             data = c3d.Reader(open(filepath, 'rb'))
-            return data
         
         except Exception as e:
             print(f"Error reading file: {e}")
             return None
-                      
+        
+        # add dataframe to the reader class
+        try:
+            df = export_c3d(filepath)
+            data.__setattr__('dataframe', df)
+            
+        except Exception as e:
+            print(f"Error converting data to dataframe: {e}")
+        
+        return data
+                              
     def json(filepath=None):
         
         filepath = check_file_path(filepath, prompt = 'select your .json file')
@@ -237,7 +380,6 @@ class convert:
         
         print('NOT FINISHED...')
 
-
 class create:
     def grf_xml(grf_mot_path, save_path, nforceplates=3):
         try:
@@ -266,8 +408,7 @@ class create:
         except Exception as e:
             print(f"Error reading or writing GRF file: {e}")
             return
-    
-        
+          
 class run:
     def __init__(self):
         pass
@@ -299,6 +440,33 @@ class run:
         except Exception as e:
             print(f"Error running inverse kinematics: {e}")
     
+    def inverse_dynamics(model_path, ik_mot_path, output_folder, grf_xml_path, time_range=None, xml_setup_path=None):
+                
+        try:
+            model = osim.Model(model_path)
+        except Exception as e:
+            print(f"Error loading model: {e}")
+            return    
+        
+        try:
+            print('Running inverse dynamics ...')
+            
+            coordinates = osim.CoordinateSet(ik_mot_path)
+            
+            id_tool = osim.InverseDynamicsTool()
+            id_tool.setModel(model)
+            id_tool.setCoordinatesFileName(ik_mot_path)
+            id_tool.setOutputGenForceFileName(os.path.join(output_folder, 'inverse_dynamics.sto'))
+            id_tool.setExternalLoadsFileName(grf_xml_path)
+            id_tool.setStartTime(time_range[0])
+            id_tool.setEndTime(time_range[1])
+            id_tool.printToXML(os.path.join(output_folder, 'inverse_dynamics_setup.xml'))
+            
+            id_tool.run()
+            
+            
+        except Exception as e:
+            print(f"Error running inverse dynamics: {e}")
     
     def ceinms_calibration(xml_setup_file=None):
         '''

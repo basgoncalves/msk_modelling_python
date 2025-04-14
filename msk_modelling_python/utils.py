@@ -7,11 +7,8 @@ msk_module_path = os.path.dirname(os.path.abspath(__file__))
 import unittest
 from PIL import Image
 from PIL import ImageTk
-from msk_modelling_python.src import ui # import ui modules (not finished yet...)
-from msk_modelling_python.src.utils import *
-from msk_modelling_python.src.tools import bops
-from msk_modelling_python.src.tools.bops import *
-__version__ = '0.1.9'
+
+
 __testing__ = False
 
 if __testing__:
@@ -24,72 +21,16 @@ if __testing__:
     print("For the latest version, visit " + r'GitHub\basgoncalves\msk_modelling_python')
     
     print("Time to load package: ", time.time() - start_time)
-    
-def update_version(level=3, module=__file__, invert=False):
+ 
+def print_warning(warning_message, error_message = ''):
     '''
-    Inputs:
-        level (int): The level of the version to increment (1, 2, or 3) assuming the version is in the format 'major.minor.patch'
-        module (module): The module to update the version of
-        invert (bool): If True, decrement the version instead of incrementing it
-    Usage:
-        import msk_modelling_python as msk
-        msk.update_version(3, msk, invert=False) # update the patch version of the module "msk" by incrementing it by 1    
+    import msk_modelling_python as msk
+    msk.print_warning('Warning message', 'Error message')
     '''
-    
-    if module != __file__:
-        try:
-            print(f'Current module version: {module.__version__}')
-            current_version = module.__version__
-            module_path = module.__file__
-        except AttributeError:
-            print("Error: Module does not have a __version__ attribute")
-            return
-    else:
-        global __version__
-        current_version = __version__
-        module_path = __file__    
-    
-    # Get the current version and Split the version into its components and increment the specified part
-    updated_version = current_version    
-    version_parts = list(map(int, updated_version.split('.')))
-    if invert:
-        version_parts[level - 1] -= 1
-    else:
-        version_parts[level - 1] += 1
-
-    # Reset the parts of the version that come after the incremented part
-    for i in range(level, len(version_parts)):
-        version_parts[i] = 0
-
-    # Join the version parts back into a string
-    updated_version = '.'.join(map(str, version_parts))
-    
-    # Read the current module file line per line
-    try:
-        with open(module_path, 'r') as file:
-            lines = file.readlines()
-    except:
-        print("Error: Could not open the file")
-        print(module_path)
-        return
-    
-    # Find the line with __version__ and update it
-    try:
-        with open(module_path, 'w') as file:
-            for line in lines:
-                if line.startswith('__version__'):
-                    file.write(f"__version__ = '{updated_version}'\n")
-                else:
-                    file.write(line)
-            
-    except:
-        print("Error: Could not update the version")
-        return
-    
-    ui.pop_up_message(f'msk_modelling_python udpated \n old version: {current_version} \n version to {updated_version} \n')
-    ui.close_all()
-    return updated_version
-    
+    print(f"Warning: {warning_message}")
+    if error_message:
+        print(f"Error: {error_message}") 
+ 
 def log_error(error_message, error_log_path=''):
     '''
     Log an error message to a file
@@ -118,18 +59,18 @@ def run_bops():
     # run the tests
     try:
         if __testing__:
-            msk.test()
-            msk.ui.test()
-            msk.bops.test()
-            msk.log_error('All tests passed for msk_modelling_python package.')
+            test()
+            
+            
+            log_error('All tests passed for msk_modelling_python package.')
     except Exception as e:
         print_warning("Error running package testing: ", e)
-        msk.log_error(e)
+        log_error(e)
     
     # run the steps based on the settings.json file in the bops package
     try:
         print('Running main.py')
-        settings = msk.bops.get_bops_settings()
+        settings = bops.get_bops_settings()
         
         if settings['gui']:
             msk.bops.run_example()
@@ -151,9 +92,32 @@ def run_bops():
         msk.Platypus().happy()
     except Exception as e:
         print("Error: ", e)
-        msk.log_error(e)
-        msk.Platypus().sad()
+        log_error(e)
+        Platypus().sad()
 
+def select_file(prompt='Select a file'):
+    '''
+    Select a file using the file dialog
+    
+    Inputs:
+        prompt (str): The prompt to display in the file dialog (default is 'Select a file')
+        
+    Outputs:
+        file_path (str): The path to the selected file
+    '''
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+        
+        root = tk.Tk()
+        root.withdraw()  # Hide the root window
+        
+        file_path = filedialog.askopenfilename(title=prompt)
+        
+        return file_path
+    except Exception as e:
+        print("Error: ", e)
+        log_error(e)
 class Platypus:
     '''
     Platypus class to test the bops package

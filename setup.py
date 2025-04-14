@@ -29,5 +29,9 @@ setup(
         "customtkinter",
         "matplotlib"
     ],
+    
+    package_data={
+        'msk_modelling_python': ['*.json', '*.ins', '*.txt'],
+    },
     python_requires='>=3.8',
 )
