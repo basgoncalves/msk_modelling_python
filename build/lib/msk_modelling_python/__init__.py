@@ -1,10 +1,10 @@
-
-import bops as bops
-from classes import *
-
-import opensim as osim
-
-__all__ = ["bops"]
+try:
+    import bops as bops
+    from classes import *
+    import opensim as osim
+except:
+    from . import bops as bops
+    from .classes import *
     
 if __name__ == "__main__":
     bops.greet()
