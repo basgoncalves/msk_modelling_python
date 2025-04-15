@@ -14,4 +14,3 @@ msk_modelling_python.egg-info/dependency_links.txt
 msk_modelling_python.egg-info/requires.txt
 msk_modelling_python.egg-info/top_level.txt
 msk_modelling_python/src/__init__.py
-src/tests/create_h5.py

@@ -5,3 +5,4 @@ c3d
 pyperclip
 customtkinter
 matplotlib
+febio
