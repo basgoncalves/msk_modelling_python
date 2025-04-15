@@ -59,7 +59,7 @@ msk.greet()
 3. **Run OpenSim Setup from Installation Folder**  
     See [OpenSim Scripting in Python](https://simtk-confluence.stanford.edu:8443/display/OpenSim/Scripting+in+Python)
      ```sh
-     .\<myenv>\Scripts\activate
+     .\msk\Scripts\activate
      cd 'C:\OpenSim 4.5\sdk\Python'
      python setup_win_python38.py
      python -m pip install .

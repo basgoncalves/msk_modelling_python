@@ -1,10 +1,16 @@
 import os
 import msk_modelling_python as msk
 import pyperclip
-import opensim as osim
 import xml.dom.minidom
 import xml.etree.ElementTree as ET
 import unittest
+
+try:
+    import opensim as osim
+except:
+    print('OpenSim not installed.')
+    osim = None
+
 
 class mcf: # make coding fancy
     
