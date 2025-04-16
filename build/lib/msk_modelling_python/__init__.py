@@ -15,13 +15,13 @@ if __name__ == "__main__":
     
     
     if False:
-        data = bops.reader.c3d()
+        data = bops.read.c3d()
         print(data)
     
     if False:
-        data_json = bops.reader.json()
+        data_json = bops.read.json()
         print(data_json)
     
     if False:
-        data_mot = bops.reader.mot()
+        data_mot = bops.read.mot()
         print(data_mot)

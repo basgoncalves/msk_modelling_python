@@ -17,6 +17,8 @@ import tkinter as tk
 from tkinter import filedialog
 import math
 
+
+
 try:
     import opensim as osim
 except:
@@ -175,7 +177,7 @@ def export_analog(c3dFilePath=None, columns_to_mot='all'):
     time = np.arange(first_time, final_time + 1 / marker_fs, 1 / marker_fs)
   
     num_frames = len(time)
-    df = msk.pd.DataFrame(index=range(num_frames), columns=analog_labels)
+    df = pd.DataFrame(index=range(num_frames), columns=analog_labels)
     df['time'] = time
 
     # move time to first column
@@ -208,6 +210,94 @@ def export_analog(c3dFilePath=None, columns_to_mot='all'):
     return analog_csv_path
 
 
+def header_mot(df,name):
+
+        num_rows = len(df)
+        num_cols = len(df.columns) 
+        inital_time = df['time'].iloc[0]
+        final_time = df['time'].iloc[-1]
+        df_range = f'{inital_time}  {final_time}'
+
+
+        return f'name {name}\nnRows={num_rows}\nnColumns={num_cols}\n \nendheader'
+
+
+
+def csv_to_mot(emg_csv, columns = 'all'):
+    '''
+    '''
+    
+    emg_data = pd.read_csv(emg_csv)
+    
+    try:
+        time = emg_data['time']
+    except:
+        time = emg_data['Time']
+
+    # start time from new time point
+    start_time = time.iloc[0]
+    end_time = time.iloc[-1]
+
+    num_samples = len(emg_data)
+    new_time = np.linspace(start_time, end_time, num_samples)
+
+    # remove columns not in columns_to_mot
+    if columns != 'all':
+        emg_data = emg_data[columns]
+
+    emg_data['time'] = new_time
+    # Ensure 'time' column is the first column
+    cols = emg_data.columns.tolist()
+    cols.insert(0, cols.pop(cols.index('time')))
+    emg_data = emg_data[cols]
+
+    # Define a new file path 
+    new_file_path = os.path.join(emg_csv.replace('.csv', '.mot'))
+
+    # Save the modified DataFrame
+    emg_data.to_csv(new_file_path, index=False)  # index=False prevents adding an extra index column
+
+    # save to mot
+    header = header_mot(emg_data, "processed_emg_signals")
+
+    mot_path = new_file_path.replace('.csv','.mot')
+    with open(mot_path, 'w') as f:
+        f.write(header + '\n')  
+        # print column names 
+        f.write('\t'.join(map(str, emg_data.columns)) + '\n')
+        for index, row in emg_data.iterrows():
+            f.write('\t'.join(map(str, row.values)) + '\n')  
+    
+    print(f"File saved: {mot_path}")
+    
+    return mot_path
+
+def time_normalised_df(df, fs=None):
+    if not isinstance(df, pd.DataFrame):
+        raise Exception('Input must be a pandas DataFrame')
+    
+    if not fs:
+        try:
+            fs = 1 / (df['time'][1] - df['time'][0])  # Ensure correct time column
+        except KeyError:
+            raise Exception('Input DataFrame must contain a column named "time"')
+        
+    normalised_df = pd.DataFrame(columns=df.columns)
+
+    for column in df.columns:
+        normalised_df[column] = np.zeros(101)
+
+        currentData = df[column].dropna()  # Remove NaN values
+
+        timeTrial = np.linspace(0, len(currentData) / fs, len(currentData))  # Original time points
+        Tnorm = np.linspace(0, timeTrial[-1], 101)  # Normalize to 101 points
+
+        normalised_df[column] = np.interp(Tnorm, timeTrial, currentData)  # Interpolate
+
+    return normalised_df
+
+
+
 # XML handling
 class log:
     def error(error_message):
@@ -219,7 +309,7 @@ class log:
             print("Error: Could not log the error")
             return
 
-class reader: 
+class read: 
     '''
     Class to store data from different file types
     
@@ -440,7 +530,10 @@ class run:
         except Exception as e:
             print(f"Error running inverse kinematics: {e}")
     
-    def inverse_dynamics(model_path, ik_mot_path, output_folder, grf_xml_path, time_range=None, xml_setup_path=None):
+    def inverse_dynamics(model_path=None, ik_mot_path=None, output_folder=None, grf_xml_path=None, time_range=None, xml_setup_path=None):
+        '''
+        bops.inverse_dynamics(model_path, ik_mot_path, output_folder, grf_xml_path, time_range, xml_setup_path)
+        '''
                 
         try:
             model = osim.Model(model_path)
@@ -467,6 +560,37 @@ class run:
             
         except Exception as e:
             print(f"Error running inverse dynamics: {e}")
+    
+    def muscle_analysis(model_path, ik_mot_path, output_folder, grf_xml_path, time_range=None, xml_setup_path=None):
+        
+        if os.path.isfile(xml_setup_path):
+            ma_tool = osim.AnalysisTool(xml_setup_path)
+            ma_tool.setModel(model_path)
+            ma_tool.setCoordinatesFileName(ik_mot_path)
+            ma_tool.setOutputGenForceFileName(os.path.join(output_folder, 'muscle_analysis.sto'))
+            ma_tool.run()    
+        
+        
+        try:
+            print('Running muscle analysis ...')
+            
+            model = osim.Model(model_path)
+            
+            coordinates = osim.CoordinateSet(ik_mot_path)
+            
+            ma_tool = osim.MuscleAnalysisTool()
+            ma_tool.setModel(model)
+            ma_tool.setCoordinatesFileName(ik_mot_path)
+            ma_tool.setOutputGenForceFileName(os.path.join(output_folder, 'muscle_analysis.sto'))
+            ma_tool.setExternalLoadsFileName(grf_xml_path)
+            ma_tool.setStartTime(time_range[0])
+            ma_tool.setEndTime(time_range[1])
+            ma_tool.printToXML(os.path.join(output_folder, 'muscle_analysis_setup.xml'))
+            
+            ma_tool.run()
+            
+        except Exception as e:
+            print(f"Error running muscle analysis: {e}")
     
     def ceinms_calibration(xml_setup_file=None):
         '''
@@ -499,7 +623,7 @@ class settings:
             
     def read():
         try:
-            return(reader.json(os.path.join(BOPS_PATH,'settings.json')))
+            return(read.json(os.path.join(BOPS_PATH,'settings.json')))
         except:
             return(read.file(os.path.join(BOPS_PATH,'settings.json')))
     
@@ -541,18 +665,12 @@ class Trial:
         self.grf_xml = os.path.join(trial_path,'grf.xml')
         self.settings_json = os.path.join(self.path,'settings.json')
         
-        self.files = []
+        self.file_check = {}
         for file in os.listdir(self.path):
             file_path = os.path.join(self.path, file)
-            try:
-                file_data = import_file(file_path)
-                self.files.append(file_data)
-            except:
-                file_data = None
-                self.files.append(file_data)
-  
-                
-                      
+            self.file_check[file] = os.path.isfile(file_path)
+            
+
     def check_files(self):
         '''
         Output: True if all files exist, False if any file is missing
@@ -581,9 +699,21 @@ class Trial:
     def create_grf_xml(self):
         osim.create_grf_xml(self.grf, self.grf_xml)
 
+    def write_to_json(self):
+        '''
+        Write the trial settings to a json file
+        '''
+        try:
+            with open(self.settings_json, 'w') as f:
+                json.dump(self.__dict__, f, indent=4)
+                
+            print('Trial settings written to ' + self.settings_json)
+        except Exception as e:
+            print(f"Error writing JSON file: {e}")
+    
 class Subject:
     def __init__(self, subject_json):
-        self = reader.json(subject_json)
+        self = read.json(subject_json)
 
 class Project:
     
@@ -591,9 +721,9 @@ class Project:
         # load settings
         try:
             if file_path.endswith('.json'):
-                self.settings = reader.json(file_path)
+                self.settings = read.json(file_path)
             else:
-                self.settings = reader.json(os.path.join(file_path,'settings.json'))
+                self.settings = read.json(os.path.join(file_path,'settings.json'))
         except Exception as e:
             print(f"Error loading project settings: {e}")
             
