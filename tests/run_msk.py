@@ -3,14 +3,18 @@ import msk_modelling_python as msk
 msk.bops.greet()
 
 CURRENT_DIR = msk.os.path.dirname(msk.os.path.abspath(__file__))
-SIMULATION_DIR = r'C:\Git\research_data\Projects\runbops_FAIS_phd\simulations'
+EXAMPLE_DATA_DIR = msk.os.path.join(msk.os.path.dirname(CURRENT_DIR), 'example_data')
+SIMULATION_DIR = msk.os.path.join(EXAMPLE_DATA_DIR,'running')
 
-SUBJECT = '009'
-SESSION = 'pre'
+SUBJECT = 'Athlete1'
+SESSION = 'session1'
 TASK = 'sprint_1'
 TASK_FOLDER = msk.os.path.join(SIMULATION_DIR, SUBJECT, SESSION, TASK)
 
 Trial = msk.bops.Trial(TASK_FOLDER)
+# Trial.write_to_json()
 
-Trial.write_to_json()
+# Trial.run_ik()
+
+
 

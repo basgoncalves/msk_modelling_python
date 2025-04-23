@@ -9,6 +9,7 @@ from PIL import Image
 from PIL import ImageTk
 
 
+
 __testing__ = False
 
 if __testing__:
@@ -118,6 +119,10 @@ def select_file(prompt='Select a file'):
     except Exception as e:
         print("Error: ", e)
         log_error(e)
+
+
+
+
 class Platypus:
     '''
     Platypus class to test the bops package
