@@ -1540,7 +1540,7 @@ class Platypus:
         self.name = 'Platypus'
         self.mood = 'sad'
         self.output = None
-        self.images_path = os.path.join(SCRIPT_DIR, 'src','images')
+        self.images_path = os.path.join(SCRIPT_DIR, 'src')
         self.current_image_path = None
         self.photo = None
         
