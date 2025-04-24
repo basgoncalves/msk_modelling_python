@@ -24,28 +24,43 @@ A Python package for musculoskeletal modelling.
     [Open-source and cross-platform software to easily analyze biomechanical data](https://biomechanical-toolkit.github.io/mokka/)
 ---
 
-## Pip installation (testing...)
 
-```bash
-pip install msk_modelling_python
+## Pip installation
 
+### Create a Virtual Environment**
+```sh
+
+python -m venv msk
 ```
 
-## Test usage
+Note: replace 'msk' if you want a different name
+
+
+### Install uv package manager
+```
+pip install uv
+```
+
+### Install msk-modelling-python
+```bash
+uv pip install msk-modelling-python
+```
+
+### Test usage
 ``` python
 import msk_modelling_python as msk
 
 msk.bops.greet()
 ```
-
+---
 ## Work with the code 
 
-1. **Create a Virtual Environment**
-     ```sh
-     python -m venv msk
-     ```
-     Note: replace 'msk' if you want a different name
+1. **Activate your virtual enviroment (assume name 'msk')** 
+   ```
+   .\msk\Scripts\activate
+   ```
 ---
+
 2. **Clone this Module "msk_modelling_python" to your virtual environment**
    ```
    cd .\msk\Lib\site-packages
