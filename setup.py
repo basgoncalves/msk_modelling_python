@@ -35,7 +35,7 @@ setup(
     ],
     
     package_data={
-        'msk_modelling_python': ['*.json', '*.ins', '*.txt'],
+        'msk_modelling_python': ['*.json', '*.ins', '*.txt', '*.mot', '*.c3d', '*.stl', '*.py', '*.dll', '*.so', '*.lib', '*.h', '*.png'],
     },
     python_requires='>=3.8',
 )
