@@ -4,6 +4,7 @@ import pyperclip
 import xml.dom.minidom
 import xml.etree.ElementTree as ET
 import unittest
+import pandas as pd
 
 try:
     import opensim as osim
@@ -11,6 +12,7 @@ except:
     print('OpenSim not installed.')
     osim = None
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 class mcf: # make coding fancy
     
@@ -264,7 +266,7 @@ class TrialPaths:
     def add_model_scaled(self, model_path):
         self.model_scaled = model_path
 
-class osimSetup:
+class osimTools:
     def __init__(self):
         pass
     
@@ -623,6 +625,47 @@ class osimSetup:
 
         return work
 
+    def get_muscle_groups(model_path, forces_file):
+        '''
+        Function to get the muscle groups from the model and save them to a csv file. Also returns the muscle groups as a DataFrame.
+        
+        Example usage:
+        model_path = r"C:\Git\research_data\Projects\runbops_FAIS_phd\models\009\009_Rajagopal2015_FAI_originalMass_opt_N10_hans.osim"
+        forces_file = r"C:\Git\research_data\Projects\runbops_FAIS_phd\simulations\009\pre\sprint_1\muscle_forces.sto"
+        muscle_groups = ger_muscle_groups(model_path, forces_file)
+        
+        '''
+        model = osim.Model(model_path)
+        force_set = model.getForceSet()
+        muscle_groups = {}
+        for i in range(force_set.getNumGroups()):
+            group = force_set.getGroup(i)    
+            
+            # save place holder XML (at the moment cannot get the groups from the API)
+            path = SCRIPT_DIR + '\groups.xml'
+            group.printToXML(path)
+                   
+            # Parse the XML file to get the members of the group            
+            root = ET.parse(path).getroot()
+            child = root.find('ObjectGroup')
+            list_of_members = child.find('members').text.split()
+            members= []
+            for member in list_of_members:
+                        members.append(member.strip())
+            
+            # Add the group name and its members to the dictionary
+            muscle_groups[group.getName()] = members
+            
+            # Delete xml file
+            if os.path.exists(path):
+                os.remove(path)
+            
+        # Print the muscle groups and their members to a CSV file
+        muscle_groups_df = pd.DataFrame.from_dict(muscle_groups, orient='index').transpose()
+        muscle_groups_df.to_csv(SCRIPT_DIR + '\muscle_groups.csv', index=False, header=True)
+        print('Muscle groups saved to ' + SCRIPT_DIR + '\muscle_groups.csv')
+        
+        return muscle_groups_df
 
     # RUN OSIM TOOLS
     def run_ik_tool(model, folder, marker_file = None, output_file = None, results_directory = None, task_set = None , run_tool = True):

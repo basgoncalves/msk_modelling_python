@@ -25,9 +25,16 @@ def create_template_hdf5_file():
                 for trial_id in range(1, 4):  # Example: 3 trials per session
                     trial_group = session_group.create_group(f"trial_{trial_id}")
                     
-                    # Add some example data to each trial
-                    trial_group.create_dataset("data", data=np.random.rand(100))
-                    trial_group.attrs["description"] = f"Subject {subject_id}, Session {session_id}, Trial {trial_id}"
+                    # Simulated dataset for 10 muscles with 100 time points
+                    data = np.random.rand(100, 10)  # Example: 100 time points, 10 muscles
+                    dataset = trial_group.create_dataset("muscle_forces", data=data)
+                    dataset.attrs["columns"] = [f"muscle_{i}" for i in range(1, 11)]  # Example muscle names
+                    
+                    dataset.attrs["description"] = f"Subject {subject_id}, Session {session_id}, Trial {trial_id}"
+                    dataset.attrs["units"] = "N"  # Example units
+                    dataset.attrs["time"] = np.arange(0, 100)  # Example time points
+                    dataset.attrs["sampling_rate"] = 100  # Example sampling rate
+                    
 
     print(f"HDF5 file saved at {file_path}")
     
@@ -277,7 +284,6 @@ def osim_to_hdf5(simulation_dir, subjects = 'all', sessions='all', tasks='all'):
         # Save the HDF5 file
         h5file.close()
         print(f"HDF5 file saved at {hdf5_file_path}")
-    
 
 def verify_h5(hdf5_file_path, subject_id='009', session_id='pre', task_id='RunA1'):
     """
@@ -376,25 +382,28 @@ def mean_h5_attribute(hdf5_file_path, subject_info_csv, splitby = "Group", categ
                 print(f"Plot saved at {plot_path}")
 
 if __name__ == "__main__":
-    simulation_dir = r'C:\Git\research_data\Projects\runbops_FAIS_phd\simulations'
-    subject_info_csv = r'C:\Git\research_data\Projects\runbops_FAIS_phd\subject_info.csv'
+    SIMULATIONS_DIR = r'C:\Git\research_data\Projects\runbops_FAIS_phd\simulations'
+    SUBJECT_INFO_CSV = r'C:\Git\research_data\Projects\runbops_FAIS_phd\subject_info.csv'
+    TEMPLATE_HDF5 = os.path.join(MODULE_DIR, "project_data.h5")
 
+    if True: create_template_hdf5_file()
+    
     if False: structured_data = load_hdf5_file(os.path.join(MODULE_DIR, "project_data.h5"))
     
-    if False:     
-        # osim_to_hdf5(simulation_dir, subjects = 'all', sessions='all', tasks='all')
-        osim_to_hdf5(simulation_dir, subjects = ['009','010'], sessions='all', tasks='all')
+    if True:     
+        osim_to_hdf5(SIMULATIONS_DIR, subjects = 'all', sessions='all', tasks='all')
+        # osim_to_hdf5(SIMULATIONS_DIR, subjects = ['009','010'], sessions='all', tasks='all')
 
     if False:
-        hdf5_file_path = os.path.join(simulation_dir, "project_data.h5")
+        hdf5_file_path = os.path.join(SIMULATIONS_DIR, "project_data.h5")
         verify_h5(hdf5_file_path)
         
     if False:
-        subject_info = pd.read_csv(subject_info_csv)
+        subject_info = pd.read_csv(SUBJECT_INFO_CSV)
         print(subject_info.head())
         print(subject_info["Group"])
         print(subject_info.columns)
         
-    if True:
-        hdf5_file_path = os.path.join(simulation_dir, "project_data.h5")
-        mean_h5_attribute(hdf5_file_path, subject_info_csv, splitby = "Group", categories_to_include = ['FAIS', 'FAIM'], attribute = 'joint_moments')
+    if False:
+        hdf5_file_path = os.path.join(SIMULATIONS_DIR, "project_data.h5")
+        mean_h5_attribute(hdf5_file_path, SUBJECT_INFO_CSV, splitby = "Group", categories_to_include = ['FAIS', 'FAIM'], attribute = 'joint_moments')
