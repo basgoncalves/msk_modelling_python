@@ -51,6 +51,13 @@ import msk_modelling_python as msk
 msk.bops.greet()
 ```
 
+#### Install opensim 
+```python
+import msk_modelling_python as msk
+msk.install_opensim.run()
+```
+
+
 ---
 ## Work with the code 
 

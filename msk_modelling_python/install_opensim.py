@@ -36,6 +36,31 @@ def run(osim_version='4.5'):
         print("Executed: python -m pip install .")
 
         print("OpenSim Python bindings installation process completed successfully.")
+        
+        # change the venv\lib\site-packages\opensim\__init__.py install_path to the correct path in C:
+        opensim_lib_path = os.path.join(sys.prefix, 'Lib', 'site-packages', 'opensim')
+        with open(os.path.join(opensim_lib_path, '__init__.py'), 'r') as file:
+            lines = file.readlines()
+        
+            # Find the line containing 'install_path' and ensure it exists
+            string_to_find = 'install_path'
+            matching_lines = [line for line in lines if string_to_find in line]
+            if not matching_lines:
+                raise ValueError(f"Expected line containing '{string_to_find}' not found in __init__.py")
+            
+            idx = lines.index(matching_lines[0])  # Get the index of the first matching line
+            line_text = lines[idx]
+            
+            # edit so install_path = opensim_install_path\bin
+            opensim_install_path = os.path.dirname(os.path.dirname(opensim_sdk_path))
+            lines[idx] = f'    install_path = r"{opensim_install_path}\\bin"\n'
+            
+            
+        with open(os.path.join(opensim_lib_path, '__init__.py'), 'w') as file:
+            file.writelines(lines)
+        print("Updated install_path in __init__.py to the correct path.")
+        
+        
 
     except subprocess.CalledProcessError as e:
         print(f"Error during execution: {e}")
