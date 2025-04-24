@@ -1,10 +1,12 @@
 # python version of Batch OpenSim Processing Scripts (BOPS)
+# Author: Basilio Goncalves, University of Vienna
 # originally by Bruno L. S. Bedo, Alice Mantoan, Danilo S. Catelli, Willian Cruaud, Monica Reggiani & Mario Lamontagne (2021):
 # BOPS: a Matlab toolbox to batch musculoskeletal data processing for OpenSim, Computer Methods in Biomechanics and Biomedical Engineering
 # DOI: 10.1080/10255842.2020.1867978
 
 __testing__ = False
 
+# import needed libraries
 import os
 import json
 import time
@@ -18,13 +20,14 @@ from tkinter import filedialog
 import math
 
 
-
+# import opensim if installed
 try:
     import opensim as osim
 except:
     print('OpenSim not installed.')
     osim = None
 
+# define Global variables
 BOPS_PATH = os.path.dirname(os.path.realpath(__file__))
 
 def about():
@@ -68,6 +71,11 @@ def is_setup_file(file_path, type = 'OpenSimDocument', print_output=False):
     return is_setup  
 
 def check_file_path(filepath, prompt = 'Select file'):
+    """
+    bops.check_file_path(filepath, prompt = 'Select file')
+    
+    Use to check if a file path is valid. If not, it will open a file dialog to select the file.
+    """
     if not filepath:
         root = tk.Tk(); root.withdraw()
         filepath = filedialog.askopenfilename(title=prompt)
@@ -209,7 +217,6 @@ def export_analog(c3dFilePath=None, columns_to_mot='all'):
     
     return analog_csv_path
 
-
 def header_mot(df,name):
 
         num_rows = len(df)
@@ -220,8 +227,6 @@ def header_mot(df,name):
 
 
         return f'name {name}\nnRows={num_rows}\nnColumns={num_cols}\n \nendheader'
-
-
 
 def csv_to_mot(emg_csv, columns = 'all'):
     '''
@@ -296,9 +301,36 @@ def time_normalised_df(df, fs=None):
 
     return normalised_df
 
+def load_settings(settings_file_json=None):
+    if not settings_file_json:
+        settings_file_json = os.path.join(BOPS_PATH,'settings.json')
+    
+    return read.json(settings_file_json)
 
-
-# XML handling
+class settings:
+    def __init__(self, settings_file_json=None):
+        if not settings_file_json:
+            settings_file_json = os.path.join(BOPS_PATH,'settings.json')
+        
+        self.settings = read.json(settings_file_json)
+        
+        # Check if contains all the necessary variables
+        try:
+            for var in self.settings:
+                if var not in self.settings:
+                    self.settings[var] = None
+                    print(f'{var} not in settings. File might be corrupted.')
+            
+        except Exception as e:
+            print('Error checking settings variables')
+            
+        # save the json file path
+        try:
+            self.settings['jsonfile'] = settings_file_json
+            self.settings.pop('jsonfile', None)
+        except:
+            print('Error saving json file path')
+                   
 class log:
     def error(error_message):
         try:
@@ -595,14 +627,9 @@ class run:
     def ceinms_calibration(xml_setup_file=None):
         '''
         msk.bops.run.ceinms_calibration(xml_setup_file)
-        
-        
         '''
-        
-        if xml_setup_file is None:
-            print('Please provide the path to the xml setup file for calibration')
-            return
-        elif not os.path.isfile(xml_setup_file):
+
+        if not os.path.isfile(xml_setup_file):
             print('The path provided does not exist')
             return
         
@@ -617,20 +644,32 @@ class run:
             print(e)
             return None
     
-class settings:
-    def __init__():
-        pass
-            
-    def read():
-        try:
-            return(read.json(os.path.join(BOPS_PATH,'settings.json')))
-        except:
-            return(read.file(os.path.join(BOPS_PATH,'settings.json')))
-    
-    def _list(self):
-        settings = read.json(os.path.join(BOPS_PATH,'settings.json'))
-        for key in settings:
-            print(f'{key}: {settings[key]}')
+    def ceinms_execution(xml_setup_file=None):
+        '''
+        msk.bops.run.ceinms_run(xml_setup_file)
+        
+        
+        '''
+        
+        if xml_setup_file is None:
+            print('Please provide the path to the xml setup file for calibration')
+            return
+        elif not os.path.isfile(xml_setup_file):
+            print('The path provided does not exist')
+            return
+        
+        try:        
+            ceinms_path = os.path.join(BOPS_PATH, 'src', 'ceinms2',)
+            ceinms_install_path = os.path.join(BOPS_PATH, 'src', 'ceinms2', 'src')
+            command = " ".join([ceinms_install_path + "\CEINMSrun.exe -S", xml_setup_file])
+            print(command)
+            # result = subprocess.run(command, capture_output=True, text=True, check=True)
+            result = None
+            return result
+        except Exception as e:
+            print(e)
+            return None
+        
 
 class Trial:
     '''
@@ -650,27 +689,56 @@ class Trial:
     Methods: use dir(Trial) to see all methods
     
     '''
-    def __init__(self, trial_path):        
-        self.path = trial_path
-        self.name = os.path.basename(trial_path)
-        self.c3d = os.path.join(os.path.dirname(trial_path), self.name + '.c3d')
-        self.markers = os.path.join(trial_path,'markers_experimental.trc')
-        self.grf = os.path.join(trial_path,'grf.mot')
-        self.emg = os.path.join(trial_path,'emg.csv')
-        self.ik = os.path.join(trial_path,'ik.mot')
-        self.id = os.path.join(trial_path,'inverse_dynamics.sto')
-        self.so_force = os.path.join(trial_path,'static_optimization_force.sto')
-        self.so_activation = os.path.join(trial_path,'static_optimization_activation.sto')
-        self.jra = os.path.join(trial_path,'joint_reacton_loads.sto')
-        self.grf_xml = os.path.join(trial_path,'grf.xml')
-        self.settings_json = os.path.join(self.path,'settings.json')
+    def __init__(self, trial_path, trial_settings = None):      
+        
+        if trial_settings:
+            settings = load_settings(trial_settings)
+            self.path = settings['path']
+            self.name = settings['name']
+            self.og_c3d = settings['og_c3d']
+            self.c3d = settings['c3d']
+            self.markers = settings['markers']
+            self.grf = settings['grf']
+            self.emg = settings['emg']
+            self.model = settings['model']
+            self.ik = settings['ik']
+            self.id = settings['id']
+            self.so_force = settings['so_force']
+            self.so_activation = settings['so_activation']
+            self.jra = settings['jra']
+            self.grf_xml = settings['grf_xml']
+            self.settings_json = settings['settings_json']
+            self.time_range = settings['time_range']
+            
+        else:
+            self.path = trial_path
+            self.name = os.path.basename(trial_path)
+            self.c3d = os.path.join(os.path.dirname(trial_path), self.name + '.c3d')
+            self.markers = os.path.join(trial_path,'markers_experimental.trc')
+            self.grf = os.path.join(trial_path,'grf.mot')
+            self.emg = os.path.join(trial_path,'emg.csv')
+            self.model = os.path.join(trial_path,'model.osim')
+            self.ik = os.path.join(trial_path,'ik.mot')
+            self.id = os.path.join(trial_path,'inverse_dynamics.sto')
+            self.so_force = os.path.join(trial_path,'static_optimization_force.sto')
+            self.so_activation = os.path.join(trial_path,'static_optimization_activation.sto')
+            self.jra = os.path.join(trial_path,'joint_reacton_loads.sto')
+            self.grf_xml = os.path.join(trial_path,'grf.xml')
+            self.settings_json = os.path.join(self.path,'settings.json')
+        
+            # add time range from c3d
+            try:
+                c3d_data = read.c3d(self.c3d)
+                self.time_range = [c3d_data['first_frame'], c3d_data['last_frame']]
+            except Exception as e:
+                print(f"Error reading c3d file: {e}")
+                self.time_range = None
         
         self.file_check = {}
         for file in os.listdir(self.path):
             file_path = os.path.join(self.path, file)
             self.file_check[file] = os.path.isfile(file_path)
             
-
     def check_files(self):
         '''
         Output: True if all files exist, False if any file is missing
@@ -699,6 +767,45 @@ class Trial:
     def create_grf_xml(self):
         osim.create_grf_xml(self.grf, self.grf_xml)
 
+    def run_ik(self, setup_xml=None):
+        
+        if setup_xml:
+            try:
+                ik_tool = osim.InverseKinematicsTool(setup_xml)                
+                ik_tool.run()
+                
+            except Exception as e:
+                print(f"Error running inverse kinematics: {e}")
+        else:
+            print('No setup xml file provided.')
+            return
+        
+        try:
+            print('Running inverse kinematics ...')
+            
+            ik_tool = osim.InverseKinematicsTool()
+            ik_tool.setModel(osim.Model(self.model_path))
+            ik_tool.setMarkerFileName(self.markers)
+            ik_tool.setOutputMotionFileName(self.ik)
+            
+            ik_tool.setStartTime(self.time_range[0])
+            ik_tool.setEndTime(self.time_range[1])
+            
+            ik_tool.setOutputMotionFileName(self.ik)
+            ik_tool.setMarkerFileName(self.markers)
+            ik_tool.setOutputMotionFileName(self.ik)
+            
+            ik_tool.printToXML(os.path.join(self.path, 'setup_ik.xml'))
+            print('setup_ik.xml created in ' + self.path)
+            
+            print('Running inverse kinematics ...')
+            ik_tool.run()
+            
+            print('Inverse kinematics completed')   
+            
+        except:
+            print('Inverse kinematics already run')
+    
     def write_to_json(self):
         '''
         Write the trial settings to a json file
@@ -726,8 +833,7 @@ class Project:
                 self.settings = read.json(os.path.join(file_path,'settings.json'))
         except Exception as e:
             print(f"Error loading project settings: {e}")
-            
-            
+                   
     def start(self, project_folder=''):
     
         if not project_folder:
