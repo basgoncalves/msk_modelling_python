@@ -5,6 +5,7 @@
 # DOI: 10.1080/10255842.2020.1867978
 
 __testing__ = False
+__version__ = '0.2.0'
 
 # import needed libraries
 import os
@@ -669,7 +670,7 @@ class run:
         except Exception as e:
             print(e)
             return None
-        
+      
 
 class Trial:
     '''

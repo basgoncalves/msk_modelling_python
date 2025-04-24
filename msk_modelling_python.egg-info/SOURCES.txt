@@ -1,0 +1,17 @@
+LICENSE.md
+README.md
+setup.py
+msk_modelling_python/__init__.py
+msk_modelling_python/bops.py
+msk_modelling_python/classes.py
+msk_modelling_python/error_log.txt
+msk_modelling_python/install_opensim.py
+msk_modelling_python/requirements.txt
+msk_modelling_python/settings.json
+msk_modelling_python/utils.py
+msk_modelling_python.egg-info/PKG-INFO
+msk_modelling_python.egg-info/SOURCES.txt
+msk_modelling_python.egg-info/dependency_links.txt
+msk_modelling_python.egg-info/requires.txt
+msk_modelling_python.egg-info/top_level.txt
+msk_modelling_python/src/__init__.py

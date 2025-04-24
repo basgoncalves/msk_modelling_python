@@ -1,18 +1,24 @@
 try:
-    import bops as bops
+    # import for local development
+    import bops
     from classes import *
     from src import *
     from utils import *
+    import install_opensim
     
 except:
+    # import for package development
+    import os
     from . import bops as bops
     from .classes import *
     from .utils import *
-    
+    from . import install_opensim
+
+__version__ = "0.0.10"
+
 if __name__ == "__main__":
     bops.greet()
     bops.about()
-    
     
     if False:
         data = bops.read.c3d()

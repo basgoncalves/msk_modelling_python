@@ -14,7 +14,7 @@ except:
     from .utils import *
     from . import install_opensim
 
-__version__ = "0.0.5"
+__version__ = "0.0.10"
 
 if __name__ == "__main__":
     bops.greet()
