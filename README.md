@@ -35,7 +35,7 @@ pip install msk_modelling_python
 ``` python
 import msk_modelling_python as msk
 
-msk.greet()
+msk.bops.greet()
 ```
 
 ## Work with the code 
