@@ -1,2 +1,3 @@
 include msk_modelling_python/src/platypus.jpg
 include msk_modelling_python/src/platypus_sad.jpg
+recursive-include tests/ceinms2 *
