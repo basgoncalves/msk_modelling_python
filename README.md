@@ -160,7 +160,7 @@ This package includes a combination of other packages and custom functions to ma
 - **MeshLab 2023.12**  
   [MeshLab](https://www.meshlab.net/)
 - **Genesis**  
-  [Genesis]([https://www.meshlab.net/](https://github.com/Genesis-Embodied-AI/Genesis))
+  [Genesis](https://www.meshlab.net/](https://github.com/Genesis-Embodied-AI/Genesis/ )
   *
 
 ---
