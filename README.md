@@ -22,36 +22,35 @@ A Python package for musculoskeletal modelling.
 
 5. **MOKKA (optional / only Windows users)**
     [Open-source and cross-platform software to easily analyze biomechanical data](https://biomechanical-toolkit.github.io/mokka/)
+
 ---
 
 
-## Pip installation
+### Pip installation
 
-### Create a Virtual Environment**
+#### Create a Virtual Environment**
 ```sh
-
 python -m venv msk
 ```
-
 Note: replace 'msk' if you want a different name
 
 
-### Install uv package manager
+#### Install uv package manager
 ```
 pip install uv
 ```
 
-### Install msk-modelling-python
-```bash
+#### Install msk-modelling-python
+```
 uv pip install msk-modelling-python
 ```
 
-### Test usage
+#### Test usage
 ``` python
 import msk_modelling_python as msk
-
 msk.bops.greet()
 ```
+
 ---
 ## Work with the code 
 
@@ -75,8 +74,14 @@ msk.bops.greet()
     See [OpenSim Scripting in Python](https://simtk-confluence.stanford.edu:8443/display/OpenSim/Scripting+in+Python)
      ```sh
      .\msk\Scripts\activate
+     ```
+     ```sh
      cd 'C:\OpenSim 4.5\sdk\Python'
+     ```
+     ```sh
      python setup_win_python38.py
+     ```
+     ```sh
      python -m pip install .
      ```
      Note: run commands from shell or terminal    
@@ -90,16 +95,18 @@ msk.bops.greet()
      ```
      Note: see for help https://answers.microsoft.com/en-us/windows/forum/all/change-system-variables-on-windows-11/f172c29e-fd9e-4f0b-949d-c4696bd656b8
 ---
-5. **Verify the OpenSim Installation (in python)**
-     ```python
+5. **Verify the OpenSim Installation.**
+     ```cmd
+     python 
+     ```
+     ```cmd
      import opensim as osim
      model = osim.Model()
-     print("OpenSim model created successfully!")
      ```
 ---
 6. **Install requirements (in the terminal)**
      ```powershell
-     cd .\<myenv>\Lib\site-packages\msk_modelling_python
+     cd .\msk\Lib\site-packages\msk_modelling_python
      pip install -r requirements.txt
      ```
 ---
