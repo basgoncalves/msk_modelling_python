@@ -9,15 +9,16 @@ from PIL import Image
 from PIL import ImageTk
 
 
+
+
 __testing__ = False
 
 if __testing__:
-    print("msk_modelling_python package loaded.")
-    print(f"Version: {__version__}")  
+    print("msk_modelling_python package loaded.")  
     print("Testing mode is on.")
     print("To turn off testing mode, set __testing__ to False.") 
     
-    print("Python version: 3.8.10")
+    print("Python version: ", sys.version)
     print("For the latest version, visit " + r'GitHub\basgoncalves\msk_modelling_python')
     
     print("Time to load package: ", time.time() - start_time)
@@ -118,6 +119,9 @@ def select_file(prompt='Select a file'):
     except Exception as e:
         print("Error: ", e)
         log_error(e)
+
+
+
 class Platypus:
     '''
     Platypus class to test the bops package
