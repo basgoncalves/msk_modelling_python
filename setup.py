@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-__version__ = '0.0.19'  # Define the version here
+__version__ = '0.0.23'  # Define the version here
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
@@ -35,7 +35,7 @@ setup(
     ],
     
     package_data={
-        'msk_modelling_python': ['*.json', '*.ins', '*.txt', '*.mot', '*.c3d', '*.stl', '*.py', '*.dll', '*.so', '*.lib', '*.h', '*.png', '*.jpg'],
+        'msk_modelling_python': ['*.json', '*.ins', '*.txt', '*.mot', '*.c3d', '*.stl', '*.py', '*.dll', '*.so', '*.lib', '*.h', '*.png', '*.jpg', '*.exe'],
     },
     python_requires='>=3.8',
     

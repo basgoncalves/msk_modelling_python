@@ -5,6 +5,15 @@ import xml.dom.minidom
 import xml.etree.ElementTree as ET
 import unittest
 import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+import matplotlib.lines as mlines
+import matplotlib.cm as cm
+
+import tkinter as tk
+import customtkinter as ctk
+
 
 try:
     import opensim as osim
@@ -14,6 +23,11 @@ except:
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
+#%% ############################################################# Basic functions #############################################################
+def select_file(message = 'Select file'):
+    root = tk.Tk(); root.withdraw()  # Hide the root window
+    file_path = ctk.filedialog.askopenfilename(title=message)
+    return file_path
 class mcf: # make coding fancy
     
     def __init__(self):
@@ -1023,6 +1037,50 @@ class XMLTools:
         except:
             pass
         
+        # Get data from OSIM model / xml
+        
+        def get_muscles_by_group_osim(self, model_path, group_names = 'all'):
+            '''
+            Function to get the muscle groups from the model and save them to a csv file. Also returns the muscle groups as a DataFrame.
+            
+            Example usage:
+            model_path = r"C:\Git\research_data\Projects\runbops_FAIS_phd\models\009\009_Rajagopal2015_FAI_originalMass_opt_N10_hans.osim"
+            group_names = ['hip_flex_r','hip_add_r','hip_inrot_r']
+            muscles = get_muscles_by_group_osim(model_path, group_names)
+            
+            '''
+            # Load the OpenSim model
+            model = osim.Model(model_path)
+            
+            # Get the muscle groups from the model
+            force_set = model.getForceSet()
+            for i in range(forse_set.getSize()):
+                group = force_set.getGroup(i)    
+                
+                # save place holder XML (at the moment cannot get the groups from the API)
+                path = SCRIPT_DIR + '\groups.xml'
+                group.printToXML(path)
+                       
+                # Parse the XML file to get the members of the group            
+                root = ET.parse(path).getroot()
+                child = root.find('ObjectGroup')
+                list_of_members = child.find('members').text.split()
+                members= []
+                for member in list_of_members:
+                            members.append(member.strip())
+                
+                # Add the group name and its members to the dictionary
+                muscle_groups[group.getName()] = members
+                
+                # Delete xml file
+                if os.path.exists(path):
+                    os.remove(path)
+            
+            # Get the muscle groups from the model
+            members_dict = self.get_muscle_groups_from_xml(force_set, group_names)
+            
+            return members_dict
+        
         # Create CEINMS xmls
         def create_calibration_setup(self, save_path = None):
             root = ET.Element("ceinmsCalibration")
@@ -1527,6 +1585,8 @@ class Plot():
         
         return fig, ax
 
+
+#%% Platypus class for testing stuff
 class Platypus:
     '''
     Platypus class to test the bops package
