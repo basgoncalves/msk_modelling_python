@@ -18,7 +18,7 @@ import c3d
 import customtkinter as ctk
 import tkinter as tk
 from tkinter import filedialog
-import math
+
 
 
 # import opensim if installed
@@ -28,8 +28,17 @@ except:
     print('OpenSim not installed.')
     osim = None
 
+
 # define Global variables
 BOPS_PATH = os.path.dirname(os.path.realpath(__file__))
+SETTINGS_PATH = os.path.join(BOPS_PATH,'settings.json')
+SETTINGS = json.load(open(SETTINGS_PATH))  
+# update SETTINGS["bops"]["instalation"] path on the file
+SETTINGS["bops"]["instalation"] = BOPS_PATH
+SETTINGS["bops"]["version"] = __version__
+json.dump(SETTINGS, open(SETTINGS_PATH, 'w'), indent=4)
+
+
 
 def about():
     '''
@@ -842,6 +851,31 @@ class Project:
             pass
         
         print('NOT FINISHED....')
-                             
+                   
 
-#%% ######################################################  General  #####################################################################
+
+
+#%% ######################################################  TESTING  #####################################################################
+class test(unittest.TestCase):
+    
+    def test_start(self):
+        print("Starting tests...")
+        self.assertTrue(True, "Test passed")
+    
+    def test_identifier(self):
+        self.assertEqual(SETTINGS['identifier'], 'msk_modelling_python')
+    
+    def test_print_settings(self):
+        self.assertIn("bops", SETTINGS, "SETTINGS should contain a field called 'bops'")
+        self.assertIsNotNone(SETTINGS, "SETTINGS should not be None")
+        
+    
+        
+
+if __name__ == "__main__":
+    #if tests are all ok continue
+    if 
+
+
+
+#%% END

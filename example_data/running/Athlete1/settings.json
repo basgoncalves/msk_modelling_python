@@ -1,0 +1,15 @@
+{
+        "id": 1,
+        "name": "Athlete1",
+        "age": 25,
+        "sessions": [
+            {
+                "id": 1,
+                "path": "/Users/your_username/msk_modelling_python/example_data/running/Athlete1/session1",
+                "duration": 60,
+                "type": "running",
+                "distance": 10.0,
+                "pace": 6.0,
+                "heart_rate": 150
+            }],
+}
