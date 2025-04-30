@@ -1,5 +1,7 @@
+
 try:
     # import for local development
+    import os
     import bops
     from classes import *
     from src import *
@@ -15,6 +17,11 @@ except:
     from . import install_opensim
 
 __version__ = "0.0.20"
+
+PACKAGE_ROOT = os.path.dirname(__file__)
+EXAMPLE_DATA_PATH = os.path.join(PACKAGE_ROOT, 'example_data')
+
+
 
 if __name__ == "__main__":
     bops.greet()

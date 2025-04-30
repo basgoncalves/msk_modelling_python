@@ -671,7 +671,6 @@ class run:
             print(e)
             return None
       
-
 class Trial:
     '''
     Class to store trial information and file paths, and export files to OpenSim format

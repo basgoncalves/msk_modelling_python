@@ -18,6 +18,7 @@ from xml.dom import minidom
 import shutil
 import math
 import warnings
+import json
 
 MODULE_PATH = os.path.dirname(os.path.abspath(__file__))
 
@@ -569,7 +570,29 @@ def sum3d_vector(df, columns_to_sum = ['x','y','z'], new_column_name = 'sum'):
     return df
 
 
+###### #####################################################  CEINMS  ###################################################################
+def ceinms_create_template_json(json_path):
+    """Creates a template JSON file with CEINMS settings."""
+    template_settings = {
+        "subject": "subject_name",
+        "trial_folder": "path_to_trial_folder",
+        "calibration_settings": {
+            "calibration_mode": "mode_name",
+            "parameters": {}
+        },
+        "execution_settings": {
+            "execution_mode": "mode_name",
+            "parameters": {}
+        }
+    }
+    with open(json_path, 'w') as json_file:
+        json.dump(template_settings, json_file, indent=4)
+    print(f"Template JSON file created at {json_path}")
 
+
+def ceinms_calibrate(trial_folder = None, json_name = None):
+    pass
+            
 
 #%% #####################################################  TESTING  ###################################################################
 class test(unittest.TestCase):
