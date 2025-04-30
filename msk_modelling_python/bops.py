@@ -874,7 +874,12 @@ class test(unittest.TestCase):
 
 if __name__ == "__main__":
     #if tests are all ok continue
-    if 
+    results = unittest.main()
+    
+    if results.result.wasSuccessful():
+        print("All tests passed.")
+        
+    
 
 
 

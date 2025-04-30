@@ -1742,7 +1742,7 @@ if __name__ == '__main__':
     
     calibration_setup_file = os.path.join(SIMULATION_PATH, SUBJECT, TRIAL, 'ceinms', 'calibrationSetup.xml')
     execution_setup_file = os.path.join(SIMULATION_PATH, SUBJECT, TRIAL, 'ceinms', 'executionSetup.xml')
-    if True: run_calibration(calibration_setup_file)
+    if False: run_calibration(calibration_setup_file)
     
     if False: run_execution(execution_setup_file)
     
