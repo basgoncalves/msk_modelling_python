@@ -331,7 +331,7 @@ class osimTools:
 
         return analyzeTool
 
-    def get_muscles_by_group_osim(xml_path, group_names): # olny tested for Catelli model Opensim 3.3
+    def get_muscles_by_group_osim(xml_path, group_names = 'all'): # olny tested for Catelli model Opensim 3.3
         members_dict = {}
 
         try:
@@ -359,6 +359,40 @@ class osimTools:
 
         return members_dict
 
+    def get_muscle_per_coordinate(model_path, coordinates = 'all'):
+        '''
+        This function returns the muscles that are actuating the given coordinates. 
+        The function uses the OpenSim API to get the coordinates and the muscles in the model.
+        The function returns a dictionary with the coordinates as keys and the muscles as values.
+        '''
+        # Load the OpenSim model
+        model = osim.Model(model_path)
+        model.initSystem()
+
+        # Get all coordinates in the model
+        coordinate_set = model.getCoordinateSet()
+        
+        if coordinates == 'all':
+            coordinates = [coordinate_set.get(i).getName() for i in range(coordinate_set.getSize())]
+
+        # Get all muscles in the model
+        muscle_set = model.getMuscles()
+        
+        # Create a dictionary to store muscles for each coordinate
+        muscles_per_coordinate = {}
+
+        # Loop through each coordinate and find its actuating muscles
+        for coord_name in coordinates:
+            coord = coordinate_set.get(coord_name)
+            actuating_muscles = []
+            for i in range(muscle_set.getSize()):
+                muscle = muscle_set.get(i)
+                if muscle.isActuating(coord):
+                    actuating_muscles.append(muscle.getName())
+            muscles_per_coordinate[coord_name] = actuating_muscles
+
+        return muscles_per_coordinate
+    
     def increase_max_isometric_force(self, model_path, factor): # opensim API
         # Load the OpenSim model
         model = osim.Model(model_path)

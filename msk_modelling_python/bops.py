@@ -34,11 +34,27 @@ BOPS_PATH = os.path.dirname(os.path.realpath(__file__))
 SETTINGS_PATH = os.path.join(BOPS_PATH,'settings.json')
 SETTINGS = json.load(open(SETTINGS_PATH))  
 # update SETTINGS["bops"]["instalation"] path on the file
-SETTINGS["bops"]["instalation"] = BOPS_PATH
-SETTINGS["bops"]["version"] = __version__
+SETTINGS["bops"]["installation"] = BOPS_PATH
+SETTINGS["__version__"] = __version__
+
+SIMULATIONS_PATH = os.path.dirname(SETTINGS["current_project"])
+try:
+    PROJECT = json.load(open(SETTINGS["current_project"]))
+except:
+    PROJECT = None
+    print('No project loaded.')
+
+SUBJECTS_PATH = os.path.join(SIMULATIONS_PATH,PROJECT["subjects"][0])
+SUBJECT = json.load(open(SETTINGS["subjects"]))
+    
+# Replace sujects
+breakpoint()
+# save json settings
 json.dump(SETTINGS, open(SETTINGS_PATH, 'w'), indent=4)
 
-
+def create_subject_settings(subject_path):
+    
+    subject_info = json.load(open(subject_path + '/settings.json'))
 
 def about():
     '''
@@ -853,8 +869,6 @@ class Project:
         print('NOT FINISHED....')
                    
 
-
-
 #%% ######################################################  TESTING  #####################################################################
 class test(unittest.TestCase):
     
@@ -868,9 +882,11 @@ class test(unittest.TestCase):
     def test_print_settings(self):
         self.assertIn("bops", SETTINGS, "SETTINGS should contain a field called 'bops'")
         self.assertIsNotNone(SETTINGS, "SETTINGS should not be None")
-        
     
-        
+    def test_current_project(self):
+        self.assertIsNotNone(SETTINGS['current_project'], "SETTINGS should contain a field called 'current_project'")
+        self.assertIsInstance(SETTINGS['current_project'], str, "current_project should be a string")
+        self.assertTrue(os.path.isfile(SETTINGS['current_project']), "current_project should be a valid directory")
 
 if __name__ == "__main__":
     #if tests are all ok continue

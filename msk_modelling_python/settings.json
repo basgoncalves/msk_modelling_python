@@ -1,6 +1,6 @@
 {
-    "identifier": "msk_modelwdeling_python",
-    "__version__": "0.1.8",
+    "identifier": "msk_modelling_python",
+    "__version__": "0.2.0",
     "__testing__": false,
     "update": false,
     "gui": false,
@@ -9,7 +9,7 @@
     "example_data": "C:\\Git\\research_data\\Projects\\test_project",
     "osim_exe": false,
     "bops": {
-        "installation": "/path/to/project",
+        "installation": "C:\\Git\\msk_modelling_python\\msk_modelling_python",
         "type": "biomechanics",
         "subjects": [
             "subject1",
@@ -39,8 +39,6 @@
                     "emg": "c3d"
                 }
             }
-        },
-        "instalation": "C:\\Git\\msk_modelling_python\\msk_modelling_python",
-        "version": "0.2.0"
+        }
     }
 }
