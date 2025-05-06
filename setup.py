@@ -13,7 +13,7 @@ setup(
     description=f"A Python package for musculoskeletal modelling (version {__version__})",
     long_description=f"{long_description}\n\nVersion: {__version__}",
     long_description_content_type="text/markdown",
-    url="https://github.com/your_username/msk_modelling_python",
+    url="https://github.com/basgoncalves/msk_modelling_python.git",
     packages=find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
