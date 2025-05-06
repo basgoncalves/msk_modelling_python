@@ -496,3 +496,726 @@
 [2025-05-06 16:33:46.820] [warning] Couldn't find file 'Raja\metacarpal1_lvs.vtp'.
 [2025-05-06 16:33:46.820] [warning] Couldn't find file 'Raja\thumb_proximal_lvs.vtp'.
 [2025-05-06 16:33:46.820] [warning] Couldn't find file 'Raja\thumb_distal_lvs.vtp'.
+[2025-05-06 16:34:18.936] [info] Updating Model file from 40000 to latest format...
+[2025-05-06 16:34:19.071] [info] Loaded model 009 from file c:\Git\msk_modelling_python\tests\muscle_modelling\osim_model.osim
+[2025-05-06 16:34:19.074] [warning] Couldn't find file 'Raja\r_pelvis.vtp'.
+[2025-05-06 16:34:19.075] [warning] Couldn't find file 'Raja\l_pelvis.vtp'.
+[2025-05-06 16:34:19.076] [warning] Couldn't find file 'Raja\sacrum.vtp'.
+[2025-05-06 16:34:19.078] [warning] Couldn't find file 'Raja\r_femur.vtp'.
+[2025-05-06 16:34:19.079] [warning] Couldn't find file 'Raja\r_tibia.vtp'.
+[2025-05-06 16:34:19.079] [warning] Couldn't find file 'Raja\r_fibula.vtp'.
+[2025-05-06 16:34:19.080] [warning] Couldn't find file 'Raja\r_patella.vtp'.
+[2025-05-06 16:34:19.080] [warning] Couldn't find file 'Raja\r_talus.vtp'.
+[2025-05-06 16:34:19.080] [warning] Couldn't find file 'Raja\r_foot.vtp'.
+[2025-05-06 16:34:19.081] [warning] Couldn't find file 'Raja\r_bofoot.vtp'.
+[2025-05-06 16:34:19.081] [warning] Couldn't find file 'Raja\l_femur.vtp'.
+[2025-05-06 16:34:19.081] [warning] Couldn't find file 'Raja\l_tibia.vtp'.
+[2025-05-06 16:34:19.082] [warning] Couldn't find file 'Raja\l_fibula.vtp'.
+[2025-05-06 16:34:19.082] [warning] Couldn't find file 'Raja\l_patella.vtp'.
+[2025-05-06 16:34:19.083] [warning] Couldn't find file 'Raja\l_talus.vtp'.
+[2025-05-06 16:34:19.083] [warning] Couldn't find file 'Raja\l_foot.vtp'.
+[2025-05-06 16:34:19.084] [warning] Couldn't find file 'Raja\l_bofoot.vtp'.
+[2025-05-06 16:34:19.084] [warning] Couldn't find file 'Raja\hat_spine.vtp'.
+[2025-05-06 16:34:19.085] [warning] Couldn't find file 'Raja\hat_jaw.vtp'.
+[2025-05-06 16:34:19.085] [warning] Couldn't find file 'Raja\hat_skull.vtp'.
+[2025-05-06 16:34:19.086] [warning] Couldn't find file 'Raja\hat_ribs_scap.vtp'.
+[2025-05-06 16:34:19.086] [warning] Couldn't find file 'Raja\humerus_rv.vtp'.
+[2025-05-06 16:34:19.086] [warning] Couldn't find file 'Raja\ulna_rv.vtp'.
+[2025-05-06 16:34:19.087] [warning] Couldn't find file 'Raja\radius_rv.vtp'.
+[2025-05-06 16:34:19.087] [warning] Couldn't find file 'Raja\pisiform_rvs.vtp'.
+[2025-05-06 16:34:19.087] [warning] Couldn't find file 'Raja\lunate_rvs.vtp'.
+[2025-05-06 16:34:19.087] [warning] Couldn't find file 'Raja\scaphoid_rvs.vtp'.
+[2025-05-06 16:34:19.088] [warning] Couldn't find file 'Raja\triquetrum_rvs.vtp'.
+[2025-05-06 16:34:19.088] [warning] Couldn't find file 'Raja\hamate_rvs.vtp'.
+[2025-05-06 16:34:19.088] [warning] Couldn't find file 'Raja\capitate_rvs.vtp'.
+[2025-05-06 16:34:19.088] [warning] Couldn't find file 'Raja\trapezoid_rvs.vtp'.
+[2025-05-06 16:34:19.089] [warning] Couldn't find file 'Raja\trapezium_rvs.vtp'.
+[2025-05-06 16:34:19.089] [warning] Couldn't find file 'Raja\metacarpal2_rvs.vtp'.
+[2025-05-06 16:34:19.090] [warning] Couldn't find file 'Raja\index_proximal_rvs.vtp'.
+[2025-05-06 16:34:19.090] [warning] Couldn't find file 'Raja\index_medial_rvs.vtp'.
+[2025-05-06 16:34:19.090] [warning] Couldn't find file 'Raja\index_distal_rvs.vtp'.
+[2025-05-06 16:34:19.091] [warning] Couldn't find file 'metacarpal3_rvs.vtp'.
+[2025-05-06 16:34:19.091] [warning] Couldn't find file 'Raja\middle_proximal_rvs.vtp'.
+[2025-05-06 16:34:19.092] [warning] Couldn't find file 'middle_medial_rvs.vtp'.
+[2025-05-06 16:34:19.093] [warning] Couldn't find file 'Raja\middle_distal_rvs.vtp'.
+[2025-05-06 16:34:19.094] [warning] Couldn't find file 'Raja\metacarpal4_rvs.vtp'.
+[2025-05-06 16:34:19.095] [warning] Couldn't find file 'Raja\ring_proximal_rvs.vtp'.
+[2025-05-06 16:34:19.095] [warning] Couldn't find file 'Raja\ring_medial_rvs.vtp'.
+[2025-05-06 16:34:19.096] [warning] Couldn't find file 'Raja\ring_distal_rvs.vtp'.
+[2025-05-06 16:34:19.096] [warning] Couldn't find file 'Raja\metacarpal5_rvs.vtp'.
+[2025-05-06 16:34:19.097] [warning] Couldn't find file 'Raja\little_proximal_rvs.vtp'.
+[2025-05-06 16:34:19.097] [warning] Couldn't find file 'Raja\little_medial_rvs.vtp'.
+[2025-05-06 16:34:19.098] [warning] Couldn't find file 'Raja\little_distal_rvs.vtp'.
+[2025-05-06 16:34:19.098] [warning] Couldn't find file 'Raja\metacarpal1_rvs.vtp'.
+[2025-05-06 16:34:19.099] [warning] Couldn't find file 'Raja\thumb_proximal_rvs.vtp'.
+[2025-05-06 16:34:19.099] [warning] Couldn't find file 'Raja\thumb_distal_rvs.vtp'.
+[2025-05-06 16:34:19.100] [warning] Couldn't find file 'Raja\humerus_lv.vtp'.
+[2025-05-06 16:34:19.100] [warning] Couldn't find file 'Raja\ulna_lv.vtp'.
+[2025-05-06 16:34:19.101] [warning] Couldn't find file 'Raja\radius_lv.vtp'.
+[2025-05-06 16:34:19.102] [warning] Couldn't find file 'Raja\pisiform_lvs.vtp'.
+[2025-05-06 16:34:19.102] [warning] Couldn't find file 'Raja\lunate_lvs.vtp'.
+[2025-05-06 16:34:19.103] [warning] Couldn't find file 'Raja\scaphoid_lvs.vtp'.
+[2025-05-06 16:34:19.103] [warning] Couldn't find file 'Raja\triquetrum_lvs.vtp'.
+[2025-05-06 16:34:19.104] [warning] Couldn't find file 'Raja\hamate_lvs.vtp'.
+[2025-05-06 16:34:19.104] [warning] Couldn't find file 'Raja\capitate_lvs.vtp'.
+[2025-05-06 16:34:19.104] [warning] Couldn't find file 'Raja\trapezoid_lvs.vtp'.
+[2025-05-06 16:34:19.105] [warning] Couldn't find file 'Raja\trapezium_lvs.vtp'.
+[2025-05-06 16:34:19.105] [warning] Couldn't find file 'Raja\metacarpal2_lvs.vtp'.
+[2025-05-06 16:34:19.106] [warning] Couldn't find file 'Raja\index_proximal_lvs.vtp'.
+[2025-05-06 16:34:19.106] [warning] Couldn't find file 'Raja\index_medial_lvs.vtp'.
+[2025-05-06 16:34:19.106] [warning] Couldn't find file 'Raja\index_distal_lvs.vtp'.
+[2025-05-06 16:34:19.107] [warning] Couldn't find file 'Raja\metacarpal3_lvs.vtp'.
+[2025-05-06 16:34:19.107] [warning] Couldn't find file 'Raja\middle_proximal_lvs.vtp'.
+[2025-05-06 16:34:19.108] [warning] Couldn't find file 'Raja\middle_medial_lvs.vtp'.
+[2025-05-06 16:34:19.109] [warning] Couldn't find file 'Raja\middle_distal_lvs.vtp'.
+[2025-05-06 16:34:19.109] [warning] Couldn't find file 'Raja\metacarpal4_lvs.vtp'.
+[2025-05-06 16:34:19.110] [warning] Couldn't find file 'Raja\ring_proximal_lvs.vtp'.
+[2025-05-06 16:34:19.111] [warning] Couldn't find file 'Raja\ring_medial_lvs.vtp'.
+[2025-05-06 16:34:19.111] [warning] Couldn't find file 'Raja\ring_distal_lvs.vtp'.
+[2025-05-06 16:34:19.112] [warning] Couldn't find file 'Raja\metacarpal5_lvs.vtp'.
+[2025-05-06 16:34:19.112] [warning] Couldn't find file 'Raja\little_proximal_lvs.vtp'.
+[2025-05-06 16:34:19.113] [warning] Couldn't find file 'Raja\little_medial_lvs.vtp'.
+[2025-05-06 16:34:19.113] [warning] Couldn't find file 'Raja\little_distal_lvs.vtp'.
+[2025-05-06 16:34:19.114] [warning] Couldn't find file 'Raja\metacarpal1_lvs.vtp'.
+[2025-05-06 16:34:19.114] [warning] Couldn't find file 'Raja\thumb_proximal_lvs.vtp'.
+[2025-05-06 16:34:19.115] [warning] Couldn't find file 'Raja\thumb_distal_lvs.vtp'.
+[2025-05-06 16:34:21.229] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:34:21.234] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:34:21.865] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:34:21.871] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:34:23.257] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:34:23.266] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:34:23.853] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:34:23.858] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:34:25.857] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:34:25.867] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:34:27.073] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:34:27.082] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:34:28.682] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:34:28.694] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:34:29.474] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:34:29.480] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:34:31.446] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:34:31.457] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:34:32.172] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:34:32.178] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:34:33.205] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:34:33.211] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:34:33.759] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:34:33.764] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:34:35.227] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:34:35.233] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:34:36.103] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:34:36.109] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:34:37.016] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:34:37.020] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:34:37.548] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:34:37.553] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:34:38.968] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:34:38.973] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:34:39.522] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:34:39.527] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:34:40.636] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:34:40.644] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:34:41.227] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:34:41.232] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:34:42.509] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:34:42.514] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:34:43.192] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:34:43.197] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:34:44.090] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:34:44.096] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:34:44.651] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:34:44.656] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:34:45.907] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:34:45.913] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:34:46.479] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:34:46.484] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:34:47.410] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:34:47.415] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:34:47.966] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:34:47.971] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:34:49.266] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:34:49.271] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:34:49.736] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:34:49.739] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:34:50.277] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:34:50.280] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:34:50.576] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:34:50.579] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:34:51.269] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:34:51.272] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:34:51.595] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:34:51.598] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:34:52.101] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:34:52.104] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:34:52.406] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:34:52.408] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:34:53.194] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:34:53.198] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:34:53.593] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:34:53.596] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:34:54.172] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:34:54.176] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:34:54.473] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:34:54.476] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:34:55.189] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:34:55.192] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:34:55.492] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:34:55.495] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:34:55.972] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:34:55.975] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:34:56.271] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:34:56.274] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:34:57.044] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:34:57.047] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:34:57.388] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:34:57.391] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:34:57.913] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:34:57.916] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:34:58.211] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:34:58.214] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:34:58.923] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:34:58.927] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:34:59.218] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:34:59.221] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:34:59.698] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:34:59.701] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:34:59.998] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:00.001] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:00.741] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:00.745] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:01.104] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:01.108] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:01.627] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:01.630] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:01.929] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:01.932] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:02.606] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:02.609] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:02.936] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:02.938] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:03.497] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:03.500] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:03.822] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:03.825] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:04.562] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:04.565] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:04.905] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:04.907] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:05.423] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:05.426] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:05.734] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:05.737] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:06.461] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:06.464] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:06.881] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:06.885] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:07.511] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:07.514] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:07.851] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:07.854] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:08.613] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:08.616] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:08.952] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:08.955] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:09.473] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:09.476] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:09.783] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:09.786] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:10.507] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:10.511] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:10.839] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:10.842] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:11.353] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:11.356] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:11.658] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:11.661] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:12.388] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:12.391] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:12.755] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:12.758] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:13.289] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:13.293] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:13.614] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:13.617] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:14.378] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:14.380] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:14.683] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:14.687] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:15.182] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:15.184] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:15.479] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:15.481] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:16.259] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:16.264] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:16.682] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:16.687] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:17.233] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:17.236] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:17.593] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:17.597] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:18.446] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:18.450] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:18.831] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:18.834] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:19.384] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:19.387] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:19.722] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:19.725] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:20.494] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:20.497] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:20.842] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:20.845] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:21.370] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:21.373] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:21.684] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:21.687] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:22.401] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:22.404] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:22.735] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:22.738] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:23.257] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:23.260] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:23.606] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:23.609] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:24.347] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:24.350] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:24.687] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:24.690] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:25.215] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:25.218] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:25.530] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:25.533] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:26.448] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:26.451] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:26.818] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:26.821] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:27.392] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:27.396] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:27.755] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:27.759] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:28.491] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:28.495] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:28.826] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:28.829] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:29.320] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:29.323] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:29.607] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:29.609] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:30.335] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:30.338] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:30.677] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:30.680] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:31.180] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:31.183] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:31.544] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:31.548] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:32.272] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:32.276] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:32.597] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:32.600] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:33.095] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:33.098] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:33.397] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:33.400] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:34.167] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:34.171] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:34.518] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:34.521] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:35.007] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:35.010] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:35.293] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:35.296] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:36.004] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:36.008] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:36.371] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:36.374] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:36.917] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:36.920] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:37.214] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:37.217] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:37.943] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:37.946] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:38.241] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:38.244] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:38.720] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:38.723] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:39.015] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:39.018] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:39.716] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:39.719] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:40.043] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:40.046] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:40.571] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:40.574] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:40.889] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:40.892] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:41.608] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:41.612] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:41.948] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:41.951] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:42.468] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:42.471] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:42.777] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:42.787] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:43.512] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:43.515] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:43.843] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:43.846] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:44.361] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:44.364] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:44.670] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:44.673] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:45.383] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:45.386] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:45.711] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:45.714] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:46.345] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:46.349] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:46.810] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:46.814] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:47.631] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:47.635] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:47.977] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:47.980] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:48.508] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:48.511] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:48.864] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:48.867] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:49.586] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:49.589] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:49.932] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:49.935] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:50.470] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:50.473] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:50.772] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:50.775] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:51.563] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:51.566] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:51.924] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:51.928] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:52.464] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:52.467] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:52.778] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:52.781] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:53.513] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:53.516] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:53.869] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:53.872] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:54.403] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:54.406] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:54.717] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:54.720] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:55.442] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:55.446] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:55.772] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:55.775] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:56.286] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:56.289] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:56.595] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:56.598] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:57.338] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:57.342] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:57.725] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:57.729] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:35:58.415] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:35:58.457] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:35:58.902] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:35:58.906] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:35:59.789] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:35:59.793] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:00.320] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:00.325] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:01.594] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:36:01.599] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:36:02.054] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:36:02.058] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:36:02.898] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:02.902] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:03.296] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:03.300] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:03.981] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:36:03.991] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:36:04.696] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:36:04.701] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:36:05.756] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:05.762] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:06.166] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:06.169] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:07.006] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:36:07.015] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:36:07.576] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:36:07.581] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:36:08.915] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:08.919] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:09.447] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:09.453] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:10.218] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:36:10.222] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:36:10.596] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:36:10.600] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:36:11.353] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:11.356] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:11.731] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:11.734] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:12.345] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:36:12.348] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:36:12.669] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:36:12.672] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:36:13.603] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:13.612] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:14.326] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:14.332] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:15.242] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:36:15.246] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:36:15.760] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:36:15.765] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:36:20.181] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:20.203] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:21.642] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:21.649] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:22.680] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:36:22.684] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:36:23.272] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:36:23.278] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:36:24.505] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:24.512] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:24.938] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:24.941] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:25.625] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:36:25.629] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:36:25.971] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:36:25.974] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:36:26.888] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:26.891] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:27.358] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:27.364] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:28.135] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:36:28.139] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:36:28.800] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:36:28.804] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:36:29.733] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:29.737] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:30.110] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:30.114] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:30.645] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:36:30.650] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:36:30.956] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:36:30.960] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:36:31.816] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:31.820] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:32.189] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:32.192] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:32.740] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:36:32.744] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:36:33.075] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:36:33.079] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:36:33.802] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:33.805] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:34.143] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:34.147] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:34.748] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:36:34.751] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:36:35.108] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:36:35.112] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:36:35.948] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:35.952] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:36.329] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:36.332] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:36.940] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:36:36.944] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:36:37.335] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:36:37.339] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:36:38.230] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:38.234] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:38.650] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:38.653] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:39.288] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:36:39.292] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:36:39.728] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:36:39.731] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:36:40.585] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:40.589] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:40.963] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:40.967] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:41.587] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:36:41.591] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:36:41.976] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:36:41.980] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:36:42.899] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:42.904] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:43.677] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:43.682] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:44.534] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:36:44.540] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:36:45.139] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:36:45.145] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:36:46.154] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:46.158] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:46.562] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:46.566] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:47.766] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:36:47.783] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:36:49.470] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:36:49.484] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:36:55.515] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:55.552] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:36:58.095] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:36:58.126] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:01.449] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:37:01.471] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:37:03.944] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:37:03.962] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:37:07.050] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:07.056] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:08.105] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:08.118] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:09.712] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:37:09.723] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:37:10.776] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:37:10.782] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:37:12.782] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:12.792] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:13.680] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:13.689] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:15.111] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:37:15.119] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:37:15.855] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:37:15.861] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:37:17.217] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:17.221] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:17.789] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:17.795] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:18.809] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:37:18.814] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:37:19.379] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:37:19.383] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:37:20.737] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:20.743] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:21.373] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:21.381] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:22.429] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:37:22.434] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:37:23.073] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:37:23.082] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:37:25.850] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:25.858] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:26.834] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:26.839] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:27.896] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:37:27.900] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:37:28.529] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:37:28.535] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:37:30.502] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:30.508] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:31.200] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:31.205] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:32.297] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:37:32.306] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:37:32.885] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:37:32.889] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:37:33.694] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:33.697] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:34.034] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:34.037] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:34.578] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:37:34.581] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:37:34.937] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:37:34.940] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:37:35.897] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:35.900] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:36.279] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:36.283] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:36.865] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:37:36.869] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:37:37.241] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:37:37.244] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:37:37.970] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:37.973] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:38.366] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:38.369] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:38.980] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:37:38.983] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:37:39.373] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:37:39.377] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:37:40.432] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:40.446] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:41.172] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:41.180] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:42.335] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:37:42.340] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:37:43.013] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:37:43.018] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:37:44.095] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:44.099] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:44.507] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:44.510] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:45.049] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:37:45.052] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:37:45.463] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:37:45.467] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:37:46.476] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:46.480] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:46.867] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:46.870] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:47.409] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:37:47.412] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:37:47.764] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:37:47.767] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:37:48.528] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:48.531] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:48.843] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:48.846] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:49.325] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:37:49.328] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:37:49.602] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:37:49.605] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:37:50.259] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:50.262] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:50.625] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:50.628] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:51.193] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:37:51.196] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:37:51.492] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:37:51.495] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:37:52.301] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:52.304] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:52.638] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:52.641] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:53.133] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:37:53.136] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:37:53.420] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:37:53.423] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:37:54.146] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:54.149] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:54.452] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:54.455] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:54.922] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:37:54.925] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:37:55.282] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:37:55.285] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:37:57.420] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:57.429] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:37:58.828] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:37:58.858] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:38:01.610] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:38:01.619] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:38:02.601] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:38:02.609] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:38:04.952] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:38:04.959] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:38:05.651] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:38:05.657] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:38:06.822] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:38:06.828] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:38:07.495] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:38:07.501] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
+[2025-05-06 16:38:09.008] [warning] Coordinate.setValue:  coordinate subtalar_angle_r is locked. Unable to change its value.
+[2025-05-06 16:38:09.015] [warning] Coordinate.setValue:  coordinate mtp_angle_r is locked. Unable to change its value.
+[2025-05-06 16:38:09.743] [warning] Coordinate.setValue:  coordinate subtalar_angle_l is locked. Unable to change its value.
+[2025-05-06 16:38:09.749] [warning] Coordinate.setValue:  coordinate mtp_angle_l is locked. Unable to change its value.
+[2025-05-06 16:38:10.836] [warning] Coordinate.setValue:  coordinate wrist_flex_r is locked. Unable to change its value.
+[2025-05-06 16:38:10.842] [warning] Coordinate.setValue:  coordinate wrist_dev_r is locked. Unable to change its value.
+[2025-05-06 16:38:11.505] [warning] Coordinate.setValue:  coordinate wrist_flex_l is locked. Unable to change its value.
+[2025-05-06 16:38:11.511] [warning] Coordinate.setValue:  coordinate wrist_dev_l is locked. Unable to change its value.
