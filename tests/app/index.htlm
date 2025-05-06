@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Human Poser</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>3D Human Poser</h1>
+
+    <div id="scene-container">
+        </div>
+
+    <div id="controls">
+        <h2>Controls</h2>
+        <label for="left-shoulder-y">Left Shoulder (Up/Down):</label>
+        <input type="range" id="left-shoulder-y" name="left-shoulder-y" min="-1.5" max="1.5" step="0.01" value="0"
+               data-bone="LeftArm" data-axis="z"> <span class="value">0</span>
+
+        <label for="left-shoulder-x">Left Shoulder (Fwd/Back):</label>
+        <input type="range" id="left-shoulder-x" name="left-shoulder-x" min="-1.5" max="1.5" step="0.01" value="0"
+               data-bone="LeftArm" data-axis="x"> <span class="value">0</span>
+
+        <label for="left-elbow">Left Elbow:</label>
+        <input type="range" id="left-elbow" name="left-elbow" min="-2.5" max="0" step="0.01" value="0"
+               data-bone="LeftForeArm" data-axis="z"> <span class="value">0</span>
+
+        </div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.163.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.163.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module" src="script.js"></script>
+</body>
+</html>

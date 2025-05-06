@@ -1,0 +1,45 @@
+body {
+    font-family: sans-serif;
+    margin: 0;
+    overflow: hidden; /* Prevent scrollbars from canvas */
+    display: flex;
+    height: 100vh;
+}
+
+#scene-container {
+    flex-grow: 1; /* Canvas takes up available space */
+    height: 100%;
+    background-color: #f0f0f0;
+}
+
+#controls {
+    width: 250px; /* Fixed width for controls */
+    padding: 20px;
+    box-sizing: border-box;
+    overflow-y: auto; /* Allow scrolling if controls exceed height */
+    height: 100%;
+    background-color: #e0e0e0;
+}
+
+#controls h2 {
+    margin-top: 0;
+}
+
+#controls label {
+    display: block;
+    margin-top: 15px;
+    font-size: 0.9em;
+}
+
+#controls input[type="range"] {
+    width: calc(100% - 40px); /* Adjust width */
+    vertical-align: middle;
+}
+
+#controls span.value {
+    display: inline-block;
+    width: 35px; /* Space for value display */
+    text-align: right;
+    font-size: 0.8em;
+    vertical-align: middle;
+}
