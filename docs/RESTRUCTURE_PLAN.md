@@ -7,6 +7,34 @@ answer: `bioscout/session/`. Today it doesn't — `session.py` (258KB) lives in
 and the `model` verb's actions are spread across four unrelated top-level
 folders (`model/`, `model_edit/`, `change_moment_arms/`, `muscle_inspect/`).
 
+## 0. Status (as of 2026-09-08)
+
+**Shipped** — CLI-layer part of stage 1 only, no file moves yet, so the
+package tree in section 2 is still entirely aspirational:
+- `bioscout simulate exbiomec|ma|so|ceinms SESSION_PATH` added, wrapping
+  `Iteration.run()` directly (needs `session.yaml`). Covers the stage
+  groupings that already existed as separate switches; still no honest
+  standalone `ik`/`id`/`jra`/`cmc`.
+- `run` and `pipeline.run_subject()` (+ the dead `run_subject_mode()` and
+  the now-orphaned `_run_session_ceinms()`) were **deleted outright**, not
+  kept as a hidden alias like stage 1 originally proposed — an explicit
+  decision, not a plan change of heart. Net effect: no single CLI call
+  currently batches a pipeline run across subjects or does
+  export/scale/reset in one step; `bioscout -b settings.py` still drives
+  `run_project()`/`run_pipeline()` for multi-subject batches in the
+  meantime. Rebuilding that sequencing under `session`/`simulate` is
+  unstarted.
+- `compare_osim_models` (dead code) and `export_c3d` -> `c3d_to_trc`
+  (rename) from section 3's open items are both done.
+
+**Not started**: `project` folding into `init`; stages 2-12 below (no files
+have moved — `openSim.py`/`session.py`/`model_edit/`/`change_moment_arms/`/
+`muscle_inspect/`/`figures.py`/etc. are all still exactly where section 2
+says they are "today"). Some of this work looks to be happening already but
+outside this plan's stages — `bioscout/mrs/` and a `scale_interactive.py`
+exist in the working tree — worth reconciling against stage 4/3 before
+either goes further, so the two don't diverge from what's written here.
+
 ## 1. Target CLI tree
 
 ```
@@ -320,18 +348,22 @@ The `openSim.py` scale/simulate split (the last real open question) is now
 resolved -- every one of its ~65 functions is categorised into `model/` or
 `simulate/` above, grounded in the `delegates_to=` map plus a grep of every
 caller, not guesswork. Two small judgment calls fell out of that pass and
-are flagged inline above rather than silently actioned:
+have since been actioned (see section 0):
 
-- **`compare_osim_models`** (in `openSim.py`) has zero callers repo-wide —
-  candidate for deletion rather than migration.
-- **`export_c3d`** (in `openSim.py`) should probably be renamed on the move
+- ~~**`compare_osim_models`** (in `openSim.py`) has zero callers repo-wide —
+  candidate for deletion rather than migration.~~ **Done** — deleted.
+- ~~**`export_c3d`** (in `openSim.py`) should probably be renamed on the move
   (e.g. `c3d_to_trc`) since `session/exportC3D.py` is right next door and the
-  names are easy to confuse, even though they aren't literal duplicates.
+  names are easy to confuse, even though they aren't literal duplicates.~~
+  **Done** — renamed to `c3d_to_trc`, its one call site updated.
 
 Everything else previously open is resolved: `utils/file_edit.py` stays in
 `utils/`; `record/` folding into `lab/` is confirmed, with
 `gui/widgets/recording.py`'s `from record.video import ...` needing to
 become a proper `bioscout.lab.record.video` import as part of that move.
+Neither of those two moves (or any other file move in section 2) has
+happened yet — only the naming/dead-code decision has, ahead of the actual
+`openSim.py` split in stage 6.
 
 ## 4. Why this can't be a single sed pass
 
@@ -378,10 +410,10 @@ become a proper `bioscout.lab.record.video` import as part of that move.
    and `model/scale/`'s additions go with stage 3/4's `model/` work;
    everything else (the pipeline-stage functions, the input-prep cluster,
    `find_non_zero_mom_arm_muscles`) plus `ceinms/`, `mrs/`, `gapfill.py`
-   becomes `simulate/`. Drop `compare_osim_models` rather than moving it;
-   rename `export_c3d` to something that doesn't collide with
-   `session/exportC3D.py`. ~27+ import sites combined across both halves —
-   an actual find/replace pass plus a full `bioscout.test()` run, not by hand.
+   becomes `simulate/`. (`compare_osim_models`/`export_c3d` -- already
+   dropped/renamed, see section 0; nothing left to decide there.) ~27+
+   import sites combined across both halves — an actual find/replace pass
+   plus a full `bioscout.test()` run, not by hand.
 7. **Extract `session/`**: move `session.py` + friends + `exportC3D.py` +
    `motion_detect.py`; same treatment.
 8. **Extract `core/`**: move `analysis.py` into the existing `core/`, along
