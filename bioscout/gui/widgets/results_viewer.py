@@ -215,7 +215,7 @@ def _time_normalise(df: "pd.DataFrame") -> "pd.DataFrame":
 # the difference, so ask it rather than globbing directories and hoping.
 
 def _layout():
-    from bioscout.utils import session_layout as _L
+    from bioscout.session import layout as _L
     return _L
 
 

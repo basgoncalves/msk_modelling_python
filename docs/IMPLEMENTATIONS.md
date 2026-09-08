@@ -108,7 +108,7 @@ refuse, because the alternative is output that looks plausible and is wrong.*
   by absolute path (points somewhere else on any other machine). *Lesson: the
   tier that resolved a path is the finding, not whether it resolved.*
 
-  *2026-08-19: the five fixes above land in `bioscout/utils/run_check.py`
+  *2026-08-19: the five fixes above land in `bioscout/devtools/run_check.py`
   (stdlib-only; 15 tests in `tests/test_run_check.py`): `Iteration.run` ends
   with a trial × stage ok/MISS table + `run_report.json` and marks the run
   incomplete; `run_emg_normalise` REFUSES emg_map channels that exist in no

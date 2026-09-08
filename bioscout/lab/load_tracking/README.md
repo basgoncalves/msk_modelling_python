@@ -30,7 +30,7 @@ GUI: launch BioScout → **Load Tracking** tab → add files/folder → set HR p
 Python:
 
 ```python
-from bioscout.load_tracking import LoadTracker, AthleteProfile
+from bioscout.lab.load_tracking import LoadTracker, AthleteProfile
 
 tr = LoadTracker(athlete=AthleteProfile(name="Bas", age=30, hr_max=190, hr_rest=55))
 tr.add_files("zepp_exports/")     # folder, glob, or list of files
@@ -40,7 +40,7 @@ tr.report("load_report.pdf")
 ```
 
 A worked example lives in `example_data/load_tracking/` (synthetic 4-week block +
-`example_load_report.pdf`). Regenerate with `python -m bioscout.load_tracking.sample_data out_dir/`.
+`example_load_report.pdf`). Regenerate with `python -m bioscout.lab.load_tracking.sample_data out_dir/`.
 
 ## Pulling automatically from the cloud (no manual export)
 

@@ -1,4 +1,4 @@
-"""bioscout.utils.run_check — the anti-silent-failure toolbox.
+"""bioscout.devtools.run_check — the anti-silent-failure toolbox.
 
 Every function here exists because of a failure that produced NO error — the
 worst kind, catalogued in ``docs/IMPLEMENTATIONS.md`` §1 "Silent-failure

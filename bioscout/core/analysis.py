@@ -846,7 +846,7 @@ def check_settings_version(settings, project_dir=None, verbose=True):
     Returns True if they match (or can't be compared), False on mismatch.
     Does NOT modify anything — migrating a heavily-customised project
     ``settings.py`` can drop custom fields, so updating is left to an explicit,
-    backed-up call (``bioscout.utils.settings_updater.write_updated_settings``)
+    backed-up call (``bioscout.devtools.settings_updater.write_updated_settings``)
     or the GUI's "Update Settings" button.
     """
     try:
@@ -872,7 +872,7 @@ def check_settings_version(settings, project_dir=None, verbose=True):
             print(f"[bioscout] settings schema mismatch{loc}: project __version__={proj_ver} "
                   f"!= package={pkg_ver}.")
             print("           To migrate (backs up settings.py first):")
-            print("             from bioscout.utils.settings_updater import write_updated_settings")
+            print("             from bioscout.devtools.settings_updater import write_updated_settings")
             print("             write_updated_settings(r'<project>/settings.py')")
             print("           NOTE: the migrator only preserves standard fields; back up custom "
                   "config (model_config, MODELS, …) first.")
@@ -909,7 +909,7 @@ def migrate_settings(project, write=False, verbose=True):
     """Update a project's settings.py to the current schema, keeping its values.
 
     Same engine as the GUI's "Update Settings" button
-    (``bioscout.utils.settings_updater``): regenerates the file from the latest
+    (``bioscout.devtools.settings_updater``): regenerates the file from the latest
     package template and re-injects the project's own values.
 
     ``write=False`` (default) returns ``(new_text, preserved_lines)`` for preview.
@@ -920,7 +920,7 @@ def migrate_settings(project, write=False, verbose=True):
     if sp.is_dir():
         sp = sp / "settings.py"
     try:
-        from bioscout.utils import settings_updater as su
+        from bioscout.devtools import settings_updater as su
     except Exception:
         su = importlib.import_module("utils.settings_updater")
     if write:
@@ -1179,7 +1179,7 @@ def __getattr__(name):
         # bioscout.session.session. Re-export lazily so legacy
         # `from bioscout.core.analysis import Session` keeps working, without a
         # module-load import cycle (session imports Analyse).
-        from bioscout.utils import session as _s
+        from bioscout.session import session as _s
         return getattr(_s, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
@@ -2977,7 +2977,7 @@ class Analyse:
         # under similar names (022: 32 "Voltage" channels, 16 of them noise).
         _emg_channels = None
         try:
-            from bioscout.utils import emg_filter as _ef
+            from bioscout.emg import filter as _ef
             _scfg = _ef.session_config_near(self.path) or {}
             _emg_channels = list((_scfg.get("emg_map") or {}).keys()) or None
         except Exception:
@@ -4094,7 +4094,7 @@ class Analyse:
             # has one. Before this only the envelope cutoff was reachable; the
             # band-pass corners and both orders were positional defaults, so a
             # result could not be reproduced from its session file.
-            from bioscout.utils import emg_filter as _ef
+            from bioscout.emg import filter as _ef
             _fset = _ef.from_session_dir(self.path, _u.settings.BatchSettings)
             self._log(f"[EMG] {_ef.describe(_fset)}")
             filtered = _u.emg_normalise.filter_emg(
@@ -4157,7 +4157,7 @@ class Analyse:
             fs = 1.0 / ((t[-1] - t[0]) / (n - 1))
         else:
             fs = getattr(_u.settings.BatchSettings, 'emg_sampling_freq', None) or 1000.0
-        from bioscout.utils import emg_filter as _ef
+        from bioscout.emg import filter as _ef
         _fset = _ef.from_session_dir(self.path, _u.settings.BatchSettings)
         _pre = _u.emg_normalise.emg_prefix_for(data.columns)
         filtered = _u.emg_normalise.filter_emg(
@@ -7020,6 +7020,6 @@ class Analyse:
 # the analysis module, e.g. `from bioscout.core.analysis import SubjectProfile`.
 # (Distinct data model from Subject: anthropometry, segment fractions, pose
 # calibration and per-task detection settings for the video pipeline.)
-from bioscout.utils.subject_profile import (  # noqa: E402,F401
+from bioscout.lab.subject_profile import (  # noqa: E402,F401
     SubjectProfile, SubjectStore, ProjectSubjectStore, DEFAULT_SEGMENT_FRACTIONS,
 )

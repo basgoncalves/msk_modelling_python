@@ -7,7 +7,7 @@ Ties the pieces together:
 
 Typical use
 -----------
-    from bioscout.load_tracking import LoadTracker, AthleteProfile
+    from bioscout.lab.load_tracking import LoadTracker, AthleteProfile
 
     tracker = LoadTracker(athlete=AthleteProfile(name="Bas", age=30,
                                                  hr_max=190, hr_rest=55))

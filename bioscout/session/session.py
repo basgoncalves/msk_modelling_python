@@ -1379,7 +1379,7 @@ def write_session_yaml(spec: SessionSpec, path=None) -> str:
     # the spec from several sources, which is where the FAIS duplicates
     # actually came from.
     try:
-        from bioscout.utils import run_check as _rc
+        from bioscout.devtools import run_check as _rc
         _dups = _rc.duplicate_yaml_keys(text)
         if _dups:
             raise ValueError(
@@ -2476,7 +2476,7 @@ class Iteration:
         # which is how a generated file with `Voltage_1:` twice calibrated on
         # the wrong data without a word (IMPLEMENTATIONS §1).
         try:
-            from bioscout.utils import run_check as _rc
+            from bioscout.devtools import run_check as _rc
             with open(path, "r", encoding="utf-8", errors="replace") as _fh:
                 _dups = _rc.duplicate_yaml_keys(_fh.read())
             for _k, _a, _b in _dups:
@@ -3033,7 +3033,7 @@ class Iteration:
         # tagged sibling is a loud warning, because only the rig's owner
         # knows which column is the signal.
         try:
-            from bioscout.utils import run_check as _rc
+            from bioscout.devtools import run_check as _rc
         except Exception:                                      # noqa: BLE001
             _rc = None
         if _rc is not None:
@@ -3481,7 +3481,7 @@ class Iteration:
             # with `body_mass_from_grf: false` in session.yaml.
             if self._cfg.get("body_mass_from_grf", True):
                 try:
-                    from bioscout.utils import scale_measurements as _sm
+                    from bioscout.model.scale import measurements as _sm
                     _grf = os.path.join(experimental_dir(self.session_dir, static_trial),
                                         "grf.mot")
                     _m = _sm.mass_from_static_grf(_grf, verbose=False)
@@ -3832,7 +3832,7 @@ class Iteration:
         # (IMPLEMENTATIONS §1). Warn NOW, with the worst offenders named.
         if os.name == "nt":
             try:
-                from bioscout.utils import run_check as _rc
+                from bioscout.devtools import run_check as _rc
                 _hits = _rc.long_paths(self.path)
                 if _hits:
                     log(f"  [preflight WARNING] {len(_hits)}+ path(s) within "
@@ -4148,7 +4148,7 @@ class Iteration:
         # this says what EXISTS, per trial per stage, and the difference is
         # printed as a table that cannot scroll past unnoticed.
         try:
-            from bioscout.utils import run_check as _rc
+            from bioscout.devtools import run_check as _rc
             _req = [st for st, on in (("export", export),
                                       ("exbiomec", do_exbiomec),
                                       ("muscle_analysis", do_muscle_analysis),

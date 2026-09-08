@@ -12,6 +12,49 @@ All notable changes to BioScout are documented here.
 > and a note here.
 
 
+## [3.0.3] — 2026-09-08
+
+Restructure stages 9-12 — the last of them. `utils/` is now what its name
+says: io, helpers, shared, xml_utils, logger, stats, resource_cleanup,
+file_edit, plotting, analyse, and the two new modules below.
+
+- **`plot/summary.py`** (stage 9) <- `utils/summary.py`.
+- **`lab/`** (stage 10, new) <- `load_tracking/`, `record/`,
+  `utils/subject_profile.py`. `gui/widgets/recording.py` and the other GUI
+  widgets now import `bioscout.lab.record` instead of the bare `record`.
+- **`devtools/`** (stage 11, new) <- `envcheck.py` (from the package root),
+  `utils/dependency_installer.py`, `utils/md2pdf.py`,
+  `utils/settings_updater.py`, `utils/run_check.py`. The `utils` VERB is
+  unchanged; only its backend is renamed, so "utils" stops meaning two things.
+- **`utils/filters.py`** (stage 11): `bandpass()` / `lowpass()` pulled out of
+  `emg_normalise.filter_emg()`'s inline scipy butter+filtfilt calls, which now
+  call them. One behaviour change: an unrealisable cutoff (edges crossed, or
+  at/above Nyquist) now raises `ValueError` naming the frequency and the
+  sampling rate. It raised before too — from scipy, with a less specific
+  message — and the existing warning prints are unchanged.
+- **`utils/text_prints.py`** (stage 11): the `[tag] message` console helpers.
+  A SEED module — nothing is migrated onto it yet, on purpose; adoption
+  happens as each module is next touched for its own reasons.
+- **`init/`** (stage 12, new) <- `utils/project_config.py`.
+- **`model/report.py`** <- `utils/model_report.py`, finishing stage 4's
+  `model` consolidation (it is the implementation behind `model compare`).
+
+CLI:
+- `bioscout tps` is now **`bioscout model tps`** — what it produces is a
+  model, so it belongs under that verb.
+- The verb list is reordered so `simulate` comes before `session`: a session
+  reads the results a simulate stage writes, so that is the order they are
+  used in. `bioscout -h` is nine verbs: help, init, gui, model, simulate,
+  session, plot, utils, lab.
+
+Also fixed: `bioscout/__main__.py` still loaded `utils/openSim.py` by file
+path as a fallback (a dance that existed only because that module could not
+be imported through its own package mid-initialisation). It is a plain
+`from bioscout.simulate import opensim` now. And two test modules
+(`test_run_check`, `test_project_config`) load their subject by file path and
+were silently SKIPPING after the move rather than failing — caught by
+diffing the suite result against the pre-move run, and repointed.
+
 ## [3.0.2] — 2026-09-08
 
 Restructure stages 5-8 (docs/RESTRUCTURE_PLAN.md): `utils/` stops being the

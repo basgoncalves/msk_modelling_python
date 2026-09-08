@@ -5,7 +5,7 @@ markdown -> .docx (pandoc) -> .pdf (LibreOffice) instead, which is already on
 every machine that opens the manuscript, keeps tables and images, and gives a
 .docx for free.
 
-    from bioscout.utils.md2pdf import md_to_pdf
+    from bioscout.devtools.md2pdf import md_to_pdf
     md_to_pdf("review/ceinms_calibration_review.md")
 
 or from the command line::

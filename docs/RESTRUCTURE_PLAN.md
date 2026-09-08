@@ -7,65 +7,67 @@ answer: `bioscout/session/`. Today it doesn't — `session.py` (258KB) lives in
 and the `model` verb's actions are spread across four unrelated top-level
 folders (`model/`, `model_edit/`, `change_moment_arms/`, `muscle_inspect/`).
 
-## 0. Status (as of 2026-09-08, v3.0.2)
+## 0. Status (as of 2026-09-08, v3.0.3) — ALL 12 STAGES DONE
 
-**Stages 1-8 shipped.** The package tree now looks like section 2 for
-everything except the last three stages. What exists today:
+The package tree mirrors the verb tree. What exists:
 
 ```
-bioscout/  core/ (analysis, subject_registry, jcf_contributions)
-           emg/ (emg, analysis, channels, filter, normalise)
-           model/ (check/verify + edit/ moment_arms/ inspect/ tps/ scale/
-                   + opensim_base.py, muscle_optimize.py)
-           session/ (session, form, layout, paths, exportC3D, motion_detect,
-                     movement_detector/)
-           simulate/ (opensim.py, ceinms/, mrs/, gapfill.py)
-           plot/ (figures, collings, compare, config, tidy, work, jcf_direction)
-           gui/  load_tracking/  record/  utils/  config/  tests/
+bioscout/  core/      Project/Subject/Trial + the analysis engine
+           emg/       filtering, channels, MVC normalisation, synergies
+           model/     check/verify + edit/ moment_arms/ inspect/ tps/ scale/
+                      + opensim_base.py, muscle_optimize.py, report.py
+           simulate/  opensim.py (the stages), ceinms/, mrs/, gapfill.py
+           session/   session, form, layout, paths, exportC3D, motion_detect,
+                      movement_detector/
+           plot/      figures, collings, summary, compare, config, tidy, work,
+                      jcf_direction
+           lab/       load_tracking/, record/, subject_profile.py
+           init/      project_config.py
+           devtools/  envcheck, dependency_installer, md2pdf, settings_updater,
+                      run_check          (the `utils` VERB's backend)
+           utils/     io, helpers, shared, xml_utils, logger, stats,
+                      resource_cleanup, filters, text_prints, file_edit,
+                      plotting, analyse  (generic helpers -- its real meaning)
+           gui/  config/  tests/  models/  setup_files/
 ```
 
-CLI: ten verbs -- help, init, gui, session, model, tps, simulate, plot, utils,
-lab. `run`, `project`, `scale`, `mrs` are gone as top-level verbs
-(`init --from-settings`, `model scale`, `simulate mrs`); `model ma` is
-`model tune-ma`; `simulate exbiomec|ma|so|ceinms` exists.
+`bioscout -h` is nine verbs: **help, init, gui, model, simulate, session,
+plot, utils, lab**. `simulate` is listed before `session` because a session
+reads what a simulate stage writes. `run`, `project`, `scale`, `mrs` and `tps`
+are gone as top-level verbs (`init --from-settings`, `model scale`,
+`simulate mrs`, `model tps`); `model ma` is `model tune-ma`.
 
-Deviations from the text below, all deliberate:
+Deviations from the plan below, all deliberate:
 - `run` and `pipeline.run_subject()` were **deleted outright** rather than kept
-  as a hidden alias. No single CLI call batches a pipeline run across subjects
-  or does export/scale/reset in one step; `bioscout -b settings.py` still
-  drives `run_project()`/`run_pipeline()` meanwhile. Rebuilding that
-  sequencing under `session`/`simulate` is unstarted.
-- `simulate` only exposes the stage groupings that already exist as separate
+  as a hidden alias. **Nothing currently batches a pipeline run across
+  subjects from the CLI**, or does export/scale/reset in one step;
+  `bioscout -b settings.py` still drives `run_project()`/`run_pipeline()`.
+  Rebuilding that sequencing under `session`/`simulate` is the main piece of
+  work this restructure leaves open.
+- `simulate` exposes only the stage groupings that already exist as separate
   switches on `Iteration.run()` -- no standalone `ik`/`id`/`jra`/`cmc` yet.
-- `model_scaler.py` kept its name under `model/scale/`; `scale_measurements.py`
-  became `model/scale/measurements.py`; the openSim.py scale share became
-  `model/scale/osim_scale.py`.
-- `tps` is still a top-level verb (its package moved to `model/tps/`, but
-  nesting the VERB under `model` is not done).
-- `utils/model_report.py` has NOT moved to `model/report.py` yet.
-- `utils.openSim` / `get_openSim()` were kept as names but now resolve to
-  `bioscout.simulate.opensim` (the simulation half only). Model-side functions
-  are deliberately unreachable through them.
+- `utils/text_prints.py` exists but nothing is migrated onto it yet.
+- `utils/` also still holds `file_edit.py`, `plotting.py` and `analyse.py`,
+  which this plan never assigned a home.
+- `emg_filter.py` became `emg/filter.py` (the plan called for it to stay whole
+  -- it did, it just moved with its siblings).
 
-**Not started**: stages 9-12 -- `summary.py` -> `plot/`, `lab/`
-(load_tracking + record + subject_profile), `devtools/` + `utils/filters.py` +
-`utils/text_prints.py`, and `init/`. `utils/` still holds io/helpers/shared/
-xml_utils/logger/stats/resource_cleanup (its intended contents) PLUS
-model_report, summary, file_edit, subject_profile, project_config, analyse and
-the devtools-bound modules, which those stages move out.
-
-**How stages 5-8 were verified** (no OpenSim/scipy in the agent's environment,
-so this is static + partial-suite, NOT a pipeline run):
-- every one of openSim.py's 62 functions compared AST-node-by-AST-node against
-  its new home -- byte-equivalent, none dropped, none duplicated;
-- a resolver over every absolute AND relative import in the package (this
-  caught a real 3.0.1 bug: `core/analysis.py`'s `from ..muscle_inspect`);
+**How this was verified** (the agent's environment has no OpenSim, scipy,
+matplotlib or pandas, so this is static analysis plus the subset of the suite
+that runs without them -- NOT a pipeline run):
+- all 62 of openSim.py's functions compared AST-node-by-node against their new
+  homes: byte-equivalent, none dropped or duplicated;
+- a resolver over every absolute AND relative bioscout import, run after each
+  stage (this is what caught the 3.0.1 `..muscle_inspect` bug);
 - `compileall` over the committed tree;
-- the test modules that run without scipy/matplotlib: 264 tests, same
-  pass/fail set as before the restructure, with three modules newly ABLE to
-  import.
-**Still needs a real run**: `bioscout.test()` in the conda env, and one
-pipeline pass (scale -> IK -> ID -> SO -> CEINMS) before trusting this.
+- the runnable suite diffed against its pre-restructure result after every
+  stage -- which is what caught `test_run_check` and `test_project_config`
+  silently SKIPPING (they load their subject by file path) rather than
+  failing.
+
+**Before trusting any of this**: run `bioscout.test()` in the conda env, and
+one real pipeline pass (scale -> IK -> ID -> SO -> CEINMS). Nothing that
+imports OpenSim has executed.
 
 ## 1. Target CLI tree
 
@@ -450,18 +452,18 @@ happened yet — only the naming/dead-code decision has, ahead of the actual
    `motion_detect.py`; same treatment.
 8. ~~DONE (v3.0.2)~~ **Extract `core/`**: move `analysis.py` into the existing `core/`, along
    with `subject_registry.py` and `jcf_contributions.py`.
-9. **Move `summary.py` into `plot/`**, alongside `figures.py`/`collings.py`
+9. ~~DONE (v3.0.3)~~ **Move `summary.py` into `plot/`**, alongside `figures.py`/`collings.py`
    from stage 2 -- small, can ride along with that stage instead of getting
    its own if it's easier.
-10. **Extract `lab/`**: move `load_tracking/`, `record/`,
+10. ~~DONE (v3.0.3)~~ **Extract `lab/`**: move `load_tracking/`, `record/`,
     `subject_profile.py` in together; fix `gui/widgets/recording.py`'s
     import.
-11. **Rename the `utils` verb's backend to `devtools/`**, and start
+11. ~~DONE (v3.0.3)~~ **Rename the `utils` verb's backend to `devtools/`**, and start
     `utils/filters.py` with the `bandpass()`/`lowpass()` primitives pulled
     out of `emg_normalise.filter_emg()`, plus `utils/text_prints.py` --
     small and simple to start, migrate bigger modules' logic in over time
     as it's found.
-12. **`init/`**: lowest urgency, smallest blast radius — last.
+12. ~~DONE (v3.0.3)~~ **`init/`**: lowest urgency, smallest blast radius — last.
 
 I'd suggest starting at stage 1 (the part you actually asked for — nicer
 `bioscout -h`) and treating 2 onward as separate, reviewable pieces of work

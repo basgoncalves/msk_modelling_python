@@ -14,7 +14,7 @@ import time
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from settings import RecordingSettings
-from record.video import AVAILABLE_MODELS, MovementTracker
+from bioscout.lab.record.video import AVAILABLE_MODELS, MovementTracker
 from utils.resource_cleanup import get_running_apps, get_system_memory_info, close_applications
 
 # Suppress ffmpeg warnings for MJPEG streams (harmless content-length warnings)

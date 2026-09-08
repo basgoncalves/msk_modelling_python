@@ -70,7 +70,7 @@ def processed_name(input_name: str, suffix: str = "_processed") -> str:
 
 
 def _layout():
-    from bioscout.utils import session_layout as _L
+    from bioscout.session import layout as _L
     return _L
 
 

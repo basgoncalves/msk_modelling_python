@@ -85,7 +85,7 @@ def _download_file(url: str, dest: Path, progress_cb=None, timeout: int = 20) ->
 # Lazy-import to avoid hard crash if mediapipe/cv2 missing
 AVAILABLE_MODELS = {}
 try:
-    from record.video import AVAILABLE_MODELS
+    from bioscout.lab.record.video import AVAILABLE_MODELS
 except Exception as _e:
     logger.warning(f"VideoAnalysisTab: could not import AVAILABLE_MODELS: {_e}")
 
@@ -109,7 +109,7 @@ class VideoAnalysisTab(ctk.CTkFrame):
         # the CLI stay in sync. Re-rooted to the active project via
         # set_project_dir() when a project is loaded.
         try:
-            from utils.subject_profile import ProjectSubjectStore
+            from bioscout.lab.subject_profile import ProjectSubjectStore
             self._subject_store = ProjectSubjectStore(Path.cwd())
         except Exception as _e:
             logger.warning(f"VideoAnalysisTab: subject profiles unavailable: {_e}")
@@ -2426,7 +2426,7 @@ class VideoAnalysisTab(ctk.CTkFrame):
         the --add_subject CLI writes).
         """
         try:
-            from utils.subject_profile import ProjectSubjectStore
+            from bioscout.lab.subject_profile import ProjectSubjectStore
             self._subject_store = ProjectSubjectStore(Path(project_dir))
         except Exception as e:
             logger.warning(f"VideoAnalysisTab.set_project_dir failed: {e}")
@@ -2524,7 +2524,7 @@ class VideoAnalysisTab(ctk.CTkFrame):
 
     def _subject_profile_dialog(self, prof):
         """Modal create/edit dialog for a subject profile."""
-        from utils.subject_profile import SubjectProfile
+        from bioscout.lab.subject_profile import SubjectProfile
         import tkinter as _tk
 
         is_new = prof is None

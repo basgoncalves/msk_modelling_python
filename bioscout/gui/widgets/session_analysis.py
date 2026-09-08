@@ -101,12 +101,12 @@ _OK, _MISS, _NA = "#4cc46a", "#e06c75", "#4a4a55"
 
 
 def _layout():
-    from bioscout.utils import session_layout as _L
+    from bioscout.session import layout as _L
     return _L
 
 
 def _run_check():
-    from bioscout.utils import run_check as _rc
+    from bioscout.devtools import run_check as _rc
     return _rc
 
 

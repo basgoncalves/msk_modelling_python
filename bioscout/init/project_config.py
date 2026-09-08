@@ -1,4 +1,4 @@
-"""bioscout.utils.project_config — lab facts as data (docs/IMPLEMENTATIONS §2.9).
+"""bioscout.init.project_config — lab facts as data (docs/IMPLEMENTATIONS §2.9).
 
 Steps 1 + 2 of retiring the copied per-project ``settings.py``:
 

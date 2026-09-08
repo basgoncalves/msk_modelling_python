@@ -2,7 +2,7 @@
 
 Subject → session tree, import from files / Zepp / Strava (with a per-subject
 credentials editor stored in subjects.json), an embedded dashboard, and PDF+CSV
-export. Built on the bioscout.load_tracking engine + utils.subject_registry.
+export. Built on the bioscout.lab.load_tracking engine + utils.subject_registry.
 
 subjects.json lives in the project's ``Models/`` folder (copied there by --init);
 raw per-session traces are cached under ``Models/<subject_id>/tracking/``.
@@ -72,7 +72,7 @@ class TrainingTrackingTab(ctk.CTkFrame):
     # ------------------------------------------------------------------ store
     def _get_store(self):
         if self._store is None:
-            from load_tracking.tracking_store import TrackingStore
+            from bioscout.lab.load_tracking.tracking_store import TrackingStore
             self._store = TrackingStore(self.registry, self.project_root)
         return self._store
 
@@ -374,7 +374,7 @@ class TrainingTrackingTab(ctk.CTkFrame):
             self.kpi_lbl.configure(text="Select or add a subject to begin.")
             self._clear_all_panels(); return
         try:
-            from load_tracking import LoadTracker
+            from bioscout.lab.load_tracking import LoadTracker
             store = self._get_store()
             sessions = store.load_all_sessions(pid)
             if not sessions:
@@ -396,7 +396,7 @@ class TrainingTrackingTab(ctk.CTkFrame):
     def _draw_kpis(self):
         r = self._tracker.results
         acwr = r.acwr.get("latest_acwr")
-        from load_tracking import metrics as _m
+        from bioscout.lab.load_tracking import metrics as _m
         lbl = _m.acwr_status(acwr)[0] if acwr is not None else "n/a"
         wk = r.mono_strain.get("weekly_load")
         fat = r.ff.get("latest_fatigue")
@@ -442,12 +442,12 @@ class TrainingTrackingTab(ctk.CTkFrame):
                      color=[s.color for s in states][::-1])
         ax1.set_title("Fatigue index", fontsize=9, loc="left"); self._style_ax(ax1)
         # contraction work breakdown
-        from load_tracking import contraction
+        from bioscout.lab.load_tracking import contraction
         agg = contraction.aggregate_work(r.sessions, r.muscle_loads)
         pm = agg["per_muscle"]
         if pm:
             import numpy as np
-            from load_tracking.muscle_map import MUSCLE_LABELS
+            from bioscout.lab.load_tracking.muscle_map import MUSCLE_LABELS
             muscles = sorted(pm, key=lambda m: pm[m]["total"], reverse=True)[:8][::-1]
             names = [MUSCLE_LABELS.get(m, m).split(" (")[0] for m in muscles]
             conc = [pm[m]["concentric"] for m in muscles]

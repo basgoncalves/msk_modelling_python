@@ -4,10 +4,10 @@
     bioscout help [VERB]     this, or one verb's detail
     bioscout init            start a project (folders, models, project.yaml)
     bioscout gui             launch the GUI
-    bioscout session         new / export / classify / ingest / reset
-    bioscout model           check / edit / compare / ma / validate / joint-centres
-    bioscout tps             build an MRI-personalised model
-    bioscout simulate        run an OpenSim/CEINMS stage on an existing session (or mrs)
+    bioscout model           check / edit / compare / tune-ma / scale / tps
+    bioscout simulate        run an OpenSim/CEINMS stage on a session (or mrs)
+    bioscout session         new / export / classify / ingest / reset -- reads
+                             the results `simulate` writes, so it comes after it
     bioscout plot            figures, summaries, Collings ranking
     bioscout utils           env / install / md2pdf / pylance
     bioscout lab             EXPERIMENTAL 3.0: shots, load reports
@@ -50,7 +50,7 @@ from typing import List, Optional, Sequence, Tuple
 __all__ = ["VERBS", "build_parser", "route", "main", "legacy_hint"]
 
 #: Root verbs. ``__main__`` checks this before it builds the legacy parser.
-VERBS = ("help", "init", "gui", "session", "model", "tps", "simulate",
+VERBS = ("help", "init", "gui", "model", "simulate", "session",
          "plot", "utils", "lab")
 
 _EPILOG = """\
@@ -97,6 +97,86 @@ def build_parser() -> argparse.ArgumentParser:
 
     # -- gui ----------------------------------------------------------------- #
     sub.add_parser("gui", help="launch the GUI (also the default with no verb)")
+
+    # -- model --------------------------------------------------------------- #
+    m = sub.add_parser("model", help="check, edit, compare and validate .osim models")
+    ms = m.add_subparsers(dest="action", metavar="ACTION")
+
+    mc = ms.add_parser("check", help="can every model still find its bone meshes?")
+    mc.add_argument("path", nargs="*", metavar="FOLDER_OR_OSIM")
+    mc.add_argument("--strict", action="store_true",
+                    help="fail on anything not resolvable from the model's own folder")
+    mc.add_argument("--search", action="append", metavar="DIR")
+    mc.add_argument("--json", metavar="FILE")
+    mc.add_argument("--project", metavar="PATH")
+    mc.add_argument("-v", "--verbose", action="store_true")
+    mc.add_argument("-q", "--quiet", action="store_true")
+
+    me = ms.add_parser("edit", help="scale, set mass, change forces, moment arms, markers")
+    me.add_argument("path", nargs="?", metavar="PROJECT_PATH")
+
+    mp = ms.add_parser("compare", help="dimensions and segment masses across models")
+    mp.add_argument("models", nargs="+", metavar="FOLDER_OR_OSIM")
+    mp.add_argument("--scale-setups", nargs="+", metavar="LABEL=SETUP.xml",
+                    help="ScaleTool setups, to report the scaling INTENT behind each")
+    mp.add_argument("-o", "--out", metavar="FILE", help="write the tables to .xlsx/.csv")
+    mp.add_argument("--figures", nargs="?", const=True, metavar="DIR")
+
+    ma = ms.add_parser("tune-ma", help="adjust a muscle's moment arm, interactively")
+    ma.add_argument("path", nargs="?", metavar="PROJECT_PATH")
+
+    mv = ms.add_parser("validate", help="moment arms, fibre lengths, strength vs literature")
+    mv.add_argument("--model", required=True, metavar="OSIM")
+    mv.add_argument("--out", metavar="DIR")
+    mv.add_argument("--side", default="_r", choices=["_r", "_l"])
+
+    mj = ms.add_parser("joint-centres", aliases=["jc"],
+                       help="add Harrington hip / midpoint knee-ankle centres to a TRC")
+    mj.add_argument("trc", metavar="TRC")
+    mj.add_argument("-o", "--out", metavar="FILE")
+
+    mt = ms.add_parser("tps", help="build an MRI-personalised model (interactive)",
+                       description="Warps a generic model onto MRI/3D-Slicer "
+                                   "landmarks. What it produces IS a model, "
+                                   "which is why it lives here rather than at "
+                                   "the top level.")
+    mt.add_argument("path", nargs="?", metavar="PROJECT_PATH")
+
+    # -- simulate -------------------------------------------------------------- #
+    # Only the stage groupings that actually exist as separate switches today
+    # (Iteration.run() in utils/session.py): IK and ID are one atomic stage
+    # there (`do_exbiomec`), and JRA is produced as part of the SO or CEINMS
+    # stage, not on its own -- so there's no honest standalone `ik`/`id`/`jra`
+    # yet. Splitting those apart is real surgery on code with hard-won
+    # production history behind it (see docs/RESTRUCTURE_PLAN.md), left for
+    # a later, separately-reviewed step rather than guessed at here.
+    sm = sub.add_parser(
+        "simulate", help="run an OpenSim/CEINMS stage on one session's model(s)",
+        description="Runs a stage of Iteration.run() directly against an "
+                    "existing session (needs session.yaml -- see `session new`). "
+                    "Model creation/scaling lives under `model`, not here.")
+    sms = sm.add_subparsers(dest="action", metavar="ACTION")
+
+    def _simulate_action(name, help_text):
+        act = sms.add_parser(name, help=help_text)
+        act.add_argument("path", metavar="SESSION_PATH")
+        act.add_argument("--iteration", metavar="NAME",
+                         help="which model arm (default: every one on disk)")
+        act.add_argument("--trial", metavar="NAME",
+                         help="restrict to these trials (comma-separated; "
+                              "default: session.yaml's own trial list)")
+        act.add_argument("--replace", action="store_true",
+                         help="recompute outputs that already exist")
+        return act
+
+    _simulate_action("exbiomec", "inverse kinematics -> inverse dynamics")
+    _simulate_action("ma", "muscle analysis")
+    _simulate_action("so", "static optimisation -> muscle moments -> joint reaction")
+    _simulate_action("ceinms", "calibrate + execute CEINMS -> joint reaction")
+    # `simulate mrs` forwards to bioscout.simulate.mrs.cli's own parser (see
+    # route()); registered here only so it shows in `bioscout simulate -h`.
+    sms.add_parser("mrs", help="Muscle Redundancy Solver (KU Leuven, via MATLAB): "
+                               "`simulate mrs check`, `simulate mrs run TRIAL`")
 
     # -- session ------------------------------------------------------------- #
     s = sub.add_parser("session", help="create, export, classify or reset a session")
@@ -165,83 +245,6 @@ def build_parser() -> argparse.ArgumentParser:
     sr.add_argument("--dry-run", action="store_true", help="preview, touch nothing")
     sr.add_argument("--raw", action="store_true",
                     help="also prune inputs/ down to the raw c3d")
-
-    # -- model --------------------------------------------------------------- #
-    m = sub.add_parser("model", help="check, edit, compare and validate .osim models")
-    ms = m.add_subparsers(dest="action", metavar="ACTION")
-
-    mc = ms.add_parser("check", help="can every model still find its bone meshes?")
-    mc.add_argument("path", nargs="*", metavar="FOLDER_OR_OSIM")
-    mc.add_argument("--strict", action="store_true",
-                    help="fail on anything not resolvable from the model's own folder")
-    mc.add_argument("--search", action="append", metavar="DIR")
-    mc.add_argument("--json", metavar="FILE")
-    mc.add_argument("--project", metavar="PATH")
-    mc.add_argument("-v", "--verbose", action="store_true")
-    mc.add_argument("-q", "--quiet", action="store_true")
-
-    me = ms.add_parser("edit", help="scale, set mass, change forces, moment arms, markers")
-    me.add_argument("path", nargs="?", metavar="PROJECT_PATH")
-
-    mp = ms.add_parser("compare", help="dimensions and segment masses across models")
-    mp.add_argument("models", nargs="+", metavar="FOLDER_OR_OSIM")
-    mp.add_argument("--scale-setups", nargs="+", metavar="LABEL=SETUP.xml",
-                    help="ScaleTool setups, to report the scaling INTENT behind each")
-    mp.add_argument("-o", "--out", metavar="FILE", help="write the tables to .xlsx/.csv")
-    mp.add_argument("--figures", nargs="?", const=True, metavar="DIR")
-
-    ma = ms.add_parser("tune-ma", help="adjust a muscle's moment arm, interactively")
-    ma.add_argument("path", nargs="?", metavar="PROJECT_PATH")
-
-    mv = ms.add_parser("validate", help="moment arms, fibre lengths, strength vs literature")
-    mv.add_argument("--model", required=True, metavar="OSIM")
-    mv.add_argument("--out", metavar="DIR")
-    mv.add_argument("--side", default="_r", choices=["_r", "_l"])
-
-    mj = ms.add_parser("joint-centres", aliases=["jc"],
-                       help="add Harrington hip / midpoint knee-ankle centres to a TRC")
-    mj.add_argument("trc", metavar="TRC")
-    mj.add_argument("-o", "--out", metavar="FILE")
-
-    # -- tps ----------------------------------------------------------------- #
-    t = sub.add_parser("tps", help="build an MRI-personalised model (interactive)")
-    t.add_argument("path", nargs="?", metavar="PROJECT_PATH")
-
-    # -- simulate -------------------------------------------------------------- #
-    # Only the stage groupings that actually exist as separate switches today
-    # (Iteration.run() in utils/session.py): IK and ID are one atomic stage
-    # there (`do_exbiomec`), and JRA is produced as part of the SO or CEINMS
-    # stage, not on its own -- so there's no honest standalone `ik`/`id`/`jra`
-    # yet. Splitting those apart is real surgery on code with hard-won
-    # production history behind it (see docs/RESTRUCTURE_PLAN.md), left for
-    # a later, separately-reviewed step rather than guessed at here.
-    sm = sub.add_parser(
-        "simulate", help="run an OpenSim/CEINMS stage on one session's model(s)",
-        description="Runs a stage of Iteration.run() directly against an "
-                    "existing session (needs session.yaml -- see `session new`). "
-                    "Model creation/scaling lives under `model`, not here.")
-    sms = sm.add_subparsers(dest="action", metavar="ACTION")
-
-    def _simulate_action(name, help_text):
-        act = sms.add_parser(name, help=help_text)
-        act.add_argument("path", metavar="SESSION_PATH")
-        act.add_argument("--iteration", metavar="NAME",
-                         help="which model arm (default: every one on disk)")
-        act.add_argument("--trial", metavar="NAME",
-                         help="restrict to these trials (comma-separated; "
-                              "default: session.yaml's own trial list)")
-        act.add_argument("--replace", action="store_true",
-                         help="recompute outputs that already exist")
-        return act
-
-    _simulate_action("exbiomec", "inverse kinematics -> inverse dynamics")
-    _simulate_action("ma", "muscle analysis")
-    _simulate_action("so", "static optimisation -> muscle moments -> joint reaction")
-    _simulate_action("ceinms", "calibrate + execute CEINMS -> joint reaction")
-    # `simulate mrs` forwards to bioscout.simulate.mrs.cli's own parser (see
-    # route()); registered here only so it shows in `bioscout simulate -h`.
-    sms.add_parser("mrs", help="Muscle Redundancy Solver (KU Leuven, via MATLAB): "
-                               "`simulate mrs check`, `simulate mrs run TRIAL`")
 
     # -- plot ---------------------------------------------------------------- #
     pl = sub.add_parser(
@@ -353,7 +356,7 @@ _LEGACY = {
     "--change-moment-arms": "bioscout model tune-ma", "--ma": "bioscout model tune-ma",
     "--joint-centres": "bioscout model joint-centres",
     "--joint-centers": "bioscout model joint-centres", "--jc": "bioscout model joint-centres",
-    "--tps": "bioscout tps",
+    "--tps": "bioscout model tps",
     "--summary": "bioscout plot summary", "--collings": "bioscout plot collings",
     "--env": "bioscout utils env", "--env-check": "bioscout utils env",
     "--env-create": "bioscout utils env --create", "--install": "bioscout utils install",
@@ -441,13 +444,14 @@ def _to_legacy(ns: argparse.Namespace) -> List[str]:      # noqa: C901 — a fla
             elif ns.figures:
                 out += ["--figures", str(ns.figures)]
             return out
+        if a == "tps":
+            return ["--tps"] + ([ns.path] if ns.path else [])
         if a in ("joint-centres", "jc"):
             out = ["--joint-centres", ns.trc]
             _flag(out, "-o", ns.out)
             return out
 
-    if v == "tps":
-        return ["--tps"] + ([ns.path] if ns.path else [])
+
 
     if v == "plot":
         if a == "summary":
@@ -537,11 +541,11 @@ def _direct(ns: argparse.Namespace) -> Optional[int]:
     if v == "init" and getattr(ns, "from_settings", False):
         # Imports the project's settings.py, which needs the full stack — but
         # the extraction itself is one call and prints its own verdict.
-        from bioscout.utils.project_config import init_project_yaml
+        from bioscout.init.project_config import init_project_yaml
         return init_project_yaml(ns.path, force=ns.force)
 
     if v == "utils" and a == "env":
-        from bioscout.envcheck import ensure
+        from bioscout.devtools.envcheck import ensure
         st = ensure(create=bool(ns.create))
         return 0 if (st["match"] or st["env_exists"]) else 1
 

@@ -231,7 +231,7 @@ def detect_time_range(trial_dir, *, threshold: float = DEFAULT_THRESHOLD,
 def _session_layout():
     """Load ``session_layout`` without importing the whole ``bioscout.utils``.
 
-    ``from bioscout.utils import session_layout`` executes that package's
+    ``from bioscout.session import layout as session_layout`` executes that package's
     ``__init__``, which imports scipy, pandas and the OpenSim helpers. This
     module is deliberately numpy-only so it can run in a bare environment, and
     a convenience import at the bottom of it would quietly undo that.

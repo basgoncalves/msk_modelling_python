@@ -17,7 +17,7 @@ import textwrap
 import pytest
 import yaml
 
-from bioscout.utils import session as S
+from bioscout.session import session as S
 
 
 CHANS = ["EMG_Channels_EMG01_vast_lat_l",

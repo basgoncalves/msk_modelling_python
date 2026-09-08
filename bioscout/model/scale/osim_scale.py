@@ -137,7 +137,7 @@ def scale_model(generic_opensim_model_path, static_trc_path, scaled_model_path, 
         The setup XML path when ``run=False``; otherwise None.
     """
     import shutil as _shutil
-    from bioscout.utils import scale_measurements as _sm
+    from bioscout.model.scale import measurements as _sm
     # Apply the configured OpenSim log level right here (lowercase — OpenSim
     # ignores "Error") so ScaleTool's geometry [warning] spam is quiet.
     try:

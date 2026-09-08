@@ -140,6 +140,22 @@ class TestRestructureStages1to4(unittest.TestCase):
         self.assertEqual(seen, [["check", "--x"]])
 
 
+    def test_verb_order_puts_simulate_before_session(self):
+        """`session` reads what `simulate` writes, so it is listed after it."""
+        order = [v for v in cli.VERBS if v in ("model", "simulate", "session")]
+        self.assertEqual(order, ["model", "simulate", "session"])
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            with self.assertRaises(SystemExit):
+                cli.build_parser().parse_args(["--help"])
+        text = out.getvalue()
+        self.assertLess(text.index("simulate "), text.index("session "))
+
+    def test_tps_is_nested_under_model(self):
+        self.assertNotIn("tps", cli.VERBS)
+        cli.build_parser().parse_args(["model", "tps"])
+        self.assertIn("bioscout model tps", cli.legacy_hint(["--tps"]))
+
 class TestTranslation(unittest.TestCase):
     """Each verb -> the exact legacy argv. Pinned, because a wrong entry is silent."""
 
@@ -249,7 +265,8 @@ class TestTranslation(unittest.TestCase):
                          ["--joint-centres", "static.trc", "-o", "out.trc"])
 
     def test_tps_and_plot(self):
-        self.assertEqual(self.legacy(["tps"]), ["--tps"])
+        self.assertEqual(self.legacy(["model", "tps"]), ["--tps"])
+        self.assertEqual(self.legacy(["model", "tps", "proj"]), ["--tps", "proj"])
         self.assertEqual(self.legacy(["plot", "summary", "proj"]), ["--summary", "proj"])
         self.assertEqual(
             self.legacy(["plot", "summary", "--subject", "021", "--overall"]),

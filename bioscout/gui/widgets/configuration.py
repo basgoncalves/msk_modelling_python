@@ -282,7 +282,7 @@ class ConfigurationTab(ctk.CTkFrame):
         label_widget.grid(row=row, column=0, sticky="w", pady=5)
 
         # Import available models
-        from record.video import AVAILABLE_MODELS
+        from bioscout.lab.record.video import AVAILABLE_MODELS
         available_models = list(AVAILABLE_MODELS.keys()) if AVAILABLE_MODELS else ["arm26_ball"]
 
         model_var = ctk.StringVar(value=RecordingSettings.DEFAULT_OSIM_MODEL)

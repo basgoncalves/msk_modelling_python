@@ -17,7 +17,7 @@ import types
 import unittest
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-_MOD = os.path.join(_HERE, "..", "utils", "run_check.py")
+_MOD = os.path.join(_HERE, "..", "devtools", "run_check.py")
 
 try:
     _spec = importlib.util.spec_from_file_location("run_check", _MOD)

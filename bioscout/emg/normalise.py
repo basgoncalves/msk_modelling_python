@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.signal import butter, filtfilt
+# bandpass/lowpass are imported inside filter_emg -- see the note there.
 import math
 
 # Handle both package and standalone imports
@@ -53,6 +53,12 @@ def filter_emg(data, highcut_bp=95, lowcut_bp=20, order_bp=4, lowcut_lp=6, order
     - lowcut_lp: Low cutoff frequency for the lowpass filter.
     - order_lp: Order of the lowpass filter.
     """
+    # Imported here, not at module level: bioscout.utils.filters lives under
+    # the bioscout.utils PACKAGE, whose __init__ imports bioscout.emg.emg,
+    # which imports this module -- so a module-level import would be a cycle
+    # whenever bioscout.emg.normalise is the first of the two to be loaded.
+    from bioscout.utils.filters import bandpass, lowpass
+
     # Calculate sampling frequency
     if sampling_freq is None:
         time_diffs = data['time'].diff().dropna()
@@ -88,12 +94,11 @@ def filter_emg(data, highcut_bp=95, lowcut_bp=20, order_bp=4, lowcut_lp=6, order
         print("Warning: Bandpass filter cutoff frequency is at or above Nyquist frequency.")
         print("This might lead to unexpected filter behavior. Check sampling frequency and cutoff values.")
 
-    b, a = butter(order_bp, [low, high], btype='band')
-
     print(f"\nApplying bandpass filter ({lowcut_bp}-{highcut_bp} Hz, Order {order_bp})...")
     for col in emg_cols:
         filtered_col_name = f"{col}_bandpass"
-        data[filtered_col_name] = filtfilt(b, a, data[col].values)
+        data[filtered_col_name] = bandpass(data[col].values, sampling_freq,
+                                           lowcut_bp, highcut_bp, order=order_bp)
     print("Bandpass filtering complete.")
 
     # --- 2. Rectify ---
@@ -112,13 +117,12 @@ def filter_emg(data, highcut_bp=95, lowcut_bp=20, order_bp=4, lowcut_lp=6, order
         print("Warning: Lowpass filter cutoff frequency is at or above Nyquist frequency.")
         print("This might lead to unexpected filter behavior. Check sampling frequency and cutoff values.")
 
-    b_lp, a_lp = butter(order_lp, low_lp, btype='low')
-
     print(f"\nApplying lowpass filter ({lowcut_lp} Hz, Order {order_lp}) for envelope detection...")
     rectified_emg_cols = [col for col in data.columns if col.endswith('_rectified')]
     for col in rectified_emg_cols:
         envelope_col_name = col.replace('_rectified', '_envelope')
-        data[envelope_col_name] = filtfilt(b_lp, a_lp, data[col].values)
+        data[envelope_col_name] = lowpass(data[col].values, sampling_freq,
+                                          lowcut_lp, order=order_lp)
     print("Lowpass filtering complete.")
 
     print("\nFiltered data processing complete.")

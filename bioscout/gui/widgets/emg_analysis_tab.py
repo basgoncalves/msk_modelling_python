@@ -191,7 +191,7 @@ class EMGAnalysisTab(ctk.CTkFrame):
         self._file_map = {}
         if d and trial != "—":
             try:
-                from bioscout.utils import session_layout as L
+                from bioscout.session import layout as L
                 exp = Path(L.experimental_root(str(d))) / trial
                 for name in _EMG_FILES:
                     f = exp / name

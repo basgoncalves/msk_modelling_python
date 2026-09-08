@@ -58,7 +58,7 @@ def check_paths(model, out, *, coordinates=None, n=40, **_):
 @op("compare",
     verb="inspect",
     summary="Compare models by mass, segment length, size and mesh scale",
-    delegates_to="bioscout.utils.model_report.compare_models",
+    delegates_to="bioscout.model.report.compare_models",
     needs_opensim=False,
     writes_model=False,
     notes=("Pure XML, so it runs anywhere. This is the report that makes an "
@@ -74,7 +74,7 @@ def check_paths(model, out, *, coordinates=None, n=40, **_):
               help="Directory for comparison figures"),
     ])
 def compare(model, out, *, against, out_file=None, figures=None, **_):
-    from bioscout.utils.model_report import compare_models
+    from bioscout.model.report import compare_models
 
     models = [str(model)] + [str(a) for a in against]
     rep = compare_models(models, out=str(out_file) if out_file else None,

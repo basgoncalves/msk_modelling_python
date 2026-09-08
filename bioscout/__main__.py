@@ -41,7 +41,7 @@ os.environ.setdefault("BIOSCOUT_LOG_FILTER", "1")
 # flag after the imports would mean the command that installs your dependencies
 # could only run once your dependencies were installed.
 #
-# bioscout.envcheck imports nothing but the standard library, for the same reason.
+# bioscout.devtools.envcheck imports nothing but the standard library, for the same reason.
 # ---------------------------------------------------------------------------
 
 # A legacy flag still works; say once what replaced it. This sits above the
@@ -65,7 +65,7 @@ if {"-test", "--test", "-tests", "--tests"} & set(sys.argv[1:]):
 
 _ENV_FLAGS = {"--env", "--env-check", "--env_check", "--env-create", "--env_create"}
 if _ENV_FLAGS & set(sys.argv[1:]):
-    from bioscout.envcheck import ensure
+    from bioscout.devtools.envcheck import ensure
     _create = bool({"--env-create", "--env_create"} & set(sys.argv[1:]))
     _st = ensure(create=_create)
     sys.exit(0 if (_st["match"] or _st["env_exists"]) else 1)
@@ -131,7 +131,7 @@ try:
     import utils
 except ImportError as _dep_err:
     try:
-        from bioscout.envcheck import explain_missing
+        from bioscout.devtools.envcheck import explain_missing
         print(explain_missing(_dep_err), file=sys.stderr)
     except Exception:                                        # noqa: BLE001
         print(f"\nbioscout cannot start: {_dep_err}\n"
@@ -142,7 +142,7 @@ except ImportError as _dep_err:
 # plenty of legitimate setups (a shared HPC module, a system python with
 # everything present) will never match the name.
 try:
-    from bioscout.envcheck import startup_warning as _startup_warning
+    from bioscout.devtools.envcheck import startup_warning as _startup_warning
     _startup_warning()
 except Exception:                                            # noqa: BLE001
     pass
@@ -152,17 +152,16 @@ except Exception:                                            # noqa: BLE001
 # import fails (circular-import race).  We guarantee it here, after all
 # top-level imports are complete.
 if getattr(utils, 'openSim', None) is None:
+    # bioscout.simulate.opensim is an ordinary module since the stage-6 split,
+    # so this is a plain import -- the old load-by-file-path dance existed
+    # because utils/openSim.py could not be imported through its own package
+    # while that package was still initialising.
     try:
-        import importlib.util as _ilu
-        _p = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'utils', 'openSim.py')
-        _spec = _ilu.spec_from_file_location('utils.openSim', _p)
-        _mod = _ilu.module_from_spec(_spec)
-        sys.modules['utils.openSim'] = _mod
-        _spec.loader.exec_module(_mod)
+        from bioscout.simulate import opensim as _mod
         utils.openSim = _mod
-        print(f"[main] utils.openSim loaded via importlib: {_mod}", flush=True)
     except Exception as _e:
-        print(f"[main] WARNING: could not load utils.openSim: {_e}", flush=True)
+        print(f"[main] WARNING: could not load bioscout.simulate.opensim: {_e}",
+              flush=True)
 else:
     print(f"[main] utils.openSim already loaded: {utils.openSim}", flush=True)
 
@@ -1492,7 +1491,7 @@ def run_load_report_mode(inputs=None) -> int:
     Sources can be combined: local files/folder (``inputs``), the Zepp cloud
     (``--zepp-pull``), and/or Strava (``--strava-pull``).
     """
-    from load_tracking import LoadTracker, AthleteProfile, load_credentials, pull_into_tracker
+    from bioscout.lab.load_tracking import LoadTracker, AthleteProfile, load_credentials, pull_into_tracker
     athlete = AthleteProfile(
         name="Athlete", age=args.age, sex=args.sex,
         hr_max=args.hr_max, hr_rest=args.hr_rest,
@@ -1510,7 +1509,7 @@ def run_load_report_mode(inputs=None) -> int:
         if not creds:
             cpath = args.creds or "~/.bioscout/load_credentials.json"
             print(f"[load-report] No credentials found at {cpath}. "
-                  "See bioscout/load_tracking/README.md for the format.")
+                  "See bioscout/lab/load_tracking/README.md for the format.")
             return 1
         res = pull_into_tracker(tracker, creds,
                                 zepp=args.zepp_pull, strava=args.strava_pull)
@@ -1697,7 +1696,7 @@ def run_tps_mode(project_path=None) -> int:
 
 def main() -> int:
     if args.install:
-        from utils.dependency_installer import install_missing
+        from bioscout.devtools.dependency_installer import install_missing
         return 0 if install_missing(interactive=True) else 1
     if args.reset:
         # Standalone reset (no pipeline run). Scope with --session/--trial;
@@ -1715,7 +1714,7 @@ def main() -> int:
     if args.add_subject is not None:
         return run_add_subject_mode(args.add_subject)
     if args.shots:
-        from bioscout.load_tracking.shot_analysis import analyze_video
+        from bioscout.lab.load_tracking.shot_analysis import analyze_video
         _model = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               'models', 'kinematics_only_model.pkl')
         _hoop = None
@@ -1751,7 +1750,7 @@ def main() -> int:
     # check is pure stdlib and is most needed on machines that cannot import it.
     # The argparse entry above exists so it appears in --help.
     if args.compare_models is not None:
-        from bioscout.utils.model_report import compare_models as _cmp
+        from bioscout.model.report import compare_models as _cmp
         _setups = None
         if args.scale_setups:
             _setups = {}
@@ -1780,7 +1779,7 @@ def main() -> int:
         print(f"[bioscout] wrote {_out}")
         return 0
     if getattr(args, 'md2pdf', None):
-        from bioscout.utils.md2pdf import md_to_pdf_many
+        from bioscout.devtools.md2pdf import md_to_pdf_many
         _out = md_to_pdf_many(args.md2pdf, outdir=args.outdir, toc=args.toc,
                               bibliography=args.bib, keep_docx=args.keep_docx)
         return 0 if len(_out) == len(args.md2pdf) else 1

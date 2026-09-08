@@ -564,7 +564,7 @@ def run_summary(project_dir=None):
         runpy.run_path(script, run_name="__main__")
         return True
     try:
-        from bioscout.utils.summary import run_summary as _pkg_summary
+        from bioscout.plot.summary import run_summary as _pkg_summary
         print("[summary] project summarize_results.py not found — using package summary")
         return bool(_pkg_summary())
     except Exception as e:

@@ -113,7 +113,7 @@ except Exception as e:
 # settings.py is carrying the load). Never fatal: configuration loading must
 # not be the thing that stops a run.
 try:
-    from .project_config import overlay as _pyaml_overlay
+    from bioscout.init.project_config import overlay as _pyaml_overlay
     settings = _pyaml_overlay(settings)
 except Exception as _pc_err:                                   # noqa: BLE001
     print(f"[project.yaml] overlay skipped: {_pc_err}")

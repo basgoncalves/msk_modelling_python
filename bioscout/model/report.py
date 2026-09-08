@@ -23,7 +23,7 @@ factors actually act on, so it is what differs between scaling methods.
 
 Usage
 -----
-    from bioscout.utils.model_report import compare_models
+    from bioscout.model.report import compare_models
     rep = compare_models(r"C:\\path\\to\\models_folder")      # every *.osim in it
     print(rep["segment_mass"])
 
@@ -35,7 +35,7 @@ Usage
 
 Or from the command line::
 
-    python -m bioscout.utils.model_report <folder-or-models...> -o report.xlsx
+    python -m bioscout.model.report <folder-or-models...> -o report.xlsx
 """
 from __future__ import annotations
 

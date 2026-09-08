@@ -5,7 +5,7 @@ Generates a few weeks of realistic-looking TCX workout files (HR trace, GPS-free
 is fine for load) plus a strength-session manifest CSV — useful for trying the
 module without a real Zepp/Amazfit export.
 
-    python -m bioscout.load_tracking.sample_data  out_dir/
+    python -m bioscout.lab.load_tracking.sample_data  out_dir/
 """
 
 from __future__ import annotations

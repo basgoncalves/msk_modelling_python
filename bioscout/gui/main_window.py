@@ -1080,7 +1080,7 @@ class MainWindow(ctk.CTk):
             return
 
         try:
-            from utils.settings_updater import build_updated_settings
+            from bioscout.devtools.settings_updater import build_updated_settings
             new_text, preserved = build_updated_settings(settings_file)
         except Exception as e:
             messagebox.showerror("Migration Error", str(e), parent=self)
@@ -1105,7 +1105,7 @@ class MainWindow(ctk.CTk):
         # ── Buttons at the top so they are always visible ─────────────────
         def _apply():
             try:
-                from utils.settings_updater import write_updated_settings
+                from bioscout.devtools.settings_updater import write_updated_settings
                 write_updated_settings(settings_file)
                 dlg.destroy()
                 messagebox.showinfo("Settings Updated",
@@ -1248,7 +1248,7 @@ class MainWindow(ctk.CTk):
     def _open_screen_recorder(self) -> None:
         """Launch the screen recorder as a floating panel."""
         try:
-            from record.screen_record import ScreenRecorder
+            from bioscout.lab.record.screen_record import ScreenRecorder
             rec = ScreenRecorder()
             rec.open_panel(parent=self)
         except ImportError as e:

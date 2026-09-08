@@ -126,7 +126,7 @@ bioscout utils install     # prints a dependency status table
 
 ## Command line
 
-Ten verbs. Every one takes `--help` of its own, and `bioscout help <verb>` is the
+Nine verbs. Every one takes `--help` of its own, and `bioscout help <verb>` is the
 same thing.
 
 ```
@@ -134,10 +134,9 @@ bioscout                 launch the GUI
 bioscout help [VERB]     the verb list, or one verb's detail
 bioscout init            create a project: folders, models, templates, project.yaml
 bioscout gui             launch the GUI
+bioscout model           check / edit / compare / tune-ma / validate / scale / tps
+bioscout simulate        run an OpenSim/CEINMS stage on a session (or mrs)
 bioscout session         new / export / classify / ingest / reset
-bioscout model           check / edit / compare / ma / validate / joint-centres
-bioscout tps             build an MRI-personalised model
-bioscout simulate        run an OpenSim/CEINMS stage on an existing session
 bioscout plot            figures, summaries, Collings ranking, JCF direction
 bioscout utils           env / install / md2pdf / pylance
 bioscout lab             EXPERIMENTAL 3.0: video and wearable tracking
@@ -175,6 +174,7 @@ keep running while you migrate. They will be removed one release after that.
 | `--model-edit`, `--edit` | `model edit` |
 | `--compare-models`, `--scale-setups` | `model compare --scale-setups` |
 | `--change-moment-arms`, `--ma` | `model tune-ma` |
+| `--tps` | `model tps` |
 | `--joint-centres`, `--jc` | `model joint-centres` |
 | `--summary -overall -s -t -p` | `plot summary --overall --subject --trial --project` |
 | `--collings --skip --metric --side --top` | `plot collings --skip --metric --side --top` |

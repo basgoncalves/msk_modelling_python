@@ -39,7 +39,7 @@ import xml.etree.ElementTree as ET
 import pytest
 
 from bioscout.utils import analysis as A
-from bioscout.utils import session as S
+from bioscout.session import session as S
 
 
 def write(tmp_path, text):

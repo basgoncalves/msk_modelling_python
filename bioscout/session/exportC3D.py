@@ -1159,7 +1159,7 @@ def export_session(session_dir, emg_string_list=None, c3d_dirname=None,
     import numpy as np
     import pandas as pd
     from bioscout import utils as _u
-    from bioscout.utils import emg_normalise as _en
+    from bioscout.emg import normalise as _en
 
     emg_string_list = emg_string_list or ['emg']
     c3d_dir = os.path.join(session_dir, c3d_dirname)

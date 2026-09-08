@@ -115,7 +115,7 @@ NEW_ITERATION_TEMPLATE = {
 
 
 def _layout():
-    from bioscout.utils import session_layout as _L
+    from bioscout.session import layout as _L
     return _L
 
 
@@ -1023,7 +1023,7 @@ class TrialAnalysisTab(ctk.CTkFrame):
             return
         try:
             from bioscout.session.motion_detect import detect_time_range
-            from bioscout.utils import session_layout as L
+            from bioscout.session import layout as L
             exp = Path(L.experimental_root(str(d))) / trial
         except Exception as exc:
             self._detect_note.configure(text=f"{type(exc).__name__}: {exc}")
@@ -1156,7 +1156,7 @@ class TrialAnalysisTab(ctk.CTkFrame):
                 # `default_emg_map` refuses to load the moment an iteration
                 # exists that picks none -- so a blank template has to pick.
                 try:
-                    from bioscout.utils import session as _sess
+                    from bioscout.session import session as _sess
                     _cfg = _sess.load_session_yaml(str(f))
                     if _sess.is_named_emg_map(_cfg) and not _cfg.get(
                             _sess.DEFAULT_EMG_MAP_KEY):

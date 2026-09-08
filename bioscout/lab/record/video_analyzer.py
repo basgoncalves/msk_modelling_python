@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 try:
     import cv2
     import mediapipe
-    from record.video import MovementTracker, ARM26_BALL_CONFIG, FULL_BODY_CONFIG, AVAILABLE_MODELS, _LANDMARK_NAMES
+    from bioscout.lab.record.video import MovementTracker, ARM26_BALL_CONFIG, FULL_BODY_CONFIG, AVAILABLE_MODELS, _LANDMARK_NAMES
 except ImportError as e:
     print(f"ERROR: Failed to import required modules: {e}", file=sys.stderr)
     print("ERROR: cv2 (OpenCV) not installed. Install with: pip install opencv-python", file=sys.stderr)

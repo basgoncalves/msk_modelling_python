@@ -18,7 +18,7 @@ Design (hybrid, per the project goals):
 
 Public API
 ----------
-    from bioscout.load_tracking import LoadTracker, load_sessions, SessionData
+    from bioscout.lab.load_tracking import LoadTracker, load_sessions, SessionData
 
     tracker = LoadTracker(athlete=AthleteProfile(age=30, hr_max=190, hr_rest=55))
     tracker.add_files("path/to/sessions/")      # folder or list of files

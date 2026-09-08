@@ -2,7 +2,7 @@
 
     bioscout --env            # report
     bioscout --env-create     # create bioscoutv<version> and install into it
-    python -m bioscout.envcheck
+    python -m bioscout.devtools.envcheck
 
 One environment per bioscout version, named ``bioscoutv<version>`` -- so
 ``bioscout 2.0.0b8`` wants ``bioscoutv2.0.0b8``. That is deliberate rather than a
@@ -545,7 +545,7 @@ def startup_warning(log=None) -> None:
 def main(argv: Optional[List[str]] = None) -> int:
     import argparse
     ap = argparse.ArgumentParser(
-        prog="python -m bioscout.envcheck",
+        prog="python -m bioscout.devtools.envcheck",
         description="Check, and optionally create, bioscout's conda environment.")
     ap.add_argument("--create", action="store_true",
                     help="create the environment if missing and install into it")

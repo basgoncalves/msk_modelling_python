@@ -89,7 +89,7 @@ def _apply_muscle_opt_settings():
     """
     global MUSCLE_OPT_SKIP_COORDS, MUSCLE_OPT_MA_TOL
     try:
-        from . import settings as _st
+        from bioscout.utils import settings as _st
         _bs = getattr(_st, "BatchSettings", None)
     except Exception:
         _bs = None

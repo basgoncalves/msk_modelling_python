@@ -275,7 +275,7 @@ def extract_poses(video_path: str, every: int = 1, vis_thresh: float = 0.0,
     sys.path.insert(0, str(Path(__file__).parent))
     try:
         import mediapipe as mp
-        from record.video import MovementTracker, _LANDMARK_NAMES  # noqa
+        from bioscout.lab.record.video import MovementTracker, _LANDMARK_NAMES  # noqa
     except Exception as e:
         raise RuntimeError(
             "Pose extraction needs BioScout's MediaPipe tracker (record.video) "

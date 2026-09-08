@@ -15,7 +15,7 @@ import textwrap
 
 import pytest
 
-from bioscout.utils import session as S
+from bioscout.session import session as S
 
 
 # --------------------------------------------------------------------------

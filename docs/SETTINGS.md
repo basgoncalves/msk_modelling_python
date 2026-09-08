@@ -39,7 +39,7 @@ see `bioscout/utils/ceinms.py`'s `_LiveSettings`.
 ```
  False since the summarize_results.py shim was deleted: bioscout.pipeline
  .run_summary() looks for that exact filename and, not finding it, silently runs
- the PACKAGE summary (bioscout.utils.summary) instead of results.py. Run the
+ the PACKAGE summary (bioscout.plot.summary) instead of results.py. Run the
  real summary yourself:  python results.py   (and  python results.py --master
  for the cross-session tables). Set back to True only after pointing
  bioscout's run_summary()/summarize_results() at results.py.
