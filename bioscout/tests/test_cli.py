@@ -56,6 +56,40 @@ class TestParser(unittest.TestCase):
             cli.route(["frobnicate"])
         self.assertNotEqual(cm.exception.code, 0)
 
+    def test_simulate_shows_help_when_given_no_action(self):
+        with self.assertRaises(SystemExit) as cm, contextlib.redirect_stdout(io.StringIO()):
+            cli.route(["simulate"])
+        self.assertEqual(cm.exception.code, 0)
+
+    def test_simulate_actions_parse(self):
+        """simulate is direct-dispatched (Session.open -> Iteration.run), not
+        translated to a legacy flag -- there is no flat-flag equivalent of a
+        single stage. Pin the argparse shape instead of the (nonexistent)
+        legacy argv."""
+        p = cli.build_parser()
+        for action in ("exbiomec", "ma", "so", "ceinms"):
+            ns = p.parse_args(["simulate", action, "some/session",
+                               "--iteration", "gpk", "--trial", "Walk01,Walk02",
+                               "--replace"])
+            self.assertEqual(ns.verb, "simulate")
+            self.assertEqual(ns.action, action)
+            self.assertEqual(ns.path, "some/session")
+            self.assertEqual(ns.iteration, "gpk")
+            self.assertEqual(ns.trial, "Walk01,Walk02")
+            self.assertTrue(ns.replace)
+
+    def test_simulate_defaults(self):
+        p = cli.build_parser()
+        ns = p.parse_args(["simulate", "so", "some/session"])
+        self.assertIsNone(ns.iteration)
+        self.assertIsNone(ns.trial)
+        self.assertFalse(ns.replace)
+
+    def test_simulate_needs_a_session_path(self):
+        p = cli.build_parser()
+        with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+            p.parse_args(["simulate", "ma"])
+
 
 class TestTranslation(unittest.TestCase):
     """Each verb -> the exact legacy argv. Pinned, because a wrong entry is silent."""
