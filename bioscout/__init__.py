@@ -20,7 +20,7 @@ __all__ = (
     "check_settings_version", "migrate_settings",
     "summarize_results",
     "plot",                     # bioscout.plot — figures from a tidy table
-    "pipeline",                 # bioscout.pipeline — run_subject / run_project
+    "pipeline",                 # bioscout.pipeline — run_project (batch settings runs)
 )
 
 #: Names __getattr__ resolves to a SUBMODULE rather than to something in

@@ -4,10 +4,10 @@
     bioscout help [VERB]     this, or one verb's detail
     bioscout init            start a project
     bioscout gui             launch the GUI
-    bioscout run             the pipeline: IK -> ID -> MA -> SO -> CEINMS -> JRA
     bioscout session         new / export / classify / ingest / reset
     bioscout model           check / edit / compare / ma / validate / joint-centres
     bioscout tps             build an MRI-personalised model
+    bioscout simulate        run an OpenSim/CEINMS stage on an existing session
     bioscout plot            figures, summaries, Collings ranking
     bioscout utils           env / install / md2pdf / pylance
     bioscout lab             EXPERIMENTAL 3.0: shots, load reports
@@ -36,12 +36,10 @@ Two design rules, both load-bearing:
 How a verb reaches the old code
 -------------------------------
 Most verbs are *translated*: the parsed subcommand is rewritten into the legacy
-flag argv, and ``__main__.py`` proceeds exactly as before. That keeps
-``run_subject_mode()`` — which reads module-global ``args`` — working untouched,
-so the riskiest handler in the package is not rewritten to gain a nicer help
-screen. Verbs whose implementation is already self-contained and dependency-light
-(``model check``, ``utils env``) are dispatched directly and never load the
-scientific stack at all.
+flag argv, and ``__main__.py`` proceeds exactly as before, reading it off the
+module-global ``args`` the same way it always did. Verbs whose implementation
+is already self-contained and dependency-light (``model check``, ``utils env``)
+are dispatched directly and never load the scientific stack at all.
 """
 from __future__ import annotations
 
@@ -52,18 +50,16 @@ from typing import List, Optional, Sequence, Tuple
 __all__ = ["VERBS", "build_parser", "route", "main", "legacy_hint"]
 
 #: Root verbs. ``__main__`` checks this before it builds the legacy parser.
-VERBS = ("help", "init", "gui", "run", "session", "model", "tps", "plot",
-         "utils", "lab", "project")
+VERBS = ("help", "init", "gui", "session", "model", "tps", "simulate",
+         "plot", "utils", "lab", "project")
 
 _EPILOG = """\
 examples:
-  bioscout run 021 --session pre,post --replace
-  bioscout run 023 --session pre --so                    (only the SO stage)
-  bioscout run 023 --session pre --export --scale --exbiomec   (a fresh session)
+  bioscout simulate so simulations/023/pre --replace
   bioscout model check models --strict
   bioscout session new simulations/022/pre
   bioscout plot --list
-  bioscout help run
+  bioscout help session
 
 every verb takes --help of its own:  bioscout model --help
 """
@@ -103,39 +99,6 @@ def build_parser() -> argparse.ArgumentParser:
     pji.add_argument("path", nargs="?", default=".", metavar="PROJECT_PATH")
     pji.add_argument("--force", action="store_true",
                      help="overwrite an existing project.yaml (a .bak is kept)")
-
-    # -- run ----------------------------------------------------------------- #
-    r = sub.add_parser(
-        "run", help="run the pipeline for a subject",
-        description="IK -> ID -> muscle analysis -> static optimisation -> CEINMS -> "
-                    "joint reaction. With no SUBJECT, runs every subject in settings.")
-    r.add_argument("subject", nargs="?", metavar="SUBJECT",
-                   help="subject id; omit to run all")
-    r.add_argument("--session", metavar="NAME",
-                   help="restrict to these session folders (comma-separated)")
-    r.add_argument("--trial", metavar="NAME",
-                   help="restrict to these trials (comma-separated)")
-    r.add_argument("--replace", action="store_true",
-                   help="recompute outputs that already exist (default: skip them)")
-    r.add_argument("--export", action="store_true",
-                   help="(re)export markers/GRF/EMG from the c3d first")
-    # Stage flags. No stage flag = the full pipeline (SO + CEINMS); any stage
-    # flag = ONLY the named stages. The call site states the whole selection —
-    # this replaces the DO_SO/DO_CEINMS block in a project settings.py.
-    r.add_argument("--scale", action="store_true",
-                   help="stage: build the session's personalised model "
-                        "(generic + static -> ScaleTool), after --export")
-    r.add_argument("--exbiomec", action="store_true",
-                   help="stage: external biomechanics only (IK -> ID -> MA)")
-    r.add_argument("--so", action="store_true",
-                   help="stage: static optimisation (IK/ID/MA -> SO -> JRA)")
-    r.add_argument("--ceinms", action="store_true",
-                   help="stage: CEINMS (calibrate -> execute -> JRA)")
-    r.add_argument("--reset", action="store_true",
-                   help="strip trials back to inputs-only, then run")
-    r.add_argument("--batch", metavar="FILE",
-                   help="drive the run from a settings.py or batch .json instead")
-    r.add_argument("--project", metavar="PATH")
 
     # -- session ------------------------------------------------------------- #
     s = sub.add_parser("session", help="create, export, classify or reset a session")
@@ -377,8 +340,6 @@ def build_parser() -> argparse.ArgumentParser:
 # --------------------------------------------------------------------------- #
 _LEGACY = {
     "--init": "bioscout init", "--gui": "bioscout gui", "-g": "bioscout gui",
-    "--run_subject": "bioscout run", "--batch": "bioscout run --batch",
-    "-b": "bioscout run --batch",
     "--new-session": "bioscout session new", "--c3d-export": "bioscout session export",
     "--export-session": "bioscout session export",
     "--classifier": "bioscout session classify", "--classify": "bioscout session classify",
@@ -433,22 +394,6 @@ def _to_legacy(ns: argparse.Namespace) -> List[str]:      # noqa: C901 — a fla
         return ["--init", ns.path]
     if v == "gui":
         return ["--gui"]
-
-    if v == "run":
-        if ns.batch:
-            return ["-b", ns.batch]
-        out = ["--run_subject"] + ([ns.subject] if ns.subject else [])
-        _flag(out, "--session", ns.session)
-        _flag(out, "--trial", ns.trial)
-        _flag(out, "--REPLACE", ns.replace, store_true=True)
-        _flag(out, "--export", ns.export, store_true=True)
-        _flag(out, "--do-scale", ns.scale, store_true=True)
-        _flag(out, "--do-exbiomec", ns.exbiomec, store_true=True)
-        _flag(out, "--do-so", ns.so, store_true=True)
-        _flag(out, "--do-ceinms", ns.ceinms, store_true=True)
-        _flag(out, "--reset", ns.reset, store_true=True)
-        _flag(out, "--project", ns.project)
-        return out
 
     if v == "session":
         if a == "new":
@@ -707,7 +652,7 @@ def route(argv: Sequence[str]) -> Tuple[str, object]:
 
     # A verb with subcommands, given none: show that verb's help rather than
     # silently doing nothing.
-    if ns.verb in ("session", "model", "utils", "lab", "plot", "project") and not getattr(ns, "action", None):
+    if ns.verb in ("session", "model", "utils", "lab", "plot", "project", "simulate") and not getattr(ns, "action", None):
         parser.parse_args([ns.verb, "--help"])          # exits
 
     code = _direct(ns)

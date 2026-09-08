@@ -5240,16 +5240,8 @@ def open_session(iteration, session=None, project_dir=None, verbose=False,
                           verbose=verbose, subject=subject)
 
 
-# batch orchestrator (loops subjects/sessions) is defined in bioscout.pipeline;
-# re-exported here so bioscout.utils.session is the single session surface.
-try:
-    from bioscout.pipeline import run_subject
-except Exception:      # pragma: no cover - avoid import cycle at module load
-    run_subject = None
-
-
 __all__ = [
-    "Session", "Iteration", "open_session", "find_session_dir", "run_subject",
+    "Session", "Iteration", "open_session", "find_session_dir",
     "Model", "SessionSpec", "read_session_xml", "write_session_xml",
     "read_session_yaml", "write_session_yaml", "read_session", "convert_session_xml_to_yaml",
     "layout", "experimental_dir", "bind_experimental", "iteration_dir",

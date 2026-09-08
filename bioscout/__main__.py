@@ -108,8 +108,7 @@ if {"--model"} & set(sys.argv[1:]) and sys.argv[1:3] != ["plot", "jcf"]:
 #     reach for when the environment is broken, so it must need nothing.
 #   * the legacy parser below would reject `run` / `model` / `plot` as unknown
 #     positionals. Verbs are translated into the old flags HERE and the module
-#     then carries on exactly as before, which is why run_subject_mode() — the
-#     one handler that reads the module-global `args` — was not rewritten.
+#     then carries on exactly as before.
 # ---------------------------------------------------------------------------
 _first_token = next((a for a in sys.argv[1:] if not a.startswith("-")), None)
 _wants_help = bool({"-h", "--help"} & set(sys.argv[1:]))
@@ -180,7 +179,8 @@ parser.add_argument('--ingest-c3d', dest='ingest_c3d', type=str, default=None,
                     help="Add a new subject/session by distributing loose .c3d files into the "
                          "simulations tree: each <trial>.c3d in C3D_FOLDER becomes "
                          "simulations/<subject>/<session>/<trial>/inputs/c3dfile.c3d. Requires "
-                         "--subject and --session. Follow with --run_subject … --export to build.")
+                         "--subject and --session. Follow with `bioscout session export` "
+                         "then `bioscout simulate`.")
 parser.add_argument('--new-session', dest='new_session', type=str, default=None,
                     metavar='SESSION_PATH',
                     help="Scaffold session.yaml for a session folder that already "
@@ -218,53 +218,14 @@ parser.add_argument('--pylance-fix', '--pyglance-fix', '--pylance_fix', dest='py
                          "'import bioscout' (colours Subject/functions instead of white, no unresolved "
                          "warnings). Points the interpreter at the current Python and adds bioscout to "
                          "analysis.extraPaths. Optional PROJECT_DIR (default: current folder).")
-parser.add_argument('--run_subject', nargs='?', const='__ALL__', default=None,
-                    metavar='SUBJECT_NAME',
-                    help="Run the full pipeline (IK->ID->MA->SO->JRA + CEINMS) for a subject, "
-                         "all sessions. Give SUBJECT_NAME, or omit the name to run every subject "
-                         "in settings. Combine with --session/--trial to restrict (comma-separated "
-                         "allowed) and --REPLACE to recompute existing outputs (default: skip done).")
-parser.add_argument('--REPLACE', '--replace', dest='replace', action='store_true',
-                    help="With --run_subject: recompute and overwrite existing outputs "
-                         "(default: skip trials/stages whose outputs already exist).")
 parser.add_argument('--session', type=str, default=None, metavar='SESSION_NAME',
-                    help="With --run_subject: restrict to this session folder name "
-                         "(comma-separated for several).")
-parser.add_argument('--export', '--c3d', dest='export', action='store_true',
-                    help="With --run_subject: (re)export inputs from c3d "
-                         "(markers/GRF/EMG + trial settings) and filter EMG before "
-                         "running IK/ID/MA/SO + CEINMS.")
-# Per-stage toggles for --run_subject. The rule: with NO stage flag the full
-# pipeline runs (SO + CEINMS, the historical default); with ANY stage flag,
-# ONLY the named stages run. The call site states the whole selection — this
-# is what replaces the DO_SO/DO_CEINMS/... block in a project settings.py,
-# where a selection persisted from one afternoon silently shaped the next.
-parser.add_argument('--do-scale', '--scale', dest='do_scale',
-                    action='store_true',
-                    help="With --run_subject: build the session's personalised "
-                         "model (generic + static trial -> ScaleTool). Runs "
-                         "after --export, before the solve stages, so "
-                         "`--export --scale --exbiomec` is the whole chain for "
-                         "a session that has never been analysed.")
-parser.add_argument('--do-exbiomec', '--exbiomec', dest='do_exbiomec',
-                    action='store_true',
-                    help="With --run_subject: external biomechanics only "
-                         "(IK -> ID -> muscle analysis). Any stage flag replaces "
-                         "the default full pipeline.")
-parser.add_argument('--do-so', '--so', dest='do_so', action='store_true',
-                    help="With --run_subject: the SO stage "
-                         "(IK/ID/MA -> SO -> muscle moments -> JRA).")
-parser.add_argument('--do-ceinms', '--ceinms', dest='do_ceinms',
-                    action='store_true',
-                    help="With --run_subject: the CEINMS stage "
-                         "(EMG normalise + calibrate -> execution -> JRA).")
+                    help="Restrict --reset (or --ingest-c3d's --session) to this "
+                         "session folder name (comma-separated for several).")
 parser.add_argument('--reset', action='store_true',
                     help="Strip trials back to inputs-only (keeps inputs/ + "
                          "trial_settings.xml; timestamped backup made first). "
-                         "Scope with --run_subject/--session/--trial; with no scope "
-                         "resets the WHOLE simulations folder. Combine with "
-                         "--run_subject to reset-then-run (add --export to also "
-                         "regenerate inputs from the c3d).")
+                         "Scope with --session/--trial; with no scope "
+                         "resets the WHOLE simulations folder.")
 parser.add_argument('--reset-dry-run', dest='reset_dry_run', action='store_true',
                     help="With --reset (standalone): preview what would be removed/kept "
                          "and backed up, without touching disk.")
@@ -386,7 +347,7 @@ parser.add_argument('-s', '--subject', type=str, default=None, metavar='SUBJECT_
                     help="With --summary: restrict to one subject (e.g. -s 012)")
 parser.add_argument('-t', '--trial', type=str, default=None, metavar='TRIAL',
                     help="With --summary: build only this one trial folder (fast iteration). "
-                         "With --run_subject: restrict to this trial name (comma-separated for several).")
+                         "With --reset: restrict to this trial name (comma-separated for several).")
 # -------------------------------------------------------------------------
 # EXPERIMENTAL — player / movement tracking (video + wearables). NOT part of
 # the OpenSim/CEINMS pipeline and NOT stable yet; targeted for bioscout 3.0.
@@ -466,106 +427,6 @@ if args.batch:
     except Exception as _log_err:
         logger.warning(f"Could not redirect to project log dir: {_log_err}")
 
-
-# ---------------------------------------------------------------------------
-# --run_subject : full per-subject pipeline (IK->ID->MA->SO->JRA + CEINMS).
-# Dispatched HERE at module level, right after arg parsing, so it runs no matter
-# how main() is invoked at the bottom of the file. Output is teed to
-# <project>/logs/run_<subject>_<ts>.log.
-# ---------------------------------------------------------------------------
-if getattr(args, 'run_subject', None) is not None:
-    import bioscout as _bioscout
-    import datetime as _dt
-    _rs_project  = args.project or os.getcwd()
-    _rs_subject  = None if args.run_subject == '__ALL__' else args.run_subject
-    _rs_sessions = [s.strip() for s in args.session.split(',')] if args.session else None
-    _rs_trials   = [t.strip() for t in args.trial.split(',')] if args.trial else None
-    # Stage selection: no stage flag = the historical full pipeline (SO +
-    # CEINMS); any stage flag = ONLY the named stages. This replaces the
-    # DO_SO/DO_CEINMS block in a project settings.py — see the flag comments
-    # at the parser.
-    _rs_picked   = (args.do_exbiomec or args.do_so or args.do_ceinms
-                    or args.do_scale)
-    _rs_scale    = bool(args.do_scale)
-    _rs_exbio    = bool(args.do_exbiomec)
-    _rs_so       = bool(args.do_so) if _rs_picked else True
-    _rs_ceinms   = bool(args.do_ceinms) if _rs_picked else True
-    _rs_now      = _dt.datetime.now()
-    _rs_ts       = _rs_now.strftime('%Y-%m-%d %H:%M:%S')          # readable, for the heading
-    _rs_ldir     = os.path.join(_rs_project, 'logs')
-    os.makedirs(_rs_ldir, exist_ok=True)
-    # One naming scheme with the timestamp in the filename; heading says what ran.
-    _rs_logpath  = os.path.join(_rs_ldir, f"bioscout_{_rs_now:%Y%m%d_%H%M%S}.log")
-    print(f"[run_subject] project={_rs_project}  subject={_rs_subject or 'ALL'}  "
-          f"sessions={_rs_sessions or 'ALL'}  trials={_rs_trials or 'ALL'}  "
-          f"replace={args.replace}  stages: export={args.export} "
-          f"scale={_rs_scale} exbiomec={_rs_exbio} "
-          f"so={_rs_so} ceinms={_rs_ceinms}", flush=True)
-    print(f"[run_subject] log -> {_rs_logpath}", flush=True)
-
-    class _RSTee:
-        def __init__(self, *streams): self.streams = streams
-        def write(self, d):
-            for s in self.streams:
-                try: s.write(d); s.flush()
-                except Exception: pass
-        def flush(self):
-            for s in self.streams:
-                try: s.flush()
-                except Exception: pass
-
-    _rs_out, _rs_err = sys.stdout, sys.stderr
-    _rs_fh = open(_rs_logpath, 'a', encoding='utf-8')   # append to the single log
-    try:
-        from bioscout.utils.shared import LOG_DISCLAIMER as _RS_DISCLAIMER
-    except Exception:
-        _RS_DISCLAIMER = ("DISCLAIMER: BioScout is research software provided \"as is\", "
-                          "without warranty. The user is responsible for correct usage "
-                          "and validating all results. See LICENSE.")
-    _rs_fh.write(
-        f"\n{'=' * 72}\n"
-        f"=== run_subject  subject={_rs_subject or 'ALL'}  "
-        f"sessions={_rs_sessions or 'ALL'}  trials={_rs_trials or 'ALL'}  "
-        f"replace={args.replace}  export={args.export}  scale={_rs_scale}  "
-        f"exbiomec={_rs_exbio} so={_rs_so} ceinms={_rs_ceinms}   {_rs_ts}\n"
-        f"{_RS_DISCLAIMER}\n"
-        f"{'=' * 72}\n")
-    _rs_fh.flush()
-    sys.stdout = _RSTee(_rs_out, _rs_fh); sys.stderr = _RSTee(_rs_err, _rs_fh)
-    # Tell the auto-logger it's already on, so Project() (called by run_subject)
-    # writes into THIS file instead of opening a second log.
-    try:
-        import bioscout.utils.shared as _rs_sh
-        _rs_sh._LOG_STARTED, _rs_sh._LOG_HANDLE = True, _rs_fh
-    except Exception:
-        pass
-    print(f"[run_subject] {_rs_ts}  start", flush=True)
-    _rs_rc = 0
-    try:
-        _bioscout.pipeline.run_subject(
-            project_dir=_rs_project, subject=_rs_subject,
-            sessions=_rs_sessions, trials=_rs_trials, replace=args.replace,
-            export=args.export, reset=args.reset, do_scale=_rs_scale,
-            do_exbiomec=_rs_exbio, do_so=_rs_so, do_ceinms=_rs_ceinms)
-    except Exception as _rs_e:
-        import traceback as _rs_tb
-        print(f"[run_subject] FAILED: {type(_rs_e).__name__}: {_rs_e}", flush=True)
-        _rs_tb.print_exc()
-        _rs_rc = 1
-    finally:
-        sys.stdout, sys.stderr = _rs_out, _rs_err
-        _rs_fh.close()
-        print(f"[run_subject] log written: {_rs_logpath}", flush=True)
-    sys.exit(_rs_rc)
-
-
-# ---------------------------------------------------------------------------
-# --reset (standalone) : strip trials back to inputs-only (timestamped backup).
-# Dispatched HERE at module level — same pattern as --run_subject above — so it
-# runs regardless of how the entry point is wired. When --reset is combined with
-# --run_subject, the block above handles it (reset-then-run) and exits before we
-# reach here, so this only fires for a reset with no pipeline run.
-# ---------------------------------------------------------------------------
 
 # --- --pylance-fix : write a project .vscode/settings.json so VS Code/Pylance
 # resolves 'import bioscout' (fixes white/unresolved Subject etc.) -----------
@@ -669,7 +530,7 @@ if getattr(args, 'classifier', None):
 
 
 # --- --ingest-c3d : distribute loose <trial>.c3d files into the simulations tree
-# so a new subject/session is ready for --run_subject --export -----------------
+# so a new subject/session is ready for `bioscout session export` -------------
 if getattr(args, 'ingest_c3d', None):
     import glob as _glob, shutil as _shutil
     _proj = os.path.abspath(args.project or os.getcwd())
@@ -703,10 +564,10 @@ if getattr(args, 'ingest_c3d', None):
           f"in simulations/{_subj}/{_sess}: {_made}")
     print(f"  models dir: {_mdl}  (put the scaled .osim here)")
     print(f"  next: add the subject to settings.py 'subjects', then\n"
-          f"        python -m bioscout --run_subject {_subj} --session {_sess} --export --REPLACE")
+          f"        bioscout session export {_sim_sess}   # then: bioscout simulate exbiomec {_sim_sess}")
     sys.exit(0)
 
-if getattr(args, 'reset', False) and getattr(args, 'run_subject', None) is None:
+if getattr(args, 'reset', False):
     import bioscout as _bioscout_reset
     _rst_project  = args.project or os.getcwd()
     _rst_sessions = [s.strip() for s in args.session.split(',')] if args.session else None
@@ -1674,76 +1535,6 @@ def run_load_report_mode(inputs=None) -> int:
     return 0
 
 
-def run_subject_mode() -> int:
-    """CLI wrapper for bioscout.pipeline.run_subject.
-
-    Driven by --run_subject [name] / --session / --trial / --REPLACE. Runs the
-    full per-subject pipeline (IK->ID->MA->SO->JRA + CEINMS) for all sessions,
-    teeing output to <project>/logs/run_<subject>_<ts>.log.
-    """
-    import datetime as _dt
-    import bioscout
-
-    project = args.project or os.getcwd()
-    subject = None if args.run_subject == '__ALL__' else args.run_subject
-    sessions = [s.strip() for s in args.session.split(',')] if args.session else None
-    trials = [t.strip() for t in args.trial.split(',')] if args.trial else None
-
-    # Stage selection: no stage flag = the historical full pipeline (SO +
-    # CEINMS); any stage flag = ONLY the named stages. See the flag comments
-    # at the parser — this replaces settings.py's DO_* block.
-    _picked = (args.do_exbiomec or args.do_so or args.do_ceinms
-               or args.do_scale)
-    do_scale = bool(args.do_scale)
-    do_exbiomec = bool(args.do_exbiomec)
-    do_so = bool(args.do_so) if _picked else True
-    do_ceinms = bool(args.do_ceinms) if _picked else True
-
-    ts = _dt.datetime.now().strftime('%Y%m%d_%H%M%S')
-    ldir = os.path.join(project, 'logs')
-    os.makedirs(ldir, exist_ok=True)
-    logpath = os.path.join(ldir, f"run_{subject or 'all'}_{ts}.log")
-    print(f"[run_subject] project={project}  subject={subject or 'ALL'}  "
-          f"sessions={sessions or 'ALL'}  trials={trials or 'ALL'}  replace={args.replace}  "
-          f"stages: export={args.export} scale={do_scale} "
-          f"exbiomec={do_exbiomec} so={do_so} ceinms={do_ceinms}",
-          flush=True)
-    print(f"[run_subject] log -> {logpath}", flush=True)
-
-    class _Tee:
-        def __init__(self, *streams): self.streams = streams
-        def write(self, d):
-            for s in self.streams:
-                try: s.write(d); s.flush()
-                except Exception: pass
-        def flush(self):
-            for s in self.streams:
-                try: s.flush()
-                except Exception: pass
-
-    _out, _err = sys.stdout, sys.stderr
-    _fh = open(logpath, 'w', encoding='utf-8')
-    sys.stdout = _Tee(_out, _fh); sys.stderr = _Tee(_err, _fh)
-    print(f"[run_subject] {_dt.datetime.now():%Y-%m-%d %H:%M:%S}  project={project}  "
-          f"subject={subject or 'ALL'}  sessions={sessions or 'ALL'}  "
-          f"trials={trials or 'ALL'}  replace={args.replace}", flush=True)
-    try:
-        bioscout.pipeline.run_subject(
-            project_dir=project, subject=subject,
-            sessions=sessions, trials=trials, replace=args.replace,
-            export=args.export, reset=args.reset, do_scale=do_scale,
-            do_exbiomec=do_exbiomec, do_so=do_so, do_ceinms=do_ceinms)
-        return 0
-    except Exception as e:
-        print(f"[run_subject] FAILED: {type(e).__name__}: {e}", flush=True)
-        traceback.print_exc()
-        return 1
-    finally:
-        sys.stdout, sys.stderr = _out, _err
-        _fh.close()
-        print(f"[run_subject] log written: {logpath}", flush=True)
-
-
 def run_tps_mode(project_path=None) -> int:
     """Interactive `bioscout --tps`: build a TPS/MRI-personalised model.
 
@@ -1908,10 +1699,9 @@ def main() -> int:
     if args.install:
         from utils.dependency_installer import install_missing
         return 0 if install_missing(interactive=True) else 1
-    if args.reset and args.run_subject is None:
+    if args.reset:
         # Standalone reset (no pipeline run). Scope with --session/--trial;
-        # with neither, the whole simulations folder is reset. --run_subject
-        # combined with --reset is handled inside run_subject (reset-then-run).
+        # with neither, the whole simulations folder is reset.
         import bioscout
         _sessions = [s.strip() for s in args.session.split(',')] if args.session else None
         _trials   = [t.strip() for t in args.trial.split(',')]   if args.trial   else None
@@ -1922,8 +1712,6 @@ def main() -> int:
             raw_inputs=getattr(args, 'reset_raw', False),
             dry_run=args.reset_dry_run)
         return 0
-    if args.run_subject is not None:
-        return run_subject_mode()
     if args.add_subject is not None:
         return run_add_subject_mode(args.add_subject)
     if args.shots:

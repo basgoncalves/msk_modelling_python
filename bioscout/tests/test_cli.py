@@ -49,7 +49,7 @@ class TestParser(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(cli.route(["help"]), ("exit", 0))
         with self.assertRaises(SystemExit), contextlib.redirect_stdout(io.StringIO()):
-            cli.route(["help", "run"])
+            cli.route(["help", "session"])
 
     def test_unknown_verb_is_rejected(self):
         with self.assertRaises(SystemExit) as cm, contextlib.redirect_stderr(io.StringIO()):
@@ -103,38 +103,6 @@ class TestTranslation(unittest.TestCase):
         self.assertEqual(self.legacy(["init", "myproj"]), ["--init", "myproj"])
         self.assertEqual(self.legacy(["init"]), ["--init", "."])
         self.assertEqual(self.legacy(["gui"]), ["--gui"])
-
-    def test_run(self):
-        self.assertEqual(self.legacy(["run"]), ["--run_subject"])
-        self.assertEqual(self.legacy(["run", "021"]), ["--run_subject", "021"])
-        self.assertEqual(
-            self.legacy(["run", "021", "--session", "pre,post", "--replace"]),
-            ["--run_subject", "021", "--session", "pre,post", "--REPLACE"])
-        self.assertEqual(
-            self.legacy(["run", "021", "--trial", "RunA1", "--export", "--reset"]),
-            ["--run_subject", "021", "--trial", "RunA1", "--export", "--reset"])
-
-    def test_run_stage_flags(self):
-        """The DO_* replacement: any stage flag translates; none = none (the
-        legacy side then defaults to the full SO + CEINMS pipeline)."""
-        self.assertEqual(
-            self.legacy(["run", "023", "--session", "pre", "--so"]),
-            ["--run_subject", "023", "--session", "pre", "--do-so"])
-        self.assertEqual(
-            self.legacy(["run", "023", "--exbiomec", "--ceinms"]),
-            ["--run_subject", "023", "--do-exbiomec", "--do-ceinms"])
-        self.assertNotIn("--do-so", self.legacy(["run", "023"]))
-        # the whole chain for a session that has never been analysed, in the
-        # order the pipeline runs it
-        self.assertEqual(
-            self.legacy(["run", "023", "--session", "pre", "--export",
-                         "--scale", "--exbiomec"]),
-            ["--run_subject", "023", "--session", "pre", "--export",
-             "--do-scale", "--do-exbiomec"])
-
-    def test_run_batch_wins(self):
-        """--batch is a different entry point; it must not be mixed with --run_subject."""
-        self.assertEqual(self.legacy(["run", "--batch", "settings.py"]), ["-b", "settings.py"])
 
     def test_session_new(self):
         """--no-gui, so the test never tries to open a window.
@@ -260,7 +228,7 @@ class TestTranslation(unittest.TestCase):
 
     def test_optional_flags_are_omitted_when_unset(self):
         """An unset option must not reach the legacy argv as an empty string."""
-        for argv in (["run", "021"], ["model", "compare", "a.osim"],
+        for argv in (["model", "compare", "a.osim"],
                      ["plot", "collings"], ["utils", "md2pdf", "a.md"]):
             for token in self.legacy(argv):
                 self.assertNotEqual(token, "", argv)
@@ -269,14 +237,13 @@ class TestTranslation(unittest.TestCase):
 
 class TestLegacyHint(unittest.TestCase):
     def test_names_the_replacement(self):
-        self.assertIn("bioscout run", cli.legacy_hint(["--run_subject", "021"]))
         self.assertIn("bioscout model edit", cli.legacy_hint(["--model-edit"]))
         self.assertIn("bioscout utils env", cli.legacy_hint(["--env"]))
         self.assertIn("bioscout plot collings", cli.legacy_hint(["--collings", "s/"]))
 
     def test_silent_for_unmapped_and_new_style(self):
         self.assertIsNone(cli.legacy_hint(["--REPLACE"]))
-        self.assertIsNone(cli.legacy_hint(["run", "021"]))
+        self.assertIsNone(cli.legacy_hint(["simulate", "so", "some/session"]))
         self.assertIsNone(cli.legacy_hint([]))
 
     def test_handles_equals_form(self):
