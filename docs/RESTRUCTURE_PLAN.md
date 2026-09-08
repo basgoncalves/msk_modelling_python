@@ -4,8 +4,8 @@ Goal: the package tree under `bioscout/` should mirror the verb tree of
 `bioscout -h`, so "where does the `session` code live?" always has the same
 answer: `bioscout/session/`. Today it doesn't — `session.py` (258KB) lives in
 `bioscout/utils/`, `openSim.py` (233KB) and `ceinms/` live in `bioscout/utils/`,
-and the `model`/`tps` verbs are four unrelated top-level folders even though
-all of them are fundamentally OpenSim-model concerns.
+and the `model` verb's actions are spread across four unrelated top-level
+folders (`model/`, `model_edit/`, `change_moment_arms/`, `muscle_inspect/`).
 
 ## 1. Target CLI tree
 
@@ -14,8 +14,30 @@ bioscout -h
   gui       launch the GUI (also the default with no verb)
   init      create a project: folders, models, templates and project-level
             config (project.yaml)                       [merges old init + project]
-  openSim   OpenSim/CEINMS tools, usable standalone from the terminal:
-              scale         scale a model by answering questions (interactive)
+  model     check, edit, compare and validate .osim models -- stays a
+            top-level verb, unchanged in name; NOT nested under `simulate`,
+            because nothing under it simulates anything, it creates/edits a
+            model:
+              check          can every model still find its bone meshes?
+              edit           scale, set mass, change forces, moment arms, markers
+              compare        dimensions and segment masses across models
+              tune-ma        adjust a muscle's moment arm, interactively
+                             (renamed from `ma` -- would otherwise collide
+                             with `simulate ma`, the muscle-analysis stage;
+                             the two aren't nested under the same parent
+                             any more either, so this rename is now belt
+                             and braces rather than load-bearing)
+              validate       moment arms, fibre lengths, strength vs literature
+              joint-centres  (jc)
+              tps            build an MRI-personalised model (interactive)
+              scale          scale a model by answering questions (interactive)
+                             -- moved here FROM the old openSim/msk group:
+                             scaling produces the personalised model, which
+                             is model creation, not a simulation step
+  simulate  run an OpenSim/CEINMS simulation on an existing model, usable
+            standalone from the terminal (renamed from `openSim`/the `msk`
+            package -- these all consume a model and produce results,
+            unlike anything under `model` above):
               ik            inverse kinematics
               id            inverse dynamics
               ma            muscle analysis
@@ -23,22 +45,15 @@ bioscout -h
               cmc           (if/when supported)
               ceinms        calibrate / execute CEINMS
               jra           joint reaction analysis
-              mrs           muscle redundancy solver -- now `openSim mrs`.
+              mrs           muscle redundancy solver -- now `simulate mrs`.
                             No `bioscout mrs` alias kept; the old top-level
                             shortcut is just gone once this ships.
-              model         check, edit, compare and validate .osim models
-                              check          can every model still find its bone meshes?
-                              edit           scale, set mass, change forces, moment arms, markers
-                              compare        dimensions and segment masses across models
-                              tune-ma        adjust a muscle's moment arm, interactively
-                                             (renamed from `ma` -- collided with
-                                             `openSim ma`, the muscle-analysis stage)
-                              validate       moment arms, fibre lengths, strength vs literature
-                              joint-centres  (jc)
-                              tps            build an MRI-personalised model (interactive)
+              gapfill       marker gap-filling, immediately before `ik` needs
+                            complete marker data -- tentative placement, see
+                            open questions
   session   create, export, classify, scale or reset a session; batches
-            openSim's steps across subjects/iterations and makes it easy to
-            compare between iterations                  [absorbs old `run`/`run --batch`]
+            `simulate`'s steps across subjects/iterations and makes it easy
+            to compare between iterations          [absorbs old `run`/`run --batch`]
   plot      figures from the results on disk (incl. the project figure
             catalogue, moved in from `bioscout/figures.py`, and the Collings
             muscle-ranking figure, moved in from `utils/collings.py`)
@@ -46,16 +61,16 @@ bioscout -h
   lab       EXPERIMENTAL (3.0): video and wearable tracking
 ```
 
-Dropped as top-level verbs: `run`, `scale` (folded into `openSim`), `project`
-(folded into `init`), `model` and `tps` (nested under `openSim`, since both
-operate on .osim models — `tps` moves a level deeper still, under `model`,
-since what it produces IS a model), `mrs` (nested under `openSim`, no
-compat alias).
+Dropped as top-level verbs: `run`, `project` (folded into `init`), `tps`
+(nested under `model`, since what it produces IS a model), `mrs` (nested
+under `simulate`, no compat alias). `scale` also disappears as a bare
+top-level verb but resurfaces as `model scale`. `model` itself is NOT
+dropped -- it stays top-level, per the split above.
 
-There's no `openSim run` subcommand and no top-level "run the whole
-single-subject pipeline" command — `session` calls the individual `openSim`
-steps in sequence itself when it batches across subjects/iterations, rather
-than that sequencing being its own user-facing verb.
+There's no `simulate run`/`openSim run` subcommand and no top-level "run the
+whole single-subject pipeline" command — `session` calls the individual
+`simulate` steps in sequence itself when it batches across subjects/
+iterations, rather than that sequencing being its own user-facing verb.
 
 ## 2. Target package tree
 
@@ -78,7 +93,7 @@ bioscout/
   gui/               unchanged (the `gui` verb)
   emg/               NEW, top-level, NOT its own CLI verb -- a domain package
                      that `session/` (export, channel mapping) and
-                     `msk/ceinms/` (excitation QC) both import from, the
+                     `simulate/ceinms/` (excitation QC) both import from, the
                      same way everything already imports `core/`:
                        <- utils/emg.py, utils/emg_analysis.py,
                           utils/emg_channels.py, utils/emg_filter.py,
@@ -93,48 +108,54 @@ bioscout/
                      `utils/filters.py` (see below) with emg/ calling it --
                      needs a closer read to split "generic filter" from
                      "EMG-specific use of a filter."
-  msk/               NEW — everything under `openSim` (scale/ik/id/ma/so/ceinms/jra).
-                     Named `msk/` (musculoskeletal), not `opensim/` -- this is the
-                     whole modelling pipeline (OpenSim + CEINMS + MRS + model
-                     editing/inspection/TPS + gapfill), not narrowly "OpenSim the
-                     software." The CLI verb stays `openSim` (that's the tool
-                     people actually type and the term the field already uses);
-                     only the package name changes.
-                       <- utils/openSim.py (233KB), utils/scale_measurements.py,
-                          utils/model_scaler.py
-    msk/ceinms/    <- utils/ceinms/ (moved as a subpackage, unchanged inside)
-    msk/mrs/       <- mrs/ (moved as a subpackage, same shape as ceinms/ —
+  model/             the WHOLE `model` verb, un-nested and top-level (not
+                     under `simulate` -- see CLI tree above):
+                       <- model/ (already: check, geometry, verify)
+                          model_edit/ (-> model/edit/, backs `model edit`)
+                          change_moment_arms/ (-> model/moment_arms/, backs `model tune-ma`)
+                          muscle_inspect/ (-> model/inspect/, backs `model validate`)
+                          tps_personalise/ (-> model/tps/, backs `model tps`)
+                          utils/model_report.py (-> model/report.py -- this is
+                          NOT one of figures.py's dispatch targets like I'd
+                          guessed earlier; it's the direct implementation
+                          behind `model compare`, model_edit/ops/inspect.py
+                          literally says `delegates_to=
+                          "bioscout.utils.model_report.compare_models"`)
+                          utils/scale_measurements.py, utils/model_scaler.py
+                          (-> model/scale/ -- these back `scale`, which now
+                          lives under `model` too, see CLI tree)
+  simulate/          NEW — everything under the `simulate` verb
+                     (ik/id/ma/so/cmc/ceinms/jra/mrs/gapfill). Named to match
+                     the verb exactly, now that `model` (and `scale`) are out
+                     of it: what's left really is just "run a simulation on
+                     an existing model," so `simulate/` needs no broader
+                     umbrella name like `msk/` any more.
+                       <- utils/openSim.py (233KB) -- MINUS whatever inside it
+                          is actually the ScaleTool wrapper (that part goes to
+                          `model/scale/` instead, see open questions -- this
+                          233KB file almost certainly needs an internal split,
+                          not a clean single-destination move)
+    simulate/ceinms/   <- utils/ceinms/ (moved as a subpackage, unchanged inside)
+    simulate/mrs/      <- mrs/ (moved as a subpackage, same shape as ceinms/ —
                           it already has its own cli.py/config.py/runner.py/io.py,
                           just relocated rather than staying top-level)
+    simulate/gapfill.py  <- utils/gapfill.py (marker gap-filling -- runs
+                          BEFORE ik needs complete marker data, same
+                          input-prep role as exportC3D.py, just simulate's
+                          side of it rather than session's)
                        pipeline.py's single-subject run_subject() logic
                        (IK->ID->MA->SO->CEINMS->JRA) moves in here too, as a
                        plain function `session/` calls for its batch runs —
                        it stops being reachable as its own CLI subcommand.
-    msk/model/     the WHOLE `openSim model` verb
-                       <- model/ (already: check, geometry, verify)
-                          model_edit/ (-> msk/model/edit/, backs `model edit`)
-                          change_moment_arms/ (-> msk/model/moment_arms/, backs `model tune-ma`)
-                          muscle_inspect/ (-> msk/model/inspect/, backs `model validate`)
-      msk/model/tps/  RENAMED from tps_personalise/ (backs `openSim model tps`)
-      msk/model/report.py  <- utils/model_report.py -- this is NOT one of
-                          figures.py's dispatch targets like I'd guessed
-                          earlier; it's the direct implementation behind
-                          `model compare` (model_edit/ops/inspect.py
-                          literally says `delegates_to=
-                          "bioscout.utils.model_report.compare_models"`).
-  msk/gapfill.py       <- utils/gapfill.py (marker gap-filling -- gap-fills
-                          BEFORE scaling/IK can run, same input-prep role as
-                          exportC3D.py, just msk's side of it rather than
-                          session's, per your call)
   session/           NEW — everything `bioscout session` backs
                        <- utils/session.py (258KB), utils/session_form.py,
                           utils/session_layout.py, utils/session_paths.py,
                           utils/exportC3D.py (backs `session export` directly --
                           it exists FOR that verb, more than it's a generic
-                          msk-input converter; imports from `emg/` for
+                          simulate-input converter; imports from `emg/` for
                           channel resolution, which is a normal cross-package
-                          dependency, same as session already needing msk/
-                          for `session scale`),
+                          dependency, same as session already needing
+                          `model` for `session scale`),
                           utils/motion_detect.py (finds a capture's actual
                           movement window -- same domain as
                           movement_detector/'s classification, just a
@@ -191,21 +212,20 @@ bioscout/
 
 ## 3. Open questions I couldn't resolve by reading code alone
 
-- **`utils/file_edit.py`** — still unresolved, the one file_edit/gapfill pair
-  that didn't get a clear answer (gapfill.py -> `msk/`, decided). More
-  generic than gapfill.py reads; might just belong in `utils/`. Needs a
-  closer read.
-- **`record/`** folding into `lab/` needs confirming the GUI's recording
-  widget import path gets updated too (`gui/widgets/recording.py`).
-- **`emg_filter.py`'s exact split** — decided to split it (a generic filter
-  function to `utils/filters.py`, EMG-specific use stays in `emg/`); what
-  I haven't done yet is actually read the function closely enough to draw
-  that line precisely.
-- **`msk/`, `modelling/`, `biomech/`, or something else** — `msk/` is my
-  suggestion (short, matches how you and the field already talk about this:
-  "musculoskeletal biomechanics" in your own background). Worth sitting with
-  it for a day before it's final, since renaming the package that holds the
-  bulk of the codebase is the biggest naming decision in this whole plan.
+- **`utils/openSim.py`'s internal scale/simulate split** — the real
+  complexity the `model`/`simulate` split adds: this 233KB file is the
+  OpenSim API wrapper for everything (scale, ik, id, ma, so, jra all
+  together, near as I can tell without reading the whole thing), so moving
+  it needs an actual read to find the ScaleTool-wrapping code and split it
+  out to `model/scale/`, leaving the rest for `simulate/`. Not a clean
+  single-destination move like most of this plan.
+  `utils/file_edit.py` — resolved, stays in `utils/`, per your call.
+  `record/` folding into `lab/` — confirmed; the one concrete fix needed is
+  `gui/widgets/recording.py`'s `from record.video import ...`, which needs
+  to become `from bioscout.lab.record.video import ...` (or whatever the
+  final import style is -- worth checking why it's a bare `record.video`
+  import today rather than `bioscout.record.video`, in case that's an
+  existing quirk rather than something this move should copy forward).
 
 ## 4. Why this can't be a single sed pass
 
@@ -225,45 +245,49 @@ bioscout/
 
 ## 5. Proposed staged rollout (each stage its own commit, tests run in between)
 
-1. **CLI-only, zero file moves**: add the `openSim` verb group to `cli.py`
-   (scale/ik/id/ma/so/ceinms/jra) wrapping the existing `utils/openSim.py`/
-   `ceinms/` functions in place; retire `run`/`scale`/`project` as top-level
-   (keep them as hidden aliases for one release so nothing breaks silently);
-   fold `project` into `init`. Lowest risk, delivers the UX improvement
-   immediately.
+1. **CLI-only, zero file moves**: add the `simulate` verb group to `cli.py`
+   (ik/id/ma/so/cmc/ceinms/jra) wrapping the existing `utils/openSim.py`/
+   `ceinms/` functions in place; retire `run`/`project` as top-level (keep
+   them as hidden aliases for one release so nothing breaks silently); fold
+   `project` into `init`. `model` and `scale` need no CLI change here --
+   `model` already exists, `scale` just doesn't move to `simulate`. Lowest
+   risk, delivers the UX improvement immediately.
 2. **Move `figures.py` and `collings.py` into `plot/`**, update their import
    sites in `cli.py`. Small, self-contained.
-3. **Nest `model` (and `tps`) under `openSim`**: move `model/`, `model_edit/`,
-   `change_moment_arms/`, `muscle_inspect/` under a new `model/` sub-package,
-   and `tps_personalise/` under `model/tps/`; update `cli.py`'s routing so
-   `openSim model ...` and `openSim model tps` resolve there. Rename `model
-   ma` to `model tune-ma` as part of this stage.
-   Same stage, same shape: move `mrs/` under `msk/mrs/` and wire
-   `openSim mrs` into the routing -- no `bioscout mrs` alias, drop the old
+3. **Fold `scale` into `model`**: `bioscout scale` -> `bioscout model scale`;
+   move `scale_measurements.py`/`model_scaler.py` into `model/scale/`.
+4. **Consolidate `model`**: move `model_edit/`, `change_moment_arms/`,
+   `muscle_inspect/`, `tps_personalise/` (-> `model/tps/`) under `model/`;
+   update `cli.py`'s routing. Rename `model ma` to `model tune-ma`.
+   Same stage, same shape: move `mrs/` under `simulate/mrs/` and wire
+   `simulate mrs` into the routing -- no `bioscout mrs` alias, drop the old
    top-level shortcut outright.
-4. **Extract `emg/`**: move the emg*.py files out of `utils/` into their own
+5. **Extract `emg/`**: move the emg*.py files out of `utils/` into their own
    top-level package; update the ~4 importers (gui/, pipeline.py, session.py,
-   analysis.py). Do this before stage 5/6 since both `session/` and
-   `msk/ceinms/` will need to import from it once they move.
-5. **Extract `msk/` for real**: move `openSim.py`, `ceinms/`,
-   `scale_measurements.py`, `model_scaler.py`, `gapfill.py`, `model_report.py`
-   (and the `model/` sub-package from stage 3) out of `utils/` into
-   `bioscout/msk/`; this is the big one (~27+ import sites) — do it with an
-   actual find/replace pass plus a full `bioscout.test()` run, not by hand.
-6. **Extract `session/`**: move `session.py` + friends + `exportC3D.py` +
+   analysis.py). Do this before stage 6/7 since both `session/` and
+   `simulate/ceinms/` will need to import from it once they move.
+6. **Split `openSim.py` and extract `simulate/`**: this is the stage that
+   changed shape the most -- read `openSim.py` closely enough to separate
+   its ScaleTool-wrapping code (-> `model/scale/`, joining stage 3's files)
+   from everything else (-> `simulate/`, with `ceinms/`, `gapfill.py`
+   alongside it). ~27+ import sites combined — an actual find/replace pass
+   plus a full `bioscout.test()` run, not by hand.
+7. **Extract `session/`**: move `session.py` + friends + `exportC3D.py` +
    `motion_detect.py`; same treatment.
-7. **Extract `core/`**: move `analysis.py` into the existing `core/`, along
+8. **Extract `core/`**: move `analysis.py` into the existing `core/`, along
    with `subject_registry.py` and `jcf_contributions.py`.
-8. **Move `summary.py` into `plot/`**, alongside `figures.py`/`collings.py`
+9. **Move `summary.py` into `plot/`**, alongside `figures.py`/`collings.py`
    from stage 2 -- small, can ride along with that stage instead of getting
    its own if it's easier.
-9. **Extract `lab/`**: move `load_tracking/`, `record/`,
-   `subject_profile.py` in together.
-10. **Rename the `utils` verb's backend to `devtools/`**, and start
-    `utils/filters.py`/`utils/text_prints.py` small (see above -- no audit
-    gate, just begin with the obvious simple cases and migrate bigger
-    modules' logic in over time as it's found).
-11. **`init/`**: lowest urgency, smallest blast radius — last.
+10. **Extract `lab/`**: move `load_tracking/`, `record/`,
+    `subject_profile.py` in together; fix `gui/widgets/recording.py`'s
+    import.
+11. **Rename the `utils` verb's backend to `devtools/`**, and start
+    `utils/filters.py` with the `bandpass()`/`lowpass()` primitives pulled
+    out of `emg_normalise.filter_emg()`, plus `utils/text_prints.py` --
+    small and simple to start, migrate bigger modules' logic in over time
+    as it's found.
+12. **`init/`**: lowest urgency, smallest blast radius — last.
 
 I'd suggest starting at stage 1 (the part you actually asked for — nicer
 `bioscout -h`) and treating 2 onward as separate, reviewable pieces of work
