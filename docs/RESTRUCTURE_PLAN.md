@@ -49,8 +49,7 @@ bioscout -h
                             No `bioscout mrs` alias kept; the old top-level
                             shortcut is just gone once this ships.
               gapfill       marker gap-filling, immediately before `ik` needs
-                            complete marker data -- tentative placement, see
-                            open questions
+                            complete marker data
   session   create, export, classify, scale or reset a session; batches
             `simulate`'s steps across subjects/iterations and makes it easy
             to compare between iterations          [absorbs old `run`/`run --batch`]
@@ -103,11 +102,18 @@ bioscout/
                      narrowly an openSim concern, and it's too domain-specific
                      (rectify/envelope/MVC-normalise, NMF muscle synergies,
                      CEINMS-readiness frequency QC) to call "shared" generic
-                     code. Open sub-question: emg_filter.py's actual filter
-                     function might still be generic enough to also live in
-                     `utils/filters.py` (see below) with emg/ calling it --
-                     needs a closer read to split "generic filter" from
-                     "EMG-specific use of a filter."
+                     code. emg_filter.py itself needs no split: it's purely
+                     filter-SETTINGS resolution (session.yaml -> BatchSettings
+                     -> defaults), not signal processing, so it stays whole
+                     here. The actual generic signal-processing primitives
+                     (butter+filtfilt band-pass/low-pass) live inline in
+                     emg_normalise.filter_emg() today -- those get pulled out
+                     into utils/filters.py as bandpass()/lowpass(), with
+                     filter_emg() becoming a thin EMG-specific caller (see
+                     utils/ below). NOTE: `simulate/`'s run_emg_normalise
+                     (the pipeline STAGE that calls this normalisation on a
+                     session's trials) stays in `simulate/`, not here -- see
+                     below; it's a pipeline stage, not EMG domain logic.
   model/             the WHOLE `model` verb, un-nested and top-level (not
                      under `simulate` -- see CLI tree above):
                        <- model/ (already: check, geometry, verify)
@@ -115,26 +121,117 @@ bioscout/
                           change_moment_arms/ (-> model/moment_arms/, backs `model tune-ma`)
                           muscle_inspect/ (-> model/inspect/, backs `model validate`)
                           tps_personalise/ (-> model/tps/, backs `model tps`)
-                          utils/model_report.py (-> model/report.py -- this is
-                          NOT one of figures.py's dispatch targets like I'd
-                          guessed earlier; it's the direct implementation
-                          behind `model compare`, model_edit/ops/inspect.py
-                          literally says `delegates_to=
-                          "bioscout.utils.model_report.compare_models"`)
+                          utils/model_report.py (-> model/report.py -- the
+                          direct implementation behind `model compare`,
+                          model_edit/ops/inspect.py literally says
+                          `delegates_to="bioscout.utils.model_report.compare_models"`)
                           utils/scale_measurements.py, utils/model_scaler.py
                           (-> model/scale/ -- these back `scale`, which now
                           lives under `model` too, see CLI tree)
+
+                     PLUS its share of `utils/openSim.py` (233KB), now fully
+                     categorised by reading the file and grepping every
+                     caller (see "The openSim.py split" below):
+
+                       model/opensim_base.py  -- shared low-level OpenSim
+                         wrapper plumbing that BOTH model/ and simulate/
+                         need (simulate/ imports from here; model doesn't
+                         need anything back from simulate/, so this is the
+                         natural place for it -- "loading a model" is
+                         fundamentally about the model object):
+                           load_model, _assembly_accuracy, _quiet_model,
+                           _quiet_osim, _osim_quiet_ctx, _quiet_console,
+                           terminal_warnings
+
+                       model/edit/ (additions to the existing model_edit/ops/
+                         functions, same file or split further later):
+                           scale_body_masses, add_mass_to_body,
+                           print_body_mass_per_segment, increase_isometric_force
+                           [delegates_to-confirmed], lock_model_coordinates
+                           [delegates_to-confirmed], coord_moment_arms,
+                           add_wrapping_surfaces, edit_model_range_coordinates
+                           [delegates_to-confirmed], add_wrapping_surface_to_model,
+                           add_muscles_to_model, copy_model_coordinate,
+                           checkMuscleMomentArms, muscles_per_coordinate,
+                           sampleMuscleQuantities, edit_pelvis_com_actuators,
+                           normalise_muscle, _strip_trailing_nulls
+
+                       model/muscle_optimize.py -- the Modenese-2015 muscle
+                         parameter optimiser, its own cluster:
+                           muscle_optimimizer_Modenese2015
+                           [delegates_to-confirmed], _apply_muscle_opt_settings,
+                           optimMuscleParams, plot_optimization_results,
+                           optimize_moment_arms, mean_squared_error (its only
+                           caller anywhere in the repo is optimMuscleParams)
+
+                       model/scale/ (joining scale_measurements.py/
+                         model_scaler.py already slated here):
+                           scale_model_from_xml, _sanitize_markerset_xml,
+                           scale_model [delegates_to-confirmed],
+                           place_markers_via_ik [delegates_to-confirmed --
+                           despite the "via_ik" name this edits the model's
+                           marker placements, it doesn't run a simulation]
+
+                       DEAD CODE FLAG, not migrated anywhere: compare_osim_models
+                         (line ~1734) has zero callers anywhere in the repo --
+                         grep confirms nothing calls it, including tests. This
+                         is separate from model_report.compare_models, which
+                         IS the live `model compare` implementation. Recommend
+                         deleting it rather than moving it, but flagging here
+                         instead of just doing it, since it's still a judgment
+                         call, not a mechanical move.
+
   simulate/          NEW — everything under the `simulate` verb
                      (ik/id/ma/so/cmc/ceinms/jra/mrs/gapfill). Named to match
                      the verb exactly, now that `model` (and `scale`) are out
                      of it: what's left really is just "run a simulation on
                      an existing model," so `simulate/` needs no broader
                      umbrella name like `msk/` any more.
-                       <- utils/openSim.py (233KB) -- MINUS whatever inside it
-                          is actually the ScaleTool wrapper (that part goes to
-                          `model/scale/` instead, see open questions -- this
-                          233KB file almost certainly needs an internal split,
-                          not a clean single-destination move)
+                       <- utils/openSim.py -- the simulation-stage and
+                          input-prep functions (everything NOT listed under
+                          model/ above):
+
+                       Pipeline stages (imports model/opensim_base.py for
+                       load_model etc.):
+                         create_setup_IK, run_ik, _sanitize_ik_leading_frames,
+                         _check_ik_prerequisites, create_analysis_tool,
+                         create_iaa_tool, create_setup_ID, run_id, run_ma,
+                         reserve_actuator_plan, run_so, run_jra, run_iaa,
+                         run_rra, run_cmc, run_energetics, run_body_kinematics,
+                         run_emg_normalise (confirmed a pipeline stage, not
+                         emg/ domain logic -- pipeline.py's comment literally
+                         says "STAGE 3 . run_emg_normalise (session-wide MVC
+                         normalisation)", called in the same sequence as
+                         run_ik/run_id/etc.)
+
+                       Simulation-input prep (trc/mot/grf/xml wrangling that
+                       feeds the stages above -- not model edits, since none
+                       of these touch the .osim file itself):
+                         export_c3d [NAME COLLISION FLAG: there's also
+                         `utils/exportC3D.py` -> `session/exportC3D.py` (the
+                         session-level export orchestrator, which calls a
+                         Trial.export_c3d() method that in turn calls THIS
+                         function). Not a literal duplicate, but similar
+                         enough names in adjacent packages that this one
+                         should probably be renamed on the move, e.g. to
+                         `c3d_to_trc()`, to stop them being confused],
+                         convert_trc_os3_to_os4, add_joint_centers_to_trc,
+                         validate_markers_used (called internally by
+                         create_setup_IK), compare_marker_locations (called
+                         by analysis.py as a post-IK QC step),
+                         assign_grfs_to_feet (called internally by
+                         create_grf_xml), create_grf_xml (called by
+                         analysis.py ahead of ID), convert_mot_to_sto,
+                         relativise_setup_xml (called internally by run_cmc)
+
+                       Results-analysis helper (operates on MA results, not
+                       the model or the setup -- belongs next to run_ma, not
+                       in model/edit/):
+                         find_non_zero_mom_arm_muscles (called from
+                         analysis.py and summary.py after run_ma, despite
+                         sitting near the marker-placement code in the
+                         original file)
+
     simulate/ceinms/   <- utils/ceinms/ (moved as a subpackage, unchanged inside)
     simulate/mrs/      <- mrs/ (moved as a subpackage, same shape as ceinms/ —
                           it already has its own cli.py/config.py/runner.py/io.py,
@@ -192,10 +289,12 @@ bioscout/
                        migrate bigger modules' duplicated logic in over time
                        as it's found, not all at once:
                          utils/filters.py       generic signal filtering --
-                                                 start with the simple stuff;
-                                                 candidates to migrate in
-                                                 later: emg_filter.py,
-                                                 gapfill.py, openSim.py
+                                                 starts with bandpass()/
+                                                 lowpass() pulled out of
+                                                 emg_normalise.filter_emg()'s
+                                                 inline scipy butter+filtfilt
+                                                 calls; candidates to migrate
+                                                 in later: gapfill.py
                          utils/text_prints.py    console/log formatting
                                                  helpers -- same approach;
                                                  today it's ad hoc print()
@@ -210,22 +309,24 @@ bioscout/
                           md2pdf.py, settings_updater.py, run_check.py
 ```
 
-## 3. Open questions I couldn't resolve by reading code alone
+## 3. Remaining open items
 
-- **`utils/openSim.py`'s internal scale/simulate split** — the real
-  complexity the `model`/`simulate` split adds: this 233KB file is the
-  OpenSim API wrapper for everything (scale, ik, id, ma, so, jra all
-  together, near as I can tell without reading the whole thing), so moving
-  it needs an actual read to find the ScaleTool-wrapping code and split it
-  out to `model/scale/`, leaving the rest for `simulate/`. Not a clean
-  single-destination move like most of this plan.
-  `utils/file_edit.py` — resolved, stays in `utils/`, per your call.
-  `record/` folding into `lab/` — confirmed; the one concrete fix needed is
-  `gui/widgets/recording.py`'s `from record.video import ...`, which needs
-  to become `from bioscout.lab.record.video import ...` (or whatever the
-  final import style is -- worth checking why it's a bare `record.video`
-  import today rather than `bioscout.record.video`, in case that's an
-  existing quirk rather than something this move should copy forward).
+The `openSim.py` scale/simulate split (the last real open question) is now
+resolved -- every one of its ~65 functions is categorised into `model/` or
+`simulate/` above, grounded in the `delegates_to=` map plus a grep of every
+caller, not guesswork. Two small judgment calls fell out of that pass and
+are flagged inline above rather than silently actioned:
+
+- **`compare_osim_models`** (in `openSim.py`) has zero callers repo-wide —
+  candidate for deletion rather than migration.
+- **`export_c3d`** (in `openSim.py`) should probably be renamed on the move
+  (e.g. `c3d_to_trc`) since `session/exportC3D.py` is right next door and the
+  names are easy to confuse, even though they aren't literal duplicates.
+
+Everything else previously open is resolved: `utils/file_edit.py` stays in
+`utils/`; `record/` folding into `lab/` is confirmed, with
+`gui/widgets/recording.py`'s `from record.video import ...` needing to
+become a proper `bioscout.lab.record.video` import as part of that move.
 
 ## 4. Why this can't be a single sed pass
 
@@ -266,12 +367,16 @@ bioscout/
    top-level package; update the ~4 importers (gui/, pipeline.py, session.py,
    analysis.py). Do this before stage 6/7 since both `session/` and
    `simulate/ceinms/` will need to import from it once they move.
-6. **Split `openSim.py` and extract `simulate/`**: this is the stage that
-   changed shape the most -- read `openSim.py` closely enough to separate
-   its ScaleTool-wrapping code (-> `model/scale/`, joining stage 3's files)
-   from everything else (-> `simulate/`, with `ceinms/`, `gapfill.py`
-   alongside it). ~27+ import sites combined — an actual find/replace pass
-   plus a full `bioscout.test()` run, not by hand.
+6. **Split `openSim.py` and extract `model/`'s and `simulate/`'s shares of
+   it**: mechanical now that the split is fully mapped out (section 2) --
+   `model/opensim_base.py`, `model/edit/`'s additions, `model/muscle_optimize.py`
+   and `model/scale/`'s additions go with stage 3/4's `model/` work;
+   everything else (the pipeline-stage functions, the input-prep cluster,
+   `find_non_zero_mom_arm_muscles`) plus `ceinms/`, `mrs/`, `gapfill.py`
+   becomes `simulate/`. Drop `compare_osim_models` rather than moving it;
+   rename `export_c3d` to something that doesn't collide with
+   `session/exportC3D.py`. ~27+ import sites combined across both halves —
+   an actual find/replace pass plus a full `bioscout.test()` run, not by hand.
 7. **Extract `session/`**: move `session.py` + friends + `exportC3D.py` +
    `motion_detect.py`; same treatment.
 8. **Extract `core/`**: move `analysis.py` into the existing `core/`, along
