@@ -69,12 +69,16 @@ bioscout/
                           utils/subject_registry.py (per-project subjects.json
                           -- analysis.py's own Subject class reads it directly,
                           so it belongs with core, not lab; load_tracking/
-                          keeps using it via an import, same as gui/ does today)
+                          keeps using it via an import, same as gui/ does today),
+                          utils/jcf_contributions.py (muscle contributions to
+                          joint contact force by force superposition -- a
+                          computation only analysis.py calls, not a figure
+                          builder despite living near the plot dispatchers)
   tests/             unchanged
   gui/               unchanged (the `gui` verb)
   emg/               NEW, top-level, NOT its own CLI verb -- a domain package
                      that `session/` (export, channel mapping) and
-                     `opensim/ceinms/` (excitation QC) both import from, the
+                     `msk/ceinms/` (excitation QC) both import from, the
                      same way everything already imports `core/`:
                        <- utils/emg.py, utils/emg_analysis.py,
                           utils/emg_channels.py, utils/emg_filter.py,
@@ -89,36 +93,61 @@ bioscout/
                      `utils/filters.py` (see below) with emg/ calling it --
                      needs a closer read to split "generic filter" from
                      "EMG-specific use of a filter."
-  opensim/           NEW — everything under `openSim` (scale/ik/id/ma/so/ceinms/jra)
+  msk/               NEW — everything under `openSim` (scale/ik/id/ma/so/ceinms/jra).
+                     Named `msk/` (musculoskeletal), not `opensim/` -- this is the
+                     whole modelling pipeline (OpenSim + CEINMS + MRS + model
+                     editing/inspection/TPS + gapfill), not narrowly "OpenSim the
+                     software." The CLI verb stays `openSim` (that's the tool
+                     people actually type and the term the field already uses);
+                     only the package name changes.
                        <- utils/openSim.py (233KB), utils/scale_measurements.py,
                           utils/model_scaler.py
-    opensim/ceinms/    <- utils/ceinms/ (moved as a subpackage, unchanged inside)
-    opensim/mrs/       <- mrs/ (moved as a subpackage, same shape as ceinms/ —
+    msk/ceinms/    <- utils/ceinms/ (moved as a subpackage, unchanged inside)
+    msk/mrs/       <- mrs/ (moved as a subpackage, same shape as ceinms/ —
                           it already has its own cli.py/config.py/runner.py/io.py,
                           just relocated rather than staying top-level)
                        pipeline.py's single-subject run_subject() logic
                        (IK->ID->MA->SO->CEINMS->JRA) moves in here too, as a
                        plain function `session/` calls for its batch runs —
                        it stops being reachable as its own CLI subcommand.
-    opensim/model/     the WHOLE `openSim model` verb
+    msk/model/     the WHOLE `openSim model` verb
                        <- model/ (already: check, geometry, verify)
-                          model_edit/ (-> opensim/model/edit/, backs `model edit`)
-                          change_moment_arms/ (-> opensim/model/moment_arms/, backs `model tune-ma`)
-                          muscle_inspect/ (-> opensim/model/inspect/, backs `model validate`)
-      opensim/model/tps/  RENAMED from tps_personalise/ (backs `openSim model tps`)
+                          model_edit/ (-> msk/model/edit/, backs `model edit`)
+                          change_moment_arms/ (-> msk/model/moment_arms/, backs `model tune-ma`)
+                          muscle_inspect/ (-> msk/model/inspect/, backs `model validate`)
+      msk/model/tps/  RENAMED from tps_personalise/ (backs `openSim model tps`)
+      msk/model/report.py  <- utils/model_report.py -- this is NOT one of
+                          figures.py's dispatch targets like I'd guessed
+                          earlier; it's the direct implementation behind
+                          `model compare` (model_edit/ops/inspect.py
+                          literally says `delegates_to=
+                          "bioscout.utils.model_report.compare_models"`).
+  msk/gapfill.py       <- utils/gapfill.py (marker gap-filling -- gap-fills
+                          BEFORE scaling/IK can run, same input-prep role as
+                          exportC3D.py, just msk's side of it rather than
+                          session's, per your call)
   session/           NEW — everything `bioscout session` backs
                        <- utils/session.py (258KB), utils/session_form.py,
                           utils/session_layout.py, utils/session_paths.py,
                           utils/exportC3D.py (backs `session export` directly --
                           it exists FOR that verb, more than it's a generic
-                          openSim-input converter; imports from `emg/` for
+                          msk-input converter; imports from `emg/` for
                           channel resolution, which is a normal cross-package
-                          dependency, same as session already needing opensim/
+                          dependency, same as session already needing msk/
                           for `session scale`),
+                          utils/motion_detect.py (finds a capture's actual
+                          movement window -- same domain as
+                          movement_detector/'s classification, just a
+                          different question; belongs alongside it here,
+                          not in plot/ despite the name suggesting a figure),
                           movement_detector/ (backs `session classify`)
   plot/              grows: figures.py moves in (-> plot/catalog.py or
                      similar), collings.py moves in (-> plot/collings.py --
-                     it's the literal implementation behind `plot collings`)
+                     it's the literal implementation behind `plot collings`),
+                     summary.py moves in (-> plot/summary.py -- pipeline.py's
+                     run_summary() falls back to it for the project's
+                     results/manuscript summary; genuinely a report/figure
+                     builder, unlike its three siblings above)
   lab/               NEW — the `lab` verb's home
                        <- load_tracking/ (backs `lab load-report`, `lab add-subject`,
                           `lab shots` via shot_analysis.py), record/ (video capture,
@@ -136,17 +165,20 @@ bioscout/
                        <- utils/io.py, utils/helpers.py, utils/shared.py,
                           utils/xml_utils.py, utils/logger.py, utils/stats.py,
                           utils/resource_cleanup.py
-                       PLUS two modules that don't exist yet and would need
-                       writing, not just moving:
-                         utils/filters.py       generic signal filtering
-                                                 (consolidated out of whatever
-                                                 is duplicated today across
-                                                 emg_filter.py, gapfill.py,
-                                                 openSim.py, etc. — needs an
-                                                 actual duplication audit first)
+                       PLUS two modules that don't exist yet, built
+                       incrementally rather than gated on a full audit:
+                       start with whatever's simple and obviously shared,
+                       migrate bigger modules' duplicated logic in over time
+                       as it's found, not all at once:
+                         utils/filters.py       generic signal filtering --
+                                                 start with the simple stuff;
+                                                 candidates to migrate in
+                                                 later: emg_filter.py,
+                                                 gapfill.py, openSim.py
                          utils/text_prints.py    console/log formatting
-                                                 helpers (today ad hoc print()
-                                                 calls scattered per module)
+                                                 helpers -- same approach;
+                                                 today it's ad hoc print()
+                                                 calls scattered per module
   devtools/          NEW, small — the `utils` VERB's own implementation
                      (env/deps/docs/editor-setup). Named `devtools/` rather
                      than `utils/` specifically so it stops colliding with
@@ -155,35 +187,25 @@ bioscout/
                      which folder holds which five files:
                        <- envcheck.py (from bioscout/ root), dependency_installer.py,
                           md2pdf.py, settings_updater.py, run_check.py
-                     (Naming bikeshed: `devtools/`, `toolkit/`, `env/` all
-                     work equally well here -- pick whichever reads best.)
 ```
 
 ## 3. Open questions I couldn't resolve by reading code alone
 
-- **`utils/model_report.py`**, **`utils/summary.py`**,
-  **`utils/jcf_contributions.py`**, **`utils/motion_detect.py`** — the
-  remaining figure/report builders `figures.py` dispatches to (collings.py
-  is now resolved, above). Likely `plot/` too, same reasoning; need a closer
-  read of each before deciding.
-- **`utils/file_edit.py`**, **`utils/gapfill.py`** — still unresolved.
-  `gapfill.py` (marker gap-filling) reads like `session/`-or-`opensim/`
-  input-prep, similar to exportC3D.py; `file_edit.py` is more generic and
-  might belong in `utils/` instead. Needs a closer read.
+- **`utils/file_edit.py`** — still unresolved, the one file_edit/gapfill pair
+  that didn't get a clear answer (gapfill.py -> `msk/`, decided). More
+  generic than gapfill.py reads; might just belong in `utils/`. Needs a
+  closer read.
 - **`record/`** folding into `lab/` needs confirming the GUI's recording
   widget import path gets updated too (`gui/widgets/recording.py`).
-- **`emg_filter.py`'s split** — see the `emg/` entry above: is there a
-  generic filter function inside it worth pulling out to `utils/filters.py`,
-  with `emg/` becoming a thin EMG-specific caller of it? Needs a look at
-  what the function actually does, not just its name.
-- **`utils/filters.py` and `utils/text_prints.py` are new modules, not
-  moves.** Worth an actual audit of what's duplicated (signal filtering
-  shows up in `emg_filter.py`, `gapfill.py`, possibly `openSim.py`; print/log
-  formatting is ad hoc per-file today) before deciding what goes in vs. gets
-  left alone — scope this as its own small stage, not folded into the bigger
-  `utils/` extraction.
-- **`devtools/` naming** — flagged above; any name that isn't `utils` works,
-  just need to pick one.
+- **`emg_filter.py`'s exact split** — decided to split it (a generic filter
+  function to `utils/filters.py`, EMG-specific use stays in `emg/`); what
+  I haven't done yet is actually read the function closely enough to draw
+  that line precisely.
+- **`msk/`, `modelling/`, `biomech/`, or something else** — `msk/` is my
+  suggestion (short, matches how you and the field already talk about this:
+  "musculoskeletal biomechanics" in your own background). Worth sitting with
+  it for a day before it's final, since renaming the package that holds the
+  bulk of the codebase is the biggest naming decision in this whole plan.
 
 ## 4. Why this can't be a single sed pass
 
@@ -216,30 +238,32 @@ bioscout/
    and `tps_personalise/` under `model/tps/`; update `cli.py`'s routing so
    `openSim model ...` and `openSim model tps` resolve there. Rename `model
    ma` to `model tune-ma` as part of this stage.
-   Same stage, same shape: move `mrs/` under `opensim/mrs/` and wire
+   Same stage, same shape: move `mrs/` under `msk/mrs/` and wire
    `openSim mrs` into the routing -- no `bioscout mrs` alias, drop the old
    top-level shortcut outright.
 4. **Extract `emg/`**: move the emg*.py files out of `utils/` into their own
    top-level package; update the ~4 importers (gui/, pipeline.py, session.py,
    analysis.py). Do this before stage 5/6 since both `session/` and
-   `opensim/ceinms/` will need to import from it once they move.
-5. **Extract `opensim/` for real**: move `openSim.py`, `ceinms/`,
-   `scale_measurements.py`, `model_scaler.py` (and the `model/` sub-package
-   from stage 3) out of `utils/` into `bioscout/opensim/`; this is the big
-   one (~27 import sites) — do it with an actual find/replace pass plus a
-   full `bioscout.test()` run, not by hand.
-6. **Extract `session/`**: move `session.py` + friends + `exportC3D.py`;
-   same treatment.
+   `msk/ceinms/` will need to import from it once they move.
+5. **Extract `msk/` for real**: move `openSim.py`, `ceinms/`,
+   `scale_measurements.py`, `model_scaler.py`, `gapfill.py`, `model_report.py`
+   (and the `model/` sub-package from stage 3) out of `utils/` into
+   `bioscout/msk/`; this is the big one (~27+ import sites) — do it with an
+   actual find/replace pass plus a full `bioscout.test()` run, not by hand.
+6. **Extract `session/`**: move `session.py` + friends + `exportC3D.py` +
+   `motion_detect.py`; same treatment.
 7. **Extract `core/`**: move `analysis.py` into the existing `core/`, along
-   with `subject_registry.py`.
-8. **Extract `lab/`**: move `load_tracking/`, `record/`,
+   with `subject_registry.py` and `jcf_contributions.py`.
+8. **Move `summary.py` into `plot/`**, alongside `figures.py`/`collings.py`
+   from stage 2 -- small, can ride along with that stage instead of getting
+   its own if it's easier.
+9. **Extract `lab/`**: move `load_tracking/`, `record/`,
    `subject_profile.py` in together.
-9. **Rename the `utils` verb's backend to `devtools/`** and write
-   `utils/filters.py`/`utils/text_prints.py` as their own reviewable change
-   (audit for real duplication first, see open questions) — this one is
-   partly new code, not a pure move, so it gets its own stage rather than
-   riding along with anything else.
-10. **`init/`**: lowest urgency, smallest blast radius — last.
+10. **Rename the `utils` verb's backend to `devtools/`**, and start
+    `utils/filters.py`/`utils/text_prints.py` small (see above -- no audit
+    gate, just begin with the obvious simple cases and migrate bigger
+    modules' logic in over time as it's found).
+11. **`init/`**: lowest urgency, smallest blast radius — last.
 
 I'd suggest starting at stage 1 (the part you actually asked for — nicer
 `bioscout -h`) and treating 2 onward as separate, reviewable pieces of work
