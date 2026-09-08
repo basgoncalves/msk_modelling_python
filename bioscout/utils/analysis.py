@@ -2574,7 +2574,7 @@ class Analyse:
 
             it.trial('Deadlift_35kg_01').inspect_moment_arms()
         """
-        from bioscout.muscle_inspect.moment_arm_motion import inspect_moment_arms_over_motion
+        from bioscout.model.inspect.moment_arm_motion import inspect_moment_arms_over_motion
         ma_dir = os.path.join(self.path, self.ma)
         ik = os.path.join(self.path, self.ik)
         if not os.path.isdir(ma_dir):
@@ -5411,7 +5411,7 @@ class Analyse:
                        make_plots=True):
         """Motion-driven muscle-path check of this trial's model over its kinematics.
 
-        Runs ``bioscout.muscle_inspect`` on ``self.model_dir`` (the trial's OpenSim
+        Runs ``bioscout.model.inspect`` on ``self.model_dir`` (the trial's OpenSim
         model) driven by ``motion`` (default: this trial's IK joint_angles, i.e.
         ``self.ik``). It detects muscle path points inside wrap cylinders that make
         moment arms / muscle lengths discontinuous, projects them out, and writes a
@@ -5471,7 +5471,7 @@ class Analyse:
     def validate_trial(self, side="_r"):
         """End-of-analysis model validation for this trial → ``<trial>/validation/``.
 
-        Runs ``bioscout.muscle_inspect`` over THIS trial's kinematics and against
+        Runs ``bioscout.model.inspect`` over THIS trial's kinematics and against
         the literature:
           1. muscle-path check over the trial's joint_angles (flags/repairs path
              points inside wrap cylinders that give discontinuous moment arms),

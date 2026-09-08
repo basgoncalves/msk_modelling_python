@@ -1,4 +1,4 @@
-# `bioscout.figures` — one catalogue for every plot
+# `bioscout.plot.figures` — one catalogue for every plot
 
 62 figures from the powerlifting scripts and from bioscout itself, registered in
 one place with the inputs each one needs. **Nothing is re-implemented** — the
@@ -8,12 +8,12 @@ figures stay identical to what `results.py` / `manuscript.py` produce today.
 ## Run it standalone
 
 ```bash
-python -m bioscout.figures                 # menu: pick numbers, keys or a group
-python -m bioscout.figures --list          # just print the catalogue
-python -m bioscout.figures p04 p07jcf      # run these two, prompt for inputs
-python -m bioscout.figures master          # run a whole group
-python -m bioscout.figures p04 --session Athlete_01_S1 --subject Athlete_01
-python -m bioscout.figures --project C:/Users/Basilio/ucloud/Powerlifiting p01
+python -m bioscout.plot.figures                 # menu: pick numbers, keys or a group
+python -m bioscout.plot.figures --list          # just print the catalogue
+python -m bioscout.plot.figures p04 p07jcf      # run these two, prompt for inputs
+python -m bioscout.plot.figures master          # run a whole group
+python -m bioscout.plot.figures p04 --session Athlete_01_S1 --subject Athlete_01
+python -m bioscout.plot.figures --project C:/Users/Basilio/ucloud/Powerlifiting p01
 ```
 
 At the menu you can type: `3`, `p04`, `master`, `all`, or any mix separated by
@@ -24,7 +24,7 @@ built from the session on disk.
 ## Use it inside bioscout / a notebook
 
 ```python
-from bioscout import figures
+from bioscout.plot import figures
 
 figures.list_figures()                     # or figures.catalog("master")
 figures.run("p04")                         # prompts for the trial
@@ -64,7 +64,7 @@ so they work against any session or any `.osim`.
 | `master` | cross-session figures: effect heatmap and dumbbell, peak JCF, factor effects, muscle ranking, work ranks, rank shift, model effects, error by model, curve overlays and diffs | `results.py` (reads `results/master_*.csv`) |
 | `manuscript` | fig01 setup, fig05 metric summary, fig07 muscle forces, task panel, model overview, quick metric/curve plots | `manuscript.py` |
 | `ceinms` | calibration loop, model parameters, uncalibrated vs calibrated, moment tracking, optimisation, EMG vs excitations, muscle forces | `bioscout.utils.ceinms.plot` |
-| `model` | full model validation (moment arms + fibre + strength), isokinetic, moment-arm-over-motion wrap QC, JCF vs literature | `bioscout.muscle_inspect` |
+| `model` | full model validation (moment arms + fibre + strength), isokinetic, moment-arm-over-motion wrap QC, JCF vs literature | `bioscout.model.inspect` |
 
 ## Notes
 

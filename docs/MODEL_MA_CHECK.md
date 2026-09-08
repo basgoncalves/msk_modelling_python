@@ -14,27 +14,27 @@ edit.
 
 ```bash
 # one fig06-style column: 7 muscle-group rows, X marks every discontinuity
-python -m bioscout.muscle_inspect.model_ma_check scaled.osim \
+python -m bioscout.model.inspect.model_ma_check scaled.osim \
     path/to/external_biomechanics/joint_angles.mot
 
 # specific coordinates instead of the muscle groups; every spanning muscle drawn
-python -m bioscout.muscle_inspect.model_ma_check scaled.osim joint_angles.mot \
+python -m bioscout.model.inspect.model_ma_check scaled.osim joint_angles.mot \
     --dofs hip_flexion_r knee_angle_r --out qc/ --stride 2
 
 # left side, custom thresholds
-python -m bioscout.muscle_inspect.model_ma_check scaled.osim joint_angles.mot \
+python -m bioscout.model.inspect.model_ma_check scaled.osim joint_angles.mot \
     --side _l --min-jump-mm 1.0 --step-mm 2.0
 ```
 
 ```python
-from bioscout.muscle_inspect import check_ma_discontinuities
+from bioscout.model.inspect import check_ma_discontinuities
 r = check_ma_discontinuities("scaled.osim", "joint_angles.mot")
 r["flagged"]     # DataFrame: muscle, coordinate, max_step_mm, n_jumps
 r["figure"]      # <model>_ma_discontinuity_check.png
 r["table"]       # <model>_ma_discontinuity_check.csv (every muscle, not just flagged)
 ```
 
-Also in the figures registry: `python -m bioscout.figures mi_check`.
+Also in the figures registry: `python -m bioscout.plot.figures mi_check`.
 
 ## What it flags
 

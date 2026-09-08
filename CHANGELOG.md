@@ -12,6 +12,33 @@ All notable changes to BioScout are documented here.
 > and a note here.
 
 
+## [3.0.1] — 2026-09-08
+
+Restructure stages 1-4 (docs/RESTRUCTURE_PLAN.md): the package tree starts
+to mirror the verb tree. **Import paths moved** — no shims at the old ones:
+- `bioscout.figures` -> `bioscout.plot.figures`; `bioscout.utils.collings`
+  -> `bioscout.plot.collings`.
+- `bioscout.model_edit` -> `bioscout.model.edit`; `bioscout.change_moment_arms`
+  -> `bioscout.model.moment_arms`; `bioscout.muscle_inspect` ->
+  `bioscout.model.inspect`; `bioscout.tps_personalise` -> `bioscout.model.tps`;
+  `bioscout.utils.scale_measurements` -> `bioscout.model.scale.measurements`;
+  `bioscout.utils.model_scaler` -> `bioscout.model.scale.model_scaler`.
+- `bioscout.mrs` -> `bioscout.simulate.mrs` (new `bioscout.simulate` package;
+  the OpenSim/CEINMS stage code itself stays in `utils/` until stage 6).
+- `python -m bioscout.<old path>` entry points follow the moves
+  (`python -m bioscout.model.edit`, `python -m bioscout.model.inspect`, ...).
+
+CLI:
+- `bioscout project init` -> `bioscout init --from-settings [--force]`;
+  `project` is no longer a verb.
+- `bioscout model ma` -> `bioscout model tune-ma` (frees `ma` for the
+  muscle-analysis stage under `simulate`).
+- `bioscout mrs ...` -> `bioscout simulate mrs ...`; no alias for the old
+  top-level shortcut.
+- `bioscout scale` (interactive, session-less) is `bioscout model scale`.
+- `bioscout -h` is ten verbs again: help, init, gui, session, model, tps,
+  simulate, plot, utils, lab.
+
 ## [3.0.0] — 2026-09-08
 
 **Breaking.** The `run` verb and `pipeline.run_subject()` are gone outright —

@@ -80,13 +80,13 @@ setup(
         'bioscout.tests': ['*.xml'],
         # The bone-landmark template is the source side of every TPS warp;
         # without it a wheel install fails at the first personalise call.
-        'bioscout.tps_personalise': ['data/*.xml', 'data/*.yaml', '*.md'],
-        'bioscout.change_moment_arms': ['*.md'],
+        'bioscout.model.tps': ['data/*.xml', 'data/*.yaml', '*.md'],
+        'bioscout.model.moment_arms': ['*.md'],
         # paths.py resolves the literature corpus at PKG_DIR/validation/,
         # so without this a wheel install has no literature to validate
         # against and every muscle_inspect validate/fibre/strength call
         # falls back or fails. Source checkouts hid it.
-        'bioscout.muscle_inspect': ['validation/*.csv', 'validation/*.json'],
+        'bioscout.model.inspect': ['validation/*.csv', 'validation/*.json'],
         'bioscout.utils': ['*.jpg', '*.png'],
         # *.zip is torch_cpu.zip; torch_cpu.dll is excluded below.
         'bioscout.utils.ceinms.bin': ['*.exe', '*.dll', '*.txt', '*.zip'],
@@ -101,9 +101,9 @@ setup(
         'console_scripts': [
             'bioscout-gui=bioscout:launch_gui',
             'bioscout=bioscout.__main__:main',
-            'tps-personalise=bioscout.tps_personalise.cli:main',
-            'change-moment-arms=bioscout.change_moment_arms.cli:run',
-            'tps-landmarks=bioscout.tps_personalise.landmarks_cli:main',
+            'tps-personalise=bioscout.model.tps.cli:main',
+            'change-moment-arms=bioscout.model.moment_arms.cli:run',
+            'tps-landmarks=bioscout.model.tps.landmarks_cli:main',
         ],
     },
     # 3.9 is the documented floor (see the Requirements table in README.md).

@@ -132,7 +132,7 @@ same thing.
 ```
 bioscout                 launch the GUI
 bioscout help [VERB]     the verb list, or one verb's detail
-bioscout init            create a project: folders, models, settings template
+bioscout init            create a project: folders, models, templates, project.yaml
 bioscout gui             launch the GUI
 bioscout session         new / export / classify / ingest / reset
 bioscout model           check / edit / compare / ma / validate / joint-centres
@@ -174,7 +174,7 @@ keep running while you migrate. They will be removed one release after that.
 | `--reset --reset-dry-run --reset-raw` | `session reset --dry-run --raw` |
 | `--model-edit`, `--edit` | `model edit` |
 | `--compare-models`, `--scale-setups` | `model compare --scale-setups` |
-| `--change-moment-arms`, `--ma` | `model ma` |
+| `--change-moment-arms`, `--ma` | `model tune-ma` |
 | `--joint-centres`, `--jc` | `model joint-centres` |
 | `--summary -overall -s -t -p` | `plot summary --overall --subject --trial --project` |
 | `--collings --skip --metric --side --top` | `plot collings --skip --metric --side --top` |
@@ -982,11 +982,11 @@ python -m bioscout.utils.analyse ".../Walking_02" plot_kin_mom_summary plot_resi
 **Literature validation.** `plot_jra_comparison` overlays digitised literature
 contact-force bands on the resultant panels for gait-like trials — hip (Bergmann,
 Hoang, Giarmatzis) and knee (Richards) — mapped onto the trial's gait cycle. The
-overlay data lives in `bioscout.muscle_inspect.literature_jcf` and can be plotted
+overlay data lives in `bioscout.model.inspect.literature_jcf` and can be plotted
 on its own:
 
 ```python
-from bioscout.muscle_inspect import literature_jcf as ljcf
+from bioscout.model.inspect import literature_jcf as ljcf
 ljcf.plot_jcf_validation("hip_ref.png", entity="hip")
 ```
 
@@ -997,9 +997,9 @@ arms + fibre length/pennation + isometric & isokinetic strength (bundled
 literature auto-resolved, only `--model` required):
 
 ```bash
-python -m bioscout.muscle_inspect all      --model scaled_mvicx3.00.osim   # full validation
-python -m bioscout.muscle_inspect inspect  --model scaled.osim             # moment-arm sweep + wrap fix
-python -m bioscout.muscle_inspect validate --model scaled.osim             # moment arms vs literature
+python -m bioscout.model.inspect all      --model scaled_mvicx3.00.osim   # full validation
+python -m bioscout.model.inspect inspect  --model scaled.osim             # moment-arm sweep + wrap fix
+python -m bioscout.model.inspect validate --model scaled.osim             # moment arms vs literature
 ```
 
 **Trial type & events.** Each trial has a `trial_type` (`walking`, `running`,

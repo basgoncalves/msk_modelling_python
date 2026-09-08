@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import xml.etree.ElementTree as ET
 
-from bioscout.tps_personalise.osim_model import write_personalised_model
+from bioscout.model.tps.osim_model import write_personalised_model
 
 MODEL_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <OpenSimDocument Version="40000">

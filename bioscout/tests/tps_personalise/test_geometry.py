@@ -2,7 +2,7 @@
 import numpy as np
 import pytest
 
-from bioscout.tps_personalise import geometry as g
+from bioscout.model.tps import geometry as g
 
 
 def test_rotation_matrix_is_orthonormal():

@@ -722,7 +722,7 @@ if __name__ == "__main__":
 
     if RUN_CHECK_SCALING or RUN_RESCALE_ALL:
         import time as _time
-        from bioscout.utils import scale_measurements as _sm
+        from bioscout.model.scale import measurements as _sm
         from bioscout.utils.session import experimental_dir as _expdir
 
         def _session_path(sess):
@@ -892,7 +892,7 @@ if __name__ == "__main__":
         if not TPS_LANDMARKS:
             exit(f"[settings] {SESSION} has no MRI landmark set in CAPTURES "
                  f"(tps_landmarks=None) — nothing to warp onto. See mri/README.md.")
-        from bioscout.tps_personalise import personalise_iteration
+        from bioscout.model.tps import personalise_iteration
         for name in TPS_ITERATIONS:
             source = name[:-4] if name.endswith("_mri") else name
             print(f"[settings] TPS personalise {source} -> {name}")
@@ -981,7 +981,7 @@ if __name__ == "__main__":
                         f"actuators ({_nr} reserve, {_nd} residual in {_sc}).\n"
                         f"Add them at the scaled-model stage instead of in the "
                         f"generic:\n"
-                        f"    from bioscout.model_edit import apply\n"
+                        f"    from bioscout.model.edit import apply\n"
                         f"    apply(\"reserves\", \"{_sc}\")")
         if DO_EXBIOMEC or DO_MA or DO_SO or DO_CEINMS:
             it.run(trials=TRIALS,

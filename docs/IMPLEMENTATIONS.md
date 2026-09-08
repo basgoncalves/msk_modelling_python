@@ -181,7 +181,7 @@ Channel Metric Value`), a time-normalised curves table, incremental
 per-(subject, session, variable) updates, and a figure registry that redraws
 everything from the tables in seconds. Ship it: `bioscout results update` /
 `bioscout results plot`, with the per-trial figures bioscout already draws
-registered in the same catalogue. (Prior art in-repo: `bioscout/figures.py`;
+registered in the same catalogue. (Prior art in-repo: `bioscout/plot/figures.py`;
 FAIS `code/results.py`.) Two hard-won details to keep: read ID-like columns
 back as **strings** (subject "021" must not become 21), and replace rows per
 (subject, session, variable) so partial rescans never delete sibling data.
@@ -271,7 +271,7 @@ to declare fits in ~20 data-only lines:
 # project.yaml — lab facts that differ from bioscout's defaults. No code.
 # (schema 1, as implemented 2026-08-19: attribute names are used VERBATIM —
 # `batch:` keys land on BatchSettings, `ceinms:` keys on CEINMSSettings,
-# which is what makes `bioscout project init`'s round-trip exact.)
+# which is what makes `bioscout init --from-settings`'s round-trip exact.)
 schema: 1
 name: FAIS
 log_type: minimal                    # -> settings.LOG_TYPE
@@ -287,7 +287,7 @@ Being data buys what code can never have: the schema can be validated on
 load, diffed between projects, and MIGRATED explicitly (`bioscout project
 migrate` rewrites schema 1 → 2 with a backup, the same way session.yaml
 edits go through span patches). "Template drift" stops being silent because
-there is no template to copy — `bioscout project init` *generates* the file,
+there is no template to copy — `bioscout init --from-settings` *generates* the file,
 and an old file is upgraded, not diverged from.
 
 **Discovery instead of declaration.** The batch runner stops reading
@@ -318,7 +318,7 @@ loader, one cache, one schema check.
    session.yaml → project.yaml → settings.py → bioscout defaults without
    changing a line. Run selection (`SUBJECTS`, `RUN_*`, ...) and paths are
    never read from project.yaml by design.)*
-2. **[built 2026-08-19]** `bioscout project init` writes a `project.yaml`
+2. **[built 2026-08-19]** `bioscout init --from-settings` writes a `project.yaml`
    FROM an existing settings.py (the lab facts are mechanically extractable —
    BatchSettings attributes map 1:1), so migrating a project is one command
    plus a diff review. *(`init_project_yaml`: data-only attributes, diffed
@@ -463,7 +463,7 @@ results:            # what the figures group by
 ```
 
 **The cost, stated honestly:** schema 1 works because a key's name IS the
-settings attribute, which is what makes `bioscout project init` round-trip
+settings attribute, which is what makes `bioscout init --from-settings` round-trip
 exactly. Sections break that, so schema 2 needs an explicit
 `SECTION_KEY -> settings attribute` table in `project_config.py`. That table
 is a real maintenance burden — but it is ~40 lines of data, it is
@@ -517,7 +517,7 @@ bottom are what the verifier returned on trees everyone believed were fine.*
 
 ### 3.1 Model personalisation back-ends beyond TPS
 
-`bioscout/tps_personalise/` already does the hard parts of model rewriting:
+`bioscout/model/tps/` already does the hard parts of model rewriting:
 v3/v4 schema normalisation (`osim_format.py`), a comment-preserving parser
 (`osim_model.py:_commented_parser`), frame-compatibility refusal
 (`model_compat.assert_template_compatible`), mesh warping
@@ -536,7 +536,7 @@ machinery bioscout already ships. Port the back-ends, not the copy:
 | `RigidPassthrough` | nothing | produces the M0 baseline arm through the *identical* code path, so an arm comparison is not confounded by the writer |
 | `TPSMorph` | landmark-driven TPS | already in bioscout — but see 3.4: FAIS measured it failing |
 
-`bioscout/tps_personalise/` should be renamed to something honest
+`bioscout/model/tps/` should be renamed to something honest
 (`personalise/`) with the morph selected by `--method`, since "TPS" is now one
 option out of four and the least trustworthy of them.
 
@@ -664,7 +664,7 @@ Two smaller pieces, both of which found real errors in the data:
   tool, never as publishable moment arms).
 
   *Housekeeping:* the project file is named `muscle_inspect.py` and sits on
-  `sys.path` next to its importer, so it shadows `bioscout.muscle_inspect`.
+  `sys.path` next to its importer, so it shadows `bioscout.model.inspect`.
   Rename it on the way in.
 
 ### 3.6 Where this lands for the user
@@ -753,7 +753,7 @@ registered model rather than an ad-hoc file, the plots are free.
 - **`project_config.init_project_yaml` finds `settings.py` in `code/` or
   `src/`** and still writes `project.yaml` at the project root.
 
-- **PACKAGING: `bioscout.muscle_inspect` was absent from `package_data`**, so
+- **PACKAGING: `bioscout.model.inspect` was absent from `package_data`**, so
   `validation/*.csv` never shipped in a wheel while `paths.py` resolves
   `PKG_DIR/validation/…`. Every validate/fibre/strength call would fall back or
   fail on an installed copy; source checkouts hid it. Fixed.

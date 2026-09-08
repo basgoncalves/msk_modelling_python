@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from bioscout.tps_personalise.config import PersonalisationConfig, SubjectInfo
+from bioscout.model.tps.config import PersonalisationConfig, SubjectInfo
 
 
 def test_subject_validation():

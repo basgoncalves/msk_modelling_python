@@ -12,11 +12,11 @@ import xml.etree.ElementTree as ET
 import numpy as np
 import pytest
 
-from bioscout.tps_personalise._tps_backend import ThinPlateSpline
-from bioscout.tps_personalise.landmarks import load_osim_bone_markers
-from bioscout.tps_personalise.model_compat import compare_bone_frames
-from bioscout.tps_personalise.osim_format import frame_of, is_v3, mesh_elements
-from bioscout.tps_personalise.osim_model import OsimModelXML, detect_joint_centre_preset
+from bioscout.model.tps._tps_backend import ThinPlateSpline
+from bioscout.model.tps.landmarks import load_osim_bone_markers
+from bioscout.model.tps.model_compat import compare_bone_frames
+from bioscout.model.tps.osim_format import frame_of, is_v3, mesh_elements
+from bioscout.model.tps.osim_model import OsimModelXML, detect_joint_centre_preset
 
 V3_MODEL = textwrap.dedent("""\
     <?xml version="1.0" encoding="UTF-8" ?>

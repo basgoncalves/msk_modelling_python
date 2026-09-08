@@ -10,7 +10,7 @@ know how far apart the models themselves are — otherwise a "method effect" is
 really a scaling artefact.
 
 It reads the XML directly (``xml.etree`` only, via
-:mod:`bioscout.tps_personalise.osim_format` for the 3.x/4.x differences), so it
+:mod:`bioscout.model.tps.osim_format` for the 3.x/4.x differences), so it
 needs **no OpenSim install** and never modifies the models.
 
 What "dimension" means here

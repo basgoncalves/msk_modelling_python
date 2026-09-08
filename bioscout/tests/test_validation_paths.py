@@ -7,7 +7,7 @@ call sites share (``muscle_inspect``'s three entry points, the TPS adapter and
 import os
 import unittest
 
-from bioscout.muscle_inspect.paths import (
+from bioscout.model.inspect.paths import (
     VALIDATION_DIRNAME, is_report_dir, validation_dir,
 )
 

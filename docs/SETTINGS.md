@@ -302,7 +302,7 @@ see `bioscout/utils/ceinms.py`'s `_LiveSettings`.
  MRI (TPS-personalised bone geometry) variants of the other three generics.
  Same recipe as gpk_mri: the *_tps_Athlete_03.osim model already carries the
  subject's bone geometry, so linear_scaling is off, marker_placer is on and
- muscle-opt is skipped. Generate the models with bioscout.tps_personalise.
+ muscle-opt is skipped. Generate the models with bioscout.model.tps.
 ```
 
 ### line 262
@@ -983,7 +983,7 @@ see `bioscout/utils/ceinms.py`'s `_LiveSettings`.
  distribution, muscle moment arms and therefore every joint moment and
  contact force in those results are affected.
 
- The fix (bioscout.utils.scale_measurements) computes the joint centres the
+ The fix (bioscout.model.scale.measurements) computes the joint centres the
  motion capture cannot see -- Harrington hips, midpoint knees and ankles --
  into a scaling-only copy of the static TRC, builds a MeasurementSet from
  the marker pairs that exist in BOTH the model marker set and that TRC, and

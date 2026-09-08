@@ -3,10 +3,10 @@ import json
 
 import numpy as np
 
-from bioscout.tps_personalise.landmarks import (
+from bioscout.model.tps.landmarks import (
     load_mri_landmarks, load_osim_bone_markers, match_by_name, _strip_socket,
 )
-from bioscout.tps_personalise.osim_model import OsimModelXML
+from bioscout.model.tps.osim_model import OsimModelXML
 
 
 OSIM_MARKERS_XML = """<OpenSimDocument>

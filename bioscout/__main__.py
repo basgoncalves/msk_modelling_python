@@ -127,7 +127,7 @@ if sys.argv[1:]:
 # bioscout can in fact build the whole environment itself.
 try:
     from settings import BatchSettings, CEINMSSettings
-    from utils.model_scaler import ModelScaler
+    from model.scale.model_scaler import ModelScaler
     import utils
 except ImportError as _dep_err:
     try:
@@ -255,7 +255,7 @@ parser.add_argument('--model-edit', '--model_edit', '--edit',
                          "mass, change max isometric force, grow moment arms, widen a "
                          "coordinate range, place markers, inspect it. Same operations "
                          "are available non-interactively via "
-                         "`python -m bioscout.model_edit` and as a YAML recipe.")
+                         "`python -m bioscout.model.edit` and as a YAML recipe.")
 parser.add_argument('--compare-models', '--compare_models', dest='compare_models',
                     nargs='+', default=None, metavar='FOLDER_OR_OSIM',
                     help="Compare the DIMENSIONS and SEGMENT MASSES of several .osim "
@@ -1650,7 +1650,7 @@ def run_tps_mode(project_path=None) -> int:
     print()
 
     # --- confirm -------------------------------------------------------
-    from bioscout.tps_personalise.bioscout_adapter import default_template
+    from bioscout.model.tps.bioscout_adapter import default_template
     print("-" * 68)
     print(f"  session    : {session_rel}")
     print(f"  warp model : {iteration}")
@@ -1664,7 +1664,7 @@ def run_tps_mode(project_path=None) -> int:
         return 0
     print()
 
-    from bioscout.tps_personalise import personalise_iteration
+    from bioscout.model.tps import personalise_iteration
     try:
         result = personalise_iteration(
             session_dir, iteration,
@@ -1740,11 +1740,11 @@ def main() -> int:
     # this file, before the heavy imports. The argparse entries below exist so
     # they appear in --help.
     if args.model_edit is not None:
-        from bioscout.model_edit.cli import run as _run_model_edit
+        from bioscout.model.edit.cli import run as _run_model_edit
         return _run_model_edit(args.model_edit or args.project or os.getcwd())
 
     if args.change_moment_arms is not None:
-        from bioscout.change_moment_arms.cli import run as _run_ma
+        from bioscout.model.moment_arms.cli import run as _run_ma
         return _run_ma(args.change_moment_arms or args.project or os.getcwd())
     # NB: --model never reaches here either — like --env, it is handled at
     # the top of this file, before the scientific stack is imported, because the
@@ -1765,7 +1765,7 @@ def main() -> int:
         _cmp(_models, out=args.out, setups=_setups, figures=args.figures)
         return 0
     if args.joint_centres:
-        from bioscout.utils import scale_measurements as _sm
+        from bioscout.model.scale import measurements as _sm
         _in = os.path.abspath(args.joint_centres)
         if not os.path.isfile(_in):
             print(f"[bioscout] TRC not found: {_in}")
@@ -1788,7 +1788,7 @@ def main() -> int:
         return run_tps_mode(args.tps or args.project or os.getcwd())
     if args.collings is not None:
         import glob                      # not imported at module scope
-        from bioscout.utils import collings as _collings
+        from bioscout.plot import collings as _collings
         _sess = os.path.abspath(args.collings or args.project or os.getcwd())
         # Accept either the session folder or a project/subject above it, and
         # say which one was used -- passing the project by mistake and getting

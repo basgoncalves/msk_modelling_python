@@ -7,33 +7,32 @@ answer: `bioscout/session/`. Today it doesn't — `session.py` (258KB) lives in
 and the `model` verb's actions are spread across four unrelated top-level
 folders (`model/`, `model_edit/`, `change_moment_arms/`, `muscle_inspect/`).
 
-## 0. Status (as of 2026-09-08)
+## 0. Status (as of 2026-09-08, v3.0.1)
 
-**Shipped** — CLI-layer part of stage 1 only, no file moves yet, so the
-package tree in section 2 is still entirely aspirational:
-- `bioscout simulate exbiomec|ma|so|ceinms SESSION_PATH` added, wrapping
-  `Iteration.run()` directly (needs `session.yaml`). Covers the stage
-  groupings that already existed as separate switches; still no honest
-  standalone `ik`/`id`/`jra`/`cmc`.
-- `run` and `pipeline.run_subject()` (+ the dead `run_subject_mode()` and
-  the now-orphaned `_run_session_ceinms()`) were **deleted outright**, not
-  kept as a hidden alias like stage 1 originally proposed — an explicit
-  decision, not a plan change of heart. Net effect: no single CLI call
-  currently batches a pipeline run across subjects or does
-  export/scale/reset in one step; `bioscout -b settings.py` still drives
-  `run_project()`/`run_pipeline()` for multi-subject batches in the
-  meantime. Rebuilding that sequencing under `session`/`simulate` is
-  unstarted.
-- `compare_osim_models` (dead code) and `export_c3d` -> `c3d_to_trc`
-  (rename) from section 3's open items are both done.
+**Stages 1-4 shipped** (v3.0.0 + v3.0.1). Package tree now:
+`plot/figures.py`, `plot/collings.py`, `model/{edit,moment_arms,inspect,tps,scale}/`,
+`simulate/mrs/` (`simulate/` is new; the OpenSim/CEINMS stage code is still
+in `utils/openSim.py` + `utils/ceinms/` until stage 6). CLI: `run`, `project`,
+`scale`, `mrs` are no longer top-level verbs (`init --from-settings`,
+`model scale`, `simulate mrs`); `model ma` is `model tune-ma`;
+`simulate exbiomec|ma|so|ceinms` exists. Deviations from the text below:
+- `run` and `pipeline.run_subject()` were **deleted outright**, not kept as a
+  hidden alias (explicit decision). No single CLI call batches a pipeline run
+  across subjects or does export/scale/reset in one step; `bioscout -b
+  settings.py` still drives `run_project()`/`run_pipeline()` meanwhile.
+  Rebuilding that sequencing under `session`/`simulate` is unstarted.
+- `simulate` only has the stage groupings that already exist as separate
+  switches on `Iteration.run()` -- no standalone `ik`/`id`/`jra`/`cmc` yet.
+- `model_scaler.py` kept its name under `model/scale/` (the GUI imports it);
+  `scale_measurements.py` became `model/scale/measurements.py`.
+- `tps` is still a top-level verb (the package moved to `model/tps/`; nesting
+  the verb under `model` is not done).
+- Untested at runtime here: the moves were verified by import-path
+  resolution, `compileall`, and the stdlib-only test modules (test_cli,
+  test_model_edit, test_validation_paths, test_project_config -- 78 tests);
+  run `bioscout.test()` in the real env before trusting a pipeline run.
 
-**Not started**: `project` folding into `init`; stages 2-12 below (no files
-have moved — `openSim.py`/`session.py`/`model_edit/`/`change_moment_arms/`/
-`muscle_inspect/`/`figures.py`/etc. are all still exactly where section 2
-says they are "today"). Some of this work looks to be happening already but
-outside this plan's stages — `bioscout/mrs/` and a `scale_interactive.py`
-exist in the working tree — worth reconciling against stage 4/3 before
-either goes further, so the two don't diverge from what's written here.
+**Next**: stage 5 (`emg/`), then 6-12.
 
 ## 1. Target CLI tree
 
@@ -383,18 +382,18 @@ happened yet — only the naming/dead-code decision has, ahead of the actual
 
 ## 5. Proposed staged rollout (each stage its own commit, tests run in between)
 
-1. **CLI-only, zero file moves**: add the `simulate` verb group to `cli.py`
+1. ~~DONE (v3.0.1)~~ **CLI-only, zero file moves**: add the `simulate` verb group to `cli.py`
    (ik/id/ma/so/cmc/ceinms/jra) wrapping the existing `utils/openSim.py`/
    `ceinms/` functions in place; retire `run`/`project` as top-level (keep
    them as hidden aliases for one release so nothing breaks silently); fold
    `project` into `init`. `model` and `scale` need no CLI change here --
    `model` already exists, `scale` just doesn't move to `simulate`. Lowest
    risk, delivers the UX improvement immediately.
-2. **Move `figures.py` and `collings.py` into `plot/`**, update their import
+2. ~~DONE (v3.0.1)~~ **Move `figures.py` and `collings.py` into `plot/`**, update their import
    sites in `cli.py`. Small, self-contained.
-3. **Fold `scale` into `model`**: `bioscout scale` -> `bioscout model scale`;
+3. ~~DONE (v3.0.1)~~ **Fold `scale` into `model`**: `bioscout scale` -> `bioscout model scale`;
    move `scale_measurements.py`/`model_scaler.py` into `model/scale/`.
-4. **Consolidate `model`**: move `model_edit/`, `change_moment_arms/`,
+4. ~~DONE (v3.0.1)~~ **Consolidate `model`**: move `model_edit/`, `change_moment_arms/`,
    `muscle_inspect/`, `tps_personalise/` (-> `model/tps/`) under `model/`;
    update `cli.py`'s routing. Rename `model ma` to `model tune-ma`.
    Same stage, same shape: move `mrs/` under `simulate/mrs/` and wire

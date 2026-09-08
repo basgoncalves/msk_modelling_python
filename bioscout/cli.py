@@ -2,12 +2,12 @@
 
     bioscout                 launch the GUI (unchanged)
     bioscout help [VERB]     this, or one verb's detail
-    bioscout init            start a project
+    bioscout init            start a project (folders, models, project.yaml)
     bioscout gui             launch the GUI
     bioscout session         new / export / classify / ingest / reset
     bioscout model           check / edit / compare / ma / validate / joint-centres
     bioscout tps             build an MRI-personalised model
-    bioscout simulate        run an OpenSim/CEINMS stage on an existing session
+    bioscout simulate        run an OpenSim/CEINMS stage on an existing session (or mrs)
     bioscout plot            figures, summaries, Collings ranking
     bioscout utils           env / install / md2pdf / pylance
     bioscout lab             EXPERIMENTAL 3.0: shots, load reports
@@ -51,7 +51,7 @@ __all__ = ["VERBS", "build_parser", "route", "main", "legacy_hint"]
 
 #: Root verbs. ``__main__`` checks this before it builds the legacy parser.
 VERBS = ("help", "init", "gui", "session", "model", "tps", "simulate",
-         "plot", "utils", "lab", "project")
+         "plot", "utils", "lab")
 
 _EPILOG = """\
 examples:
@@ -79,26 +79,24 @@ def build_parser() -> argparse.ArgumentParser:
     h.add_argument("topic", nargs="?", metavar="VERB")
 
     # -- init ---------------------------------------------------------------- #
-    i = sub.add_parser("init", help="create a project: folders, models, settings template")
+    i = sub.add_parser(
+        "init", help="create a project: folders, models, templates, project.yaml",
+        description="Creates the project skeleton (simulations/, models/, "
+                    "setup_files/, logs/, results/) and a starter project.yaml. "
+                    "With --from-settings it instead extracts project.yaml from "
+                    "the project's EXISTING settings.py (the lab facts that differ "
+                    "from bioscout's defaults) -- after a review run, that "
+                    "settings.py can be deleted; see docs/IMPLEMENTATIONS.md §2.9.")
     i.add_argument("path", nargs="?", default=".", metavar="PROJECT_PATH")
+    i.add_argument("--from-settings", action="store_true", dest="from_settings",
+                   help="generate project.yaml from an existing settings.py "
+                        "instead of scaffolding a new project")
+    i.add_argument("--force", action="store_true",
+                   help="with --from-settings: overwrite an existing project.yaml "
+                        "(a .bak is kept)")
 
     # -- gui ----------------------------------------------------------------- #
     sub.add_parser("gui", help="launch the GUI (also the default with no verb)")
-
-    # -- project ------------------------------------------------------------- #
-    pj = sub.add_parser("project",
-                        help="project-level config (project.yaml)")
-    pjs = pj.add_subparsers(dest="action", metavar="ACTION")
-    pji = pjs.add_parser(
-        "init", help="generate project.yaml from an existing settings.py",
-        description="Extracts the lab facts (BatchSettings/CEINMSSettings "
-                    "data attributes that differ from bioscout's defaults) "
-                    "into a declarative project.yaml. After a review run, "
-                    "the settings.py can be deleted — see "
-                    "docs/IMPLEMENTATIONS.md §2.9.")
-    pji.add_argument("path", nargs="?", default=".", metavar="PROJECT_PATH")
-    pji.add_argument("--force", action="store_true",
-                     help="overwrite an existing project.yaml (a .bak is kept)")
 
     # -- session ------------------------------------------------------------- #
     s = sub.add_parser("session", help="create, export, classify or reset a session")
@@ -192,7 +190,7 @@ def build_parser() -> argparse.ArgumentParser:
     mp.add_argument("-o", "--out", metavar="FILE", help="write the tables to .xlsx/.csv")
     mp.add_argument("--figures", nargs="?", const=True, metavar="DIR")
 
-    ma = ms.add_parser("ma", help="adjust a muscle's moment arm, interactively")
+    ma = ms.add_parser("tune-ma", help="adjust a muscle's moment arm, interactively")
     ma.add_argument("path", nargs="?", metavar="PROJECT_PATH")
 
     mv = ms.add_parser("validate", help="moment arms, fibre lengths, strength vs literature")
@@ -240,6 +238,10 @@ def build_parser() -> argparse.ArgumentParser:
     _simulate_action("ma", "muscle analysis")
     _simulate_action("so", "static optimisation -> muscle moments -> joint reaction")
     _simulate_action("ceinms", "calibrate + execute CEINMS -> joint reaction")
+    # `simulate mrs` forwards to bioscout.simulate.mrs.cli's own parser (see
+    # route()); registered here only so it shows in `bioscout simulate -h`.
+    sms.add_parser("mrs", help="Muscle Redundancy Solver (KU Leuven, via MATLAB): "
+                               "`simulate mrs check`, `simulate mrs run TRIAL`")
 
     # -- plot ---------------------------------------------------------------- #
     pl = sub.add_parser(
@@ -348,7 +350,7 @@ _LEGACY = {
     "--edit": "bioscout model edit",
     "--compare-models": "bioscout model compare",
     "--compare_models": "bioscout model compare",
-    "--change-moment-arms": "bioscout model ma", "--ma": "bioscout model ma",
+    "--change-moment-arms": "bioscout model tune-ma", "--ma": "bioscout model tune-ma",
     "--joint-centres": "bioscout model joint-centres",
     "--joint-centers": "bioscout model joint-centres", "--jc": "bioscout model joint-centres",
     "--tps": "bioscout tps",
@@ -428,7 +430,7 @@ def _to_legacy(ns: argparse.Namespace) -> List[str]:      # noqa: C901 — a fla
     if v == "model":
         if a == "edit":
             return ["--model-edit"] + ([ns.path] if ns.path else [])
-        if a == "ma":
+        if a == "tune-ma":
             return ["--change-moment-arms"] + ([ns.path] if ns.path else [])
         if a == "compare":
             out = ["--compare-models"] + list(ns.models)
@@ -532,7 +534,7 @@ def _direct(ns: argparse.Namespace) -> Optional[int]:
             argv += ["--json", ns.json]
         return _check(argv)
 
-    if v == "project" and a == "init":
+    if v == "init" and getattr(ns, "from_settings", False):
         # Imports the project's settings.py, which needs the full stack — but
         # the extraction itself is one call and prints its own verdict.
         from bioscout.utils.project_config import init_project_yaml
@@ -563,7 +565,7 @@ def _direct(ns: argparse.Namespace) -> Optional[int]:
         return _jcf(ns.jcf_args) or 0
 
     if v == "plot" and a == "figures":
-        from bioscout.figures import main as _figures
+        from bioscout.plot.figures import main as _figures
         argv = list(ns.keys)
         if ns.list_figures:
             argv.append("--list")
@@ -574,7 +576,7 @@ def _direct(ns: argparse.Namespace) -> Optional[int]:
         return _figures(argv) or 0
 
     if v == "model" and a == "validate":
-        from bioscout.muscle_inspect.__main__ import main as _mi
+        from bioscout.model.inspect.__main__ import main as _mi
         argv = ["all", "--model", ns.model, "--side", ns.side]
         if ns.out:
             argv += ["--out", ns.out]
@@ -618,6 +620,11 @@ def route(argv: Sequence[str]) -> Tuple[str, object]:
     parser = build_parser()
     argv = list(argv)
 
+    # `simulate mrs` owns its own parser (same forwarding trick as `plot jcf`).
+    if argv[:2] == ["simulate", "mrs"]:
+        from bioscout.simulate.mrs.cli import main as _mrs
+        return ("exit", _mrs(argv[2:]) or 0)
+
     # `plot jcf` forwards its whole tail to the module's own parser (argparse
     # REMAINDER does not reliably swallow leading options like -h).
     if argv[:2] == ["plot", "jcf"]:
@@ -652,7 +659,7 @@ def route(argv: Sequence[str]) -> Tuple[str, object]:
 
     # A verb with subcommands, given none: show that verb's help rather than
     # silently doing nothing.
-    if ns.verb in ("session", "model", "utils", "lab", "plot", "project", "simulate") and not getattr(ns, "action", None):
+    if ns.verb in ("session", "model", "utils", "lab", "plot", "simulate") and not getattr(ns, "action", None):
         parser.parse_args([ns.verb, "--help"])          # exits
 
     code = _direct(ns)

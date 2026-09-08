@@ -40,7 +40,7 @@ class PlotConfig:
     style: str = "delta"
     """``"delta"``    — ▲/▼ places gained/lost written after each bar label.
        ``"connector"`` — Collings-style arrows joining the columns
-                        (``bioscout.utils.collings.rank_shift_axes``).
+                        (``bioscout.plot.collings.rank_shift_axes``).
        ``"both"``     — arrows and markers."""
 
     normalise: str = "reference"

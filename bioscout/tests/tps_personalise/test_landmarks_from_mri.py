@@ -9,7 +9,7 @@ import json
 
 import numpy as np
 
-from bioscout.tps_personalise.landmarks_from_mri import (
+from bioscout.model.tps.landmarks_from_mri import (
     fit_sphere, _extreme, _region, write_mrk_json,
 )
 

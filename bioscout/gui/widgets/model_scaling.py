@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from config.config_manager import ConfigManager
 from utils.logger import logger
-from utils.model_scaler import ModelScaler
+from model.scale.model_scaler import ModelScaler
 from settings import BatchSettings
 marker_weights = BatchSettings.marker_weights
 

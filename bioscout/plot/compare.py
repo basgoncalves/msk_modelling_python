@@ -39,7 +39,7 @@ READING A RANK FIGURE
     dark-to-pale ramp by construction, and ANY colour disorder further right is
     a re-ranking — no tracing of lines required. ▲/▼ after a label gives the
     places gained or lost, and ``style="connector"`` draws the arrows from
-    Collings et al. (2025) instead (see ``bioscout.utils.collings`` for the
+    Collings et al. (2025) instead (see ``bioscout.plot.collings`` for the
     fixed published layout).
 
     With ``normalise="reference"`` (the default) every panel in a row is scaled
@@ -83,7 +83,7 @@ def _connector_colours():
     pulls in ``bioscout.utils``, which wants scipy) and inline when it does
     not — the figure must still draw in a bare environment."""
     try:
-        from ..utils import collings as C
+        from . import collings as C
         return C.UP_COLOUR, C.DOWN_COLOUR, C.SAME_COLOUR
     except Exception:                                          # noqa: BLE001
         return "#2166ac", "#b2182b", "0.65"

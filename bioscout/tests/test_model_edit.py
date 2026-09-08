@@ -1,4 +1,4 @@
-"""Tests for bioscout.model_edit.
+"""Tests for bioscout.model.edit.
 
 Every test here runs WITHOUT OpenSim, on a synthetic model built in-file, so the
 assertions do not depend on anyone's data and the suite stays in the
@@ -20,11 +20,11 @@ import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from bioscout.model_edit import list_ops
-from bioscout.model_edit.introspect import muscles, summary, wraps
-from bioscout.model_edit.naming import OutputExists, derive_out, prepare_out
-from bioscout.model_edit.run import BadParam, MissingParam, apply, validate
-from bioscout.model_edit.spec import REGISTRY, VERBS, get
+from bioscout.model.edit import list_ops
+from bioscout.model.edit.introspect import muscles, summary, wraps
+from bioscout.model.edit.naming import OutputExists, derive_out, prepare_out
+from bioscout.model.edit.run import BadParam, MissingParam, apply, validate
+from bioscout.model.edit.spec import REGISTRY, VERBS, get
 
 # A minimal but structurally faithful .osim: a <defaults> template muscle (the
 # thing that made an inventory over-count and a strength check falsely fail),
@@ -137,7 +137,7 @@ class TestRegistry(_Tmp):
     def test_suffix_templates_reference_real_parameters(self):
         """An op whose suffix names a parameter it does not have is a bug that
         only shows up when someone finally runs that op."""
-        from bioscout.model_edit.ops import SUFFIX_HOOKS
+        from bioscout.model.edit.ops import SUFFIX_HOOKS
         for o in list_ops():
             if not o.suffix:
                 continue
@@ -259,7 +259,7 @@ class TestPureOps(_Tmp):
         res = apply("drop_markers", self.model, markers=["BL"])
         self.assertTrue(res.ok, res.reason)
         self.assertEqual(list(res.changed), ["BL"])
-        from bioscout.model_edit.introspect import markers as _mk
+        from bioscout.model.edit.introspect import markers as _mk
         self.assertEqual(_mk(res.model), ["RASI"])
 
     def test_diff_ignores_float_noise(self):
@@ -307,7 +307,7 @@ class TestRecipe(_Tmp):
             self.skipTest("PyYAML not installed")
 
     def test_chain_and_branch(self):
-        from bioscout.model_edit.recipe import run
+        from bioscout.model.edit.recipe import run
         p = self._write(
             "base: base.osim\n"
             "steps:\n"
@@ -330,7 +330,7 @@ class TestRecipe(_Tmp):
         self.assertEqual(results[2].data["wraps"], {})
 
     def test_validation_catches_everything_before_running(self):
-        from bioscout.model_edit.recipe import RecipeError, run
+        from bioscout.model.edit.recipe import RecipeError, run
         p = self._write(
             "base: base.osim\n"
             "steps:\n"
@@ -347,7 +347,7 @@ class TestRecipe(_Tmp):
                          "an invalid recipe must not half-run")
 
     def test_unknown_from_reference_is_caught(self):
-        from bioscout.model_edit.recipe import RecipeError, run
+        from bioscout.model.edit.recipe import RecipeError, run
         p = self._write(
             "base: base.osim\n"
             "steps:\n"

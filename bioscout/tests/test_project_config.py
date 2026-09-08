@@ -2,7 +2,7 @@
 
 Pins docs/IMPLEMENTATIONS.md §2.9 steps 1+2: the overlay precedence
 (session.yaml -> project.yaml -> settings.py -> bioscout defaults) and the
-`bioscout project init` extractor. The failure class here is silent again —
+`bioscout init --from-settings` extractor. The failure class here is silent again —
 a lab fact that quietly does NOT apply just runs the pipeline with the wrong
 electrode map — so each contract is pinned.
 

@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from bioscout.tps_personalise.tps import OneBodyTPS, _thin_plate_spline_class
+from bioscout.model.tps.tps import OneBodyTPS, _thin_plate_spline_class
 
 tps_pkg = _thin_plate_spline_class()
 

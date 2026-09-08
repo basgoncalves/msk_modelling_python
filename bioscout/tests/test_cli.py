@@ -185,7 +185,7 @@ class TestTranslation(unittest.TestCase):
     def test_model_edit_ma_compare_jc(self):
         self.assertEqual(self.legacy(["model", "edit"]), ["--model-edit"])
         self.assertEqual(self.legacy(["model", "edit", "proj"]), ["--model-edit", "proj"])
-        self.assertEqual(self.legacy(["model", "ma", "proj"]), ["--change-moment-arms", "proj"])
+        self.assertEqual(self.legacy(["model", "tune-ma", "proj"]), ["--change-moment-arms", "proj"])
         self.assertEqual(self.legacy(["model", "compare", "a.osim", "b.osim"]),
                          ["--compare-models", "a.osim", "b.osim"])
         self.assertEqual(

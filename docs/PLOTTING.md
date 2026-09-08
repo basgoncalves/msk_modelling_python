@@ -141,12 +141,12 @@ a bare checkout and in CI.
 
 ## Relationship to the other figure code
 
-- `bioscout.utils.collings` keeps the **fixed published layout**
+- `bioscout.plot.collings` keeps the **fixed published layout**
   (`rank_shift_figure`, and the `--collings` CLI). Use it when you want that
   exact figure.
 - `bioscout.plot` is the **configurable grid** version: any two columns, any
   facet, either normalisation, bars or curves.
-- `bioscout.figures` is the **catalogue/menu** of named project figures. A
+- `bioscout.plot.figures` is the **catalogue/menu** of named project figures. A
   `bioscout.plot` figure can be registered there like any other.
 
 ## Tests

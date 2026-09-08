@@ -80,7 +80,7 @@ the production ones is how the wrong .osim ends up in a manuscript."*
    **BUILT 2026-08-24** — `model_edit promote` (backup `cli.py.bak_promote`).
 
    ```bash
-   python -m bioscout.model_edit promote tests/GPKv4/_models/GPK_v4_generic.osim \
+   python -m bioscout.model.edit promote tests/GPKv4/_models/GPK_v4_generic.osim \
           --as GPK_v4 --gate tests/GPKv4/SUMMARY.md
    ```
 
