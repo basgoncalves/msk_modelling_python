@@ -246,6 +246,38 @@ def build_parser() -> argparse.ArgumentParser:
     t = sub.add_parser("tps", help="build an MRI-personalised model (interactive)")
     t.add_argument("path", nargs="?", metavar="PROJECT_PATH")
 
+    # -- simulate -------------------------------------------------------------- #
+    # Only the stage groupings that actually exist as separate switches today
+    # (Iteration.run() in utils/session.py): IK and ID are one atomic stage
+    # there (`do_exbiomec`), and JRA is produced as part of the SO or CEINMS
+    # stage, not on its own -- so there's no honest standalone `ik`/`id`/`jra`
+    # yet. Splitting those apart is real surgery on code with hard-won
+    # production history behind it (see docs/RESTRUCTURE_PLAN.md), left for
+    # a later, separately-reviewed step rather than guessed at here.
+    sm = sub.add_parser(
+        "simulate", help="run an OpenSim/CEINMS stage on one session's model(s)",
+        description="Runs a stage of Iteration.run() directly against an "
+                    "existing session (needs session.yaml -- see `session new`). "
+                    "Model creation/scaling lives under `model`, not here.")
+    sms = sm.add_subparsers(dest="action", metavar="ACTION")
+
+    def _simulate_action(name, help_text):
+        act = sms.add_parser(name, help=help_text)
+        act.add_argument("path", metavar="SESSION_PATH")
+        act.add_argument("--iteration", metavar="NAME",
+                         help="which model arm (default: every one on disk)")
+        act.add_argument("--trial", metavar="NAME",
+                         help="restrict to these trials (comma-separated; "
+                              "default: session.yaml's own trial list)")
+        act.add_argument("--replace", action="store_true",
+                         help="recompute outputs that already exist")
+        return act
+
+    _simulate_action("exbiomec", "inverse kinematics -> inverse dynamics")
+    _simulate_action("ma", "muscle analysis")
+    _simulate_action("so", "static optimisation -> muscle moments -> joint reaction")
+    _simulate_action("ceinms", "calibrate + execute CEINMS -> joint reaction")
+
     # -- plot ---------------------------------------------------------------- #
     pl = sub.add_parser(
         "plot", help="figures from the results on disk",
@@ -602,6 +634,28 @@ def _direct(ns: argparse.Namespace) -> Optional[int]:
         if ns.out:
             argv += ["--out", ns.out]
         return _mi(argv)
+
+    if v == "simulate":
+        # Direct dispatch straight to Iteration.run() via the Session it
+        # belongs to -- no legacy flag translation exists for this (there is
+        # no old flat-flag equivalent of a single simulate stage). Session.open
+        # raises a clear FileNotFoundError when session.yaml is missing rather
+        # than silently doing nothing, which is exactly what a run command
+        # should do on a bad path.
+        from bioscout.utils.session import Session
+        stage_kwarg = {"exbiomec": "do_exbiomec", "ma": "do_muscle_analysis",
+                       "so": "do_so", "ceinms": "do_ceinms"}[a]
+        try:
+            s = Session.open(ns.path)
+        except FileNotFoundError as e:
+            print(f"[simulate] {e}", file=sys.stderr)
+            return 1
+        iterations = [ns.iteration] if ns.iteration else None
+        trials = [t.strip() for t in ns.trial.split(",")] if ns.trial else None
+        results = s.run(iterations=iterations, trials=trials,
+                        replace=bool(ns.replace), **{stage_kwarg: True})
+        print(f"[simulate {a}] {ns.path}: {results}")
+        return 0
 
     return None
 
