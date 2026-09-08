@@ -380,11 +380,97 @@ def scale_model(generic_opensim_model_path, static_trc_path, scaled_model_path, 
     # is a RECORD of what ran, not a re-runnable file. Call with run=False to
     # get one that is.
     _shutil.rmtree(_tmp, ignore_errors=True)
+    # Make the written model stand on its own: named after itself rather than
+    # after ScaleTool, and with its meshes reachable from where it now lives.
+    name_model_after_file(scaled_model_path)
+    copy_geometry_beside(scaled_model_path, generic_opensim_model_path)
     print(f"Scaled model saved to: {scaled_model_path}")
+
+
+def name_model_after_file(osim_path, name=None):
+    """Rename ``<Model name="...">`` to ``name`` (default: the file's stem).
+
+    OpenSim's ScaleTool names its output after the TOOL, so every scaled model
+    in every project lands as ``<Model name="ModelScaling">`` and the GUI's
+    Navigator shows the same word for all of them. Nothing reads this name --
+    it is the Navigator label and a couple of log lines -- so a failure here
+    must never sink a scaling run.
+
+    Rewrites BYTES, not text: these models are CRLF, and text mode would turn
+    every CRLF into LF and rewrite ~15000 line endings for a 30-character
+    rename. ``surrogateescape`` round-trips anything the decoder dislikes.
+    """
+    import re as _re
+    name = name or os.path.splitext(os.path.basename(osim_path))[0]
+    try:
+        with open(osim_path, "rb") as _fh:
+            txt = _fh.read().decode("utf-8", "surrogateescape")
+        txt, n = _re.subn(r'(<Model\s+name=")([^"]*)(")',
+                          lambda m: m.group(1) + name + m.group(3), txt, count=1)
+        if n:
+            with open(osim_path, "wb") as _fh:
+                _fh.write(txt.encode("utf-8", "surrogateescape"))
+            print(f"[scale] model named '{name}'")
+        return bool(n)
+    except Exception as e:                        # noqa: BLE001 - cosmetic only
+        print(f"[scale] [WARNING] could not name the model: {e}")
+        return False
+
+
+def copy_geometry_beside(osim_path, source_model_path):
+    """Copy the meshes ``osim_path`` references into ``<its folder>/Geometry/``.
+
+    OpenSim resolves a bare ``<mesh_file>`` against the model's own folder, a
+    ``Geometry/`` beside it, and its INSTALLED Geometry folder. A model scaled
+    into a session folder therefore still finds the meshes OpenSim ships
+    (r_tibia, pelvis, ribs...) and silently loses the ones that are specific to
+    the generic it came from -- for GPK that is r_femur/l_femur/fem_cond/
+    tib_plat, i.e. exactly the segments the joint moments are about. The model
+    loads with every muscle, marker and joint intact and no femurs, and nothing
+    downstream can tell.
+
+    Copying them beside the output makes the scaled model portable, which is
+    what ``bioscout model check --strict`` asks for. ~6 MB for GPK.
+    """
+    import re as _re
+    try:
+        src_dir = os.path.dirname(os.path.abspath(source_model_path))
+        out_dir = os.path.dirname(os.path.abspath(osim_path))
+        with open(osim_path, "rb") as _fh:
+            txt = _fh.read().decode("utf-8", "surrogateescape")
+        meshes = sorted(set(_re.findall(r"<mesh_file>\s*([^<]+?)\s*</mesh_file>", txt)))
+        if not meshes:
+            return 0
+        roots = [os.path.join(src_dir, "Geometry"), src_dir]
+        dest = os.path.join(out_dir, "Geometry")
+        copied = missing = 0
+        for f in meshes:
+            base = os.path.basename(f)
+            if os.path.isfile(os.path.join(out_dir, base)) or \
+               os.path.isfile(os.path.join(dest, base)):
+                continue                          # already resolvable from here
+            src = next((os.path.join(r, f) for r in roots
+                        if os.path.isfile(os.path.join(r, f))), None)
+            if src is None:
+                missing += 1
+                continue
+            os.makedirs(dest, exist_ok=True)
+            _shutil.copyfile(src, os.path.join(dest, base))
+            copied += 1
+        if copied:
+            print(f"[scale] copied {copied} mesh file(s) to {dest}")
+        if missing:
+            print(f"[scale] [WARNING] {missing} mesh(es) not found beside the generic "
+                  f"-- `bioscout model check {osim_path}` will say which")
+        return copied
+    except Exception as e:                        # noqa: BLE001 - cosmetic only
+        print(f"[scale] [WARNING] could not copy geometry: {e}")
+        return 0
+
 
 def place_markers_via_ik(model_path, static_trc, out_model_path,
                          marker_set_file=None, time_range=None, work_dir=None,
-                         ik_weights=None):
+                         ik_weights=None, max_ik_seconds=2.0):
     """Register a model's markers to the subject's STATIC pose WITHOUT ScaleTool's
     MarkerPlacer (which segfaults / throws bad_alloc on some complex models, e.g.
     the MRI/Lerner-knee model). Standard MarkerPlacer algorithm, done by hand:
@@ -414,6 +500,21 @@ def place_markers_via_ik(model_path, static_trc, out_model_path,
         pass
     t0 = md.getStartFrameTime() if time_range is None else float(time_range[0])
     t1 = md.getLastFrameTime() if time_range is None else float(time_range[1])
+
+    # Step 2 below AVERAGES the IK result into a single static pose, so solving
+    # every frame of a 20 s standing trial buys nothing: the subject is not
+    # moving, and the mean over a couple of seconds is the same pose to well
+    # inside marker noise. IK is by far the most expensive part of scaling, so
+    # the window is capped by default. Pass max_ik_seconds=None for the whole
+    # trial (the pre-3.0.4 behaviour).
+    if max_ik_seconds and (t1 - t0) > float(max_ik_seconds):
+        _mid = 0.5 * (t0 + t1)
+        _half = 0.5 * float(max_ik_seconds)
+        _t0, _t1 = _mid - _half, _mid + _half
+        print(f"[scale] marker-registration IK over {_t1 - _t0:.2f} s of the "
+              f"{t1 - t0:.2f} s static trial (centred; the pose is averaged "
+              f"anyway). max_ik_seconds=None for all of it.")
+        t0, t1 = _t0, _t1
 
     # 1) IK on the static trial
     _mot = (os.path.join(work_dir, os.path.splitext(os.path.basename(out_model_path))[0] + "_static_ik.mot")

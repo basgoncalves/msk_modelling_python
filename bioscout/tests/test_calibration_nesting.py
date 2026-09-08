@@ -40,23 +40,44 @@ def _load(name, rel):
     spec = importlib.util.spec_from_file_location(name, os.path.join(_PKG, rel))
     mod = importlib.util.module_from_spec(spec)
     sys.modules[name] = mod
-    spec.loader.exec_module(mod)
+    try:
+        spec.loader.exec_module(mod)
+    except BaseException:
+        # Un-register the half-built module. Leaving it in sys.modules under a
+        # REAL package name (this loads session.py as `bioscout.session.session`)
+        # poisons that name for the whole interpreter: every later import gets
+        # this empty stub instead of the real module, and the failures surface
+        # far away as `has no attribute 'Iteration'`. Skipping this test must
+        # not break the rest of the suite.
+        sys.modules.pop(name, None)
+        raise
     return mod
 
 
 try:
-    if "bioscout.session.session" in sys.modules:
-        S = sys.modules["bioscout.session.session"]
-    else:
+    try:
+        # The real package first. Stub parents (below) are registered under
+        # REAL names, so building them when bioscout is perfectly importable
+        # shadows it for the whole interpreter -- every later
+        # `from bioscout.utils import analysis` then gets an empty stub, and
+        # the failures surface far away in unrelated test modules.
+        from bioscout.session import session as S
+    except Exception:                                          # noqa: BLE001
+        # Crippled environment (no scipy, say): load session.py by path under
+        # stub parents so this module's own tests can still run. Only reached
+        # when the real import is impossible, so nothing working is shadowed.
         _pkg = types.ModuleType("bioscout")
         _pkg.__path__ = [_PKG]
         _u = types.ModuleType("bioscout.utils")
         _u.__path__ = [os.path.join(_PKG, "utils")]
         sys.modules.setdefault("bioscout", _pkg)
         sys.modules.setdefault("bioscout.utils", _u)
+        _s_pkg = types.ModuleType("bioscout.session")
+        _s_pkg.__path__ = [os.path.join(_PKG, "session")]
+        sys.modules.setdefault("bioscout.session", _s_pkg)
         _u.file_edit = _load("bioscout.utils.file_edit", "utils/file_edit.py")
-        S = _load("bioscout.session.session", "utils/session.py")
-        _u.session = S
+        S = _load("bioscout.session.session", "session/session.py")
+        _s_pkg.session = S
     import yaml
     HAVE = True
 except Exception:                                              # noqa: BLE001

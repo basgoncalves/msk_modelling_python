@@ -13,3 +13,10 @@ everything already imports ``core/``.
 
 Nothing is imported eagerly (scipy/pandas stay unloaded until used).
 """
+
+# bioscout.utils is imported first, for the same ordering reason as
+# bioscout/core/__init__.py and bioscout/session/__init__.py: emg.py binds
+# bioscout.utils at module level and bioscout/utils/__init__.py re-exports
+# filter_emg and friends FROM emg.py, so the cycle only unties if utils starts.
+# While these files lived in utils/ the parent-package rule guaranteed it.
+import bioscout.utils as _utils_first   # noqa: F401  (import for ordering)

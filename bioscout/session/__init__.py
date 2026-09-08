@@ -29,3 +29,11 @@ def __getattr__(name):                       # PEP 562
 
 def __dir__():
     return sorted(list(globals()) + list(_LAZY))
+
+# bioscout.utils is imported before anything in this package runs, for the same
+# ordering reason bioscout/core/__init__.py does it: `session.py` needs Analyse
+# from bioscout.core.analysis, and bioscout.core.analysis re-exports Session
+# from `session.py`. That knot only unties if bioscout.utils goes first (it
+# loads core.analysis fully, whose Session re-export is lazy). While session.py
+# lived in utils/ the parent-package rule guaranteed that for free.
+import bioscout.utils as _utils_first   # noqa: F401  (import for ordering)

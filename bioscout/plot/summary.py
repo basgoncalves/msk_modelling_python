@@ -42,12 +42,12 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
-import settings as _pkg_settings
-import utils
+from bioscout import settings as _pkg_settings
+from bioscout import utils
 
 try:
-    from utils import openSim as _openSim
-except Exception:
+    from bioscout.simulate import opensim as _openSim
+except Exception:                       # noqa: BLE001 - absent or mid-cycle
     _openSim = getattr(utils, "openSim", None)
 
 

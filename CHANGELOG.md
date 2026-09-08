@@ -12,6 +12,71 @@ All notable changes to BioScout are documented here.
 > and a note here.
 
 
+## [3.0.4] — 2026-09-08
+
+Fixes for what the 3.0.1-3.0.3 moves broke, found by actually importing the
+package (numpy/pandas/scipy/pytest are installable in the agent's sandbox
+after all -- the whole restructure had been verified statically until now).
+
+**Import-order regressions.** Moving a module out of `utils/` removed a
+guarantee the old layout gave for free: importing `bioscout.utils.<anything>`
+runs `bioscout/utils/__init__.py` FIRST, and that init is what binds
+Subject/Session/Analyse/filter_emg. With the same code under `core/`,
+`session/` and `emg/`, whichever module got imported first decided whether
+those names existed at all:
+- `import bioscout.core.analysis` first -> hard `ImportError: cannot import
+  name 'Analyse'`, i.e. `bioscout model scale` printed
+  "[bioscout.utils] analysis model not loaded" and ran with no object model.
+- `import bioscout.session.session` first -> `utils.Session` unbound.
+- `import bioscout.emg.emg` first -> `filter_emg` circular.
+`bioscout/core/__init__.py`, `session/__init__.py` and `emg/__init__.py` now
+import `bioscout.utils` before anything else in their package, restoring the
+invariant explicitly (a no-op when utils is already the caller).
+
+**`plot/summary.py` could not be imported at all**: its bare `import
+settings` / `import utils` relied on the `sys.path` manipulation that used to
+live at the top of `utils/openSim.py`, which stage 6 deleted. Now explicit
+(`from bioscout import settings` / `utils`, and
+`bioscout.simulate.opensim`).
+
+**Three test modules loaded their subject by FILE PATH** and were pointed at
+pre-move paths. Two (`test_run_check`, `test_project_config`) silently
+SKIPPED. The third, `test_calibration_nesting`, was worse: it registers what
+it loads under REAL module names, so a failed load left an empty stub as
+`sys.modules["bioscout.session.session"]`, and a fabricated `bioscout.utils`
+shadowed the real package for the rest of the interpreter -- 62 failures and
+16 errors in unrelated modules, but only when it was collected first. It now
+tries the real import before fabricating anything, and un-registers a
+half-built module if the by-path load raises.
+
+Suite (with the scientific stack present): **468 passed, 2 failed, 1 error**
+against the pre-restructure baseline's **462 passed, 2 failed, 1 error** --
+same failure set (both pre-existing, plus the opensim-only collection error),
+six more tests passing.
+
+### Model scaling
+- **The scaled model is named after itself.** ScaleTool names its output
+  after the TOOL, so every scaled model in every project loaded as
+  `ModelScaling` in the GUI Navigator. Now named for the output file
+  (`GPK_v4_016_scaled`). `Session.scale_model`'s richer subject/session name
+  still wins where it applies. Byte-preserving rewrite -- CRLF models keep
+  their line endings.
+- **Its meshes come with it.** A model scaled into a session folder finds the
+  meshes OpenSim ships and silently loses the ones specific to its generic --
+  for GPK that is `r_femur`, `l_femur`, `fem_cond`, `tib_plat`, i.e. exactly
+  the segments the joint moments are about. It loaded with every muscle,
+  marker and joint intact and no femurs. The 24 referenced meshes (~6 MB) are
+  now copied to `<output>/Geometry/`, which is what `bioscout model check
+  --strict` asks for anyway.
+- **Marker-registration IK no longer solves the whole static trial.**
+  `place_markers_via_ik` runs IK and then AVERAGES the result into one static
+  pose, so solving 20 s of a standing trial bought nothing. Capped to a
+  centred 2 s window by default (`max_ik_seconds`; pass None for the old
+  behaviour). This is the one change here that moves numbers rather than
+  paths -- for a static pose the mean over 2 s and over the whole trial
+  differ by well inside marker noise, but it is worth one
+  `bioscout model compare` between an old and a new scaled model.
+
 ## [3.0.3] — 2026-09-08
 
 Restructure stages 9-12 — the last of them. `utils/` is now what its name
