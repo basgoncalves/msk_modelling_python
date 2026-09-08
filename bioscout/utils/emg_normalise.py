@@ -416,7 +416,7 @@ if __name__ == "__main__":
             continue
 
         c3d_path = os.path.join(main_dir, f"{trial}.c3d")
-        openSim.export_c3d(c3d_path, create_folder=True, emg_string_list=[prefix_EMG])
+        openSim.c3d_to_trc(c3d_path, create_folder=True, emg_string_list=[prefix_EMG])
 
         emg_path = os.path.join(main_dir, trial, "emg.mot")
         try:

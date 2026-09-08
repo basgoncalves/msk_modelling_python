@@ -1731,114 +1731,6 @@ def plot_optimization_results(intial_model_path, optimised_model_path):
     model.printToXML(save_path)
     print(f"Optimized model saved to: {save_path}")
 
-def compare_osim_models(model_list=None):
-
-    if not model_list:
-        model_list = []
-        while True:
-            model_path = input("Enter the path to an OpenSim model (.osim) (or 'done' to finish): ").strip('"')
-            if model_path.lower() == 'done':
-                break
-            if model_path.strip():
-                model_list.append(model_path)
-
-
-    # Load all models and extract muscles
-    models = []
-    model_names = []
-    all_muscles_set = set()
-    
-    for idx, model_path in enumerate(model_list):
-        model = _quiet_model(model_path)
-        models.append(model)
-        model_name = f"Model {idx + 1}"
-        model_names.append(model_name)
-        
-        muscles = model.getMuscles()
-        print(f"{model_name}: {model_path} has {muscles.getSize()} muscles")
-        
-        for i in range(muscles.getSize()):
-            all_muscles_set.add(muscles.get(i).getName())
-    
-    # Compare muscle properties 
-    muscle_properties_list = []
-    for muscle_name in all_muscles_set:
-        for model, model_name in zip(models, model_names):
-            muscles = model.getMuscles()
-            muscle = None
-            for i in range(muscles.getSize()):
-                if muscles.get(i).getName() == muscle_name:
-                    muscle = muscles.get(i)
-                    break
-            
-            if muscle:
-                optimal_fiber_length = muscle.getOptimalFiberLength()
-                tendon_slack_length = muscle.getTendonSlackLength()
-                pennation_angle = muscle.getPennationAngleAtOptimalFiberLength()
-                max_isometric_force = muscle.getMaxIsometricForce()
-                muscle_properties_list.append({
-                    'Muscle': muscle_name,
-                    'Model': model_name,
-                    'Optimal Fiber Length': optimal_fiber_length,
-                    'Tendon Slack Length': tendon_slack_length,
-                    'Pennation Angle at Optimal Fiber Length': pennation_angle,
-                    'Maximum Isometric Force': max_isometric_force
-                })
-    
-    muscle_properties = pd.DataFrame(muscle_properties_list)
-    
-    # Create spider plots for each property
-    properties = ['Optimal Fiber Length', 'Tendon Slack Length', 'Pennation Angle at Optimal Fiber Length', 'Maximum Isometric Force']
-
-    # Use the full sorted union of muscles so all models share the same axis
-    all_muscle_names = sorted(all_muscles_set)
-    num_vars = len(all_muscle_names)
-    angles = np.linspace(0, 2 * np.pi, num_vars, endpoint=False).tolist()
-    angles += angles[:1]
-
-    # Pivot to wide format: index=Muscle, columns=Model — missing entries become 0
-    n_props = len(properties)
-    fig, axes = plt.subplots(1, n_props, figsize=(6 * n_props, 6), subplot_kw=dict(projection='polar'))
-
-    for idx, prop in enumerate(properties):
-        ax = axes[idx]
-        wide = (
-            muscle_properties[['Muscle', 'Model', prop]]
-            .pivot(index='Muscle', columns='Model', values=prop)
-            .reindex(all_muscle_names)
-            .fillna(0)
-        )
-        for model_name in model_names:
-            if model_name not in wide.columns:
-                continue
-            values = wide[model_name].tolist()
-            values += values[:1]
-            ax.plot(angles, values, 'o-', linewidth=2, label=model_name)
-            ax.fill(angles, values, alpha=0.25)
-
-        ax.set_xticks(angles[:-1])
-        ax.set_xticklabels(all_muscle_names, size=8)
-        ax.set_title(f'Spider Plot: {prop}', size=14, weight='bold', pad=20)
-        ax.legend(loc='upper right', bbox_to_anchor=(1.3, 1.1))
-        ax.grid(True)
-
-    plt.tight_layout()
-
-    # count coordinates
-    coordinate_presence = {}  # coord_name -> list of model names that have it
-    for model, model_name in zip(models, model_names):
-        coordSet = model.getCoordinateSet()
-        for i in range(coordSet.getSize()):
-            coord_name = coordSet.get(i).getName()
-            coordinate_presence.setdefault(coord_name, []).append(model_name)
-    print("\nCoordinate counts across models:")
-    for coord_name, present_in in sorted(coordinate_presence.items()):
-        missing = [m for m in model_names if m not in present_in]
-        missing_str = f"  [MISSING in: {', '.join(missing)}]" if missing else ""
-        print(f"{coord_name}: {len(present_in)}/{len(models)} ({', '.join(present_in)}){missing_str}")
-
-    plt.show()
-
 def optimize_moment_arms(ref_model_path=None, target_model_path=None):
     '''Optimize muscle parameters in the target model to match the moment arms of the reference model.
     
@@ -1963,7 +1855,7 @@ def optimize_moment_arms(ref_model_path=None, target_model_path=None):
     print(f"Moment arms comparison spider plot saved to: {save_path}")
 
 # c3d export functions
-def export_c3d(c3d_file_path, emg_string_list=['emg'], create_folder=True):
+def c3d_to_trc(c3d_file_path, emg_string_list=['emg'], create_folder=True):
     """
     Export a C3D file using the exportC3D module.
 
