@@ -23,6 +23,9 @@ bioscout -h
               cmc           (if/when supported)
               ceinms        calibrate / execute CEINMS
               jra           joint reaction analysis
+              mrs           muscle redundancy solver (was its own top-level
+                            verb; now `openSim mrs`, a hidden `bioscout mrs`
+                            alias kept for one release)
               model         check, edit, compare and validate .osim models
                               check          can every model still find its bone meshes?
                               edit           scale, set mass, change forces, moment arms, markers
@@ -38,7 +41,6 @@ bioscout -h
             catalogue, moved in from `bioscout/figures.py`)
   utils     environment, dependencies, docs, editor setup
   lab       EXPERIMENTAL (3.0): video and wearable tracking
-  mrs       (unchanged — already its own verb + package)
 ```
 
 Dropped as top-level verbs: `run`, `scale` (folded into `openSim`), `project`
@@ -71,8 +73,12 @@ bioscout/
   tests/             unchanged
   gui/               unchanged (the `gui` verb)
   opensim/           NEW — everything under `openSim` (scale/ik/id/ma/so/ceinms/jra)
-                       <- utils/openSim.py (233KB), utils/ceinms/ (whole dir),
-                          utils/scale_measurements.py, utils/model_scaler.py
+                       <- utils/openSim.py (233KB), utils/scale_measurements.py,
+                          utils/model_scaler.py
+    opensim/ceinms/    <- utils/ceinms/ (moved as a subpackage, unchanged inside)
+    opensim/mrs/       <- mrs/ (moved as a subpackage, same shape as ceinms/ —
+                          it already has its own cli.py/config.py/runner.py/io.py,
+                          just relocated rather than staying top-level)
                        pipeline.py's single-subject run_subject() logic
                        (IK->ID->MA->SO->CEINMS->JRA) moves in here too, as a
                        plain function `session/` calls for its batch runs —
@@ -95,12 +101,26 @@ bioscout/
                           wearable tracking")
   init/              NEW, small — the `init` verb
                        <- utils/project_config.py
-  utils/             SLIMS DOWN to true cross-cutting helpers + the `utils`
-                     verb's own implementation:
-                       io.py, helpers.py, shared.py, xml_utils.py, logger.py,
-                       stats.py, resource_cleanup.py, dependency_installer.py,
-                       md2pdf.py, settings_updater.py, run_check.py
-  mrs/               unchanged
+  shared/            NEW — generic, dependency-light helpers used across every
+                     package (not tied to any one CLI verb):
+                       <- utils/io.py, utils/helpers.py, utils/shared.py,
+                          utils/xml_utils.py, utils/logger.py, utils/stats.py,
+                          utils/resource_cleanup.py
+                       PLUS two modules that don't exist yet and would need
+                       writing, not just moving:
+                         shared/filters.py      generic signal filtering
+                                                 (consolidated out of whatever
+                                                 is duplicated today across
+                                                 emg_filter.py, gapfill.py,
+                                                 openSim.py, etc. — needs an
+                                                 actual duplication audit first)
+                         shared/text_prints.py   console/log formatting
+                                                 helpers (today ad hoc print()
+                                                 calls scattered per module)
+  utils/             SHRINKS to ONLY the `utils` verb's own implementation —
+                     no longer a dumping ground:
+                       <- envcheck.py (from bioscout/ root), dependency_installer.py,
+                          md2pdf.py, settings_updater.py, run_check.py
 ```
 
 ## 3. Open questions I couldn't resolve by reading code alone
@@ -123,6 +143,19 @@ bioscout/
   step used by `session export`; likely move to `session/`.
 - **`record/`** folding into `lab/` needs confirming the GUI's recording
   widget import path gets updated too (`gui/widgets/recording.py`).
+- **Keeping a top-level `bioscout mrs` alias.** `mrs` currently bypasses the
+  main verb tree entirely (`route()` special-cases `argv[:1] == ["mrs"]`,
+  same trick as `plot jcf`). Moving its package under `opensim/` doesn't
+  force the CLI surface to change too — but for the same reason `model`/`tps`
+  move in both package AND command tree, `mrs` probably should too
+  (`bioscout openSim mrs ...`), with the old `bioscout mrs ...` kept as a
+  hidden alias for one release rather than dropped outright.
+- **`shared/filters.py` and `shared/text_prints.py` are new modules, not
+  moves.** Worth an actual audit of what's duplicated (signal filtering
+  shows up in `emg_filter.py`, `gapfill.py`, possibly `openSim.py`; print/log
+  formatting is ad hoc per-file today) before deciding what goes in vs. gets
+  left alone — scope this as its own small stage, not folded into the bigger
+  `shared/` extraction.
 
 ## 4. Why this can't be a single sed pass
 
@@ -155,6 +188,8 @@ bioscout/
    and `tps_personalise/` under `model/tps/`; update `cli.py`'s routing so
    `openSim model ...` and `openSim model tps` resolve there. Resolve the
    `ma` naming collision as part of this stage.
+   Same stage, same shape: move `mrs/` under `opensim/mrs/` and wire
+   `openSim mrs` into the routing (keep `bioscout mrs` as a hidden alias).
 4. **Extract `opensim/` for real**: move `openSim.py`, `ceinms/`,
    `scale_measurements.py`, `model_scaler.py` (and the `model/` sub-package
    from stage 3) out of `utils/` into `bioscout/opensim/`; this is the big
@@ -162,7 +197,12 @@ bioscout/
    full `bioscout.test()` run, not by hand.
 5. **Extract `session/`**: move `session.py` + friends; same treatment.
 6. **Extract `core/`**: move `analysis.py` into the existing `core/`.
-7. **`lab/` and `init/`**: lowest urgency, smallest blast radius — last.
+7. **Extract `shared/`**: audit for real duplication first (see open
+   questions), then move the true cross-cutting helpers out of `utils/` and
+   write `filters.py`/`text_prints.py` as their own reviewable change —
+   this one is partly new code, not a pure move, so it gets its own stage
+   rather than riding along with anything else.
+8. **`lab/` and `init/`**: lowest urgency, smallest blast radius — last.
 
 I'd suggest starting at stage 1 (the part you actually asked for — nicer
 `bioscout -h`) and treating 2 onward as separate, reviewable pieces of work
