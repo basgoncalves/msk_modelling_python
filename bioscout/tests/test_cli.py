@@ -91,6 +91,55 @@ class TestParser(unittest.TestCase):
             p.parse_args(["simulate", "ma"])
 
 
+class TestRestructureStages1to4(unittest.TestCase):
+    """The verb tree after stages 1-4 of docs/RESTRUCTURE_PLAN.md."""
+
+    def test_project_and_mrs_are_not_top_level(self):
+        for gone in ("project", "mrs", "run", "scale"):
+            self.assertNotIn(gone, cli.VERBS, gone)
+
+    def test_init_from_settings_parses(self):
+        ns = cli.build_parser().parse_args(["init", "proj", "--from-settings", "--force"])
+        self.assertEqual((ns.verb, ns.path, ns.from_settings, ns.force),
+                         ("init", "proj", True, True))
+        ns = cli.build_parser().parse_args(["init"])
+        self.assertFalse(ns.from_settings)
+
+    def test_model_tune_ma_replaces_ma(self):
+        p = cli.build_parser()
+        p.parse_args(["model", "tune-ma"])
+        with self.assertRaises(SystemExit):
+            with contextlib.redirect_stderr(io.StringIO()):
+                p.parse_args(["model", "ma"])
+
+    def test_simulate_mrs_is_listed_and_intercepted(self):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            with self.assertRaises(SystemExit) as cm:
+                cli.build_parser().parse_args(["simulate", "--help"])
+        self.assertEqual(cm.exception.code, 0)
+        self.assertIn("mrs", out.getvalue())
+        # route() hands `simulate mrs ...` to bioscout.simulate.mrs.cli before
+        # argparse ever sees the tail.
+        import sys, types
+        fake = types.ModuleType("bioscout.simulate.mrs.cli")
+        seen = []
+        fake.main = lambda argv: seen.append(list(argv)) or 7
+        saved = {k: sys.modules.get(k) for k in ("bioscout.simulate", "bioscout.simulate.mrs",
+                                                  "bioscout.simulate.mrs.cli")}
+        sys.modules["bioscout.simulate.mrs.cli"] = fake
+        try:
+            kind, code = cli.route(["simulate", "mrs", "check", "--x"])
+        finally:
+            for k, v in saved.items():
+                if v is None:
+                    sys.modules.pop(k, None)
+                else:
+                    sys.modules[k] = v
+        self.assertEqual((kind, code), ("exit", 7))
+        self.assertEqual(seen, [["check", "--x"]])
+
+
 class TestTranslation(unittest.TestCase):
     """Each verb -> the exact legacy argv. Pinned, because a wrong entry is silent."""
 
