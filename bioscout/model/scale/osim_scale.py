@@ -330,7 +330,15 @@ def scale_model(generic_opensim_model_path, static_trc_path, scaled_model_path, 
     try:
         os.makedirs(os.path.dirname(_setup_out) or ".", exist_ok=True)
         scaleTool.printToXML(_setup_out)
-        print(f"[scale] ScaleTool setup written: {_setup_out}")
+        # The tool object keeps ABSOLUTE paths (that is what the run below
+        # resolves against, whatever the cwd), but the FILE gets relative ones:
+        # OpenSim resolves a setup's paths against the setup's own folder, so a
+        # relative setup still opens after the session folder moves or lands on
+        # someone else's machine. Rewriting the file cannot affect the run.
+        from bioscout.utils.paths import relativise_xml as _relx
+        _nrel = _relx(_setup_out)
+        print(f"[scale] ScaleTool setup written: {_setup_out}"
+              + (f" ({_nrel} path(s) relative to it)" if _nrel else ""))
     except Exception as e:
         print(f"[scale] [WARNING] could not write the ScaleTool setup: {e}")
         _setup_out = None
@@ -379,12 +387,84 @@ def scale_model(generic_opensim_model_path, static_trc_path, scaled_model_path, 
     # dropped, the sanitised model), so those paths no longer resolve: the setup
     # is a RECORD of what ran, not a re-runnable file. Call with run=False to
     # get one that is.
+    # Keep the two files the setup NAMES, so scale_setup.xml is a re-runnable
+    # record rather than one that points into a folder we are about to delete.
+    # They move up beside the setup and the setup is repointed at them; the rest
+    # of _temp_scaling (ScaleTool's own dump, the static-IK .mot) still goes.
+    if _setup_out:
+        try:
+            _keep = [p for p in (trc_for_scaling, generic_for_scaling,
+                                 marker_set_for_scaling)
+                     if p and os.path.dirname(os.path.abspath(p)) == os.path.abspath(_tmp)]
+            for _src in _keep:
+                _dst = os.path.join(_outdir, os.path.basename(_src))
+                if os.path.abspath(_src) != os.path.abspath(_dst):
+                    _shutil.copyfile(_src, _dst)
+            if _keep:
+                _txt = open(_setup_out, "rb").read().decode("utf-8", "surrogateescape")
+                for _src in _keep:
+                    _b = os.path.basename(_src)
+                    for _pat in (os.path.join("_temp_scaling", _b),
+                                 "_temp_scaling/" + _b, "_temp_scaling\\" + _b):
+                        _txt = _txt.replace(_pat, _b)
+                open(_setup_out, "wb").write(_txt.encode("utf-8", "surrogateescape"))
+                print(f"[scale] setup inputs kept beside it: "
+                      f"{', '.join(os.path.basename(p) for p in _keep)}")
+        except Exception as e:                  # noqa: BLE001 - convenience only
+            print(f"[scale] [WARNING] could not preserve the setup's inputs: {e}")
     _shutil.rmtree(_tmp, ignore_errors=True)
     # Make the written model stand on its own: named after itself rather than
     # after ScaleTool, and with its meshes reachable from where it now lives.
     name_model_after_file(scaled_model_path)
     copy_geometry_beside(scaled_model_path, generic_opensim_model_path)
     print(f"Scaled model saved to: {scaled_model_path}")
+
+
+
+def run_scale_setup(setup_xml_path, mass=None):
+    """Run a ScaleTool setup XML exactly as written -- `bioscout model scale --setup`.
+
+    No paths are overridden and nothing is re-enabled: what the file says is
+    what runs. That is the point -- it makes a scaling run reproducible from
+    the record `scale_model` leaves behind, and it opens a setup built in the
+    OpenSim GUI.
+
+    Two things worth knowing about a setup that `scale_model` wrote:
+
+    * its MarkerPlacer is OFF. `scale_model` registers markers with a standalone
+      IK pass instead, because ScaleTool's own MarkerPlacer throws bad_alloc on
+      some complex models. Re-running the setup therefore reproduces the
+      DIMENSIONAL scaling, not the marker placement -- run `place_markers_via_ik`
+      after it if you need that too.
+    * its paths are relative to the setup file, so the working directory has to
+      be that folder. This chdirs there and restores the old one afterwards.
+
+    Returns the ScaleTool exit status as a process return code (0 = scaled).
+    """
+    setup_xml_path = os.path.abspath(setup_xml_path)
+    if not os.path.isfile(setup_xml_path):
+        print(f"[scale] no such setup: {setup_xml_path}")
+        return 1
+    base = os.path.dirname(setup_xml_path)
+    _cwd = os.getcwd()
+    try:
+        tool = osim.ScaleTool(setup_xml_path)
+        if mass is not None:
+            tool.setSubjectMass(float(mass))
+            print(f"[scale] subject mass overridden: {float(mass):.2f} kg")
+        os.chdir(base)                          # relative paths resolve from here
+        print(f"[scale] running {os.path.basename(setup_xml_path)} in {base}")
+        failed = tool.run()
+    except Exception as e:                      # noqa: BLE001
+        print(f"[scale] [ERROR] {type(e).__name__}: {e}")
+        return 1
+    finally:
+        os.chdir(_cwd)
+    if failed:
+        print("[scale] [ERROR] ScaleTool reported a failure -- read its messages above")
+        return 1
+    print("[scale] setup ran")
+    return 0
 
 
 def name_model_after_file(osim_path, name=None):

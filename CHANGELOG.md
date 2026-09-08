@@ -12,6 +12,47 @@ All notable changes to BioScout are documented here.
 > and a note here.
 
 
+## [3.0.5] — 2026-09-08
+
+### Setup files name their inputs relatively
+
+New `bioscout.utils.paths` -- the shared helper for this, so each tool that
+writes a setup stops solving it separately:
+
+    from bioscout.utils.paths import relativise_xml, to_relative
+    relativise_xml("scale_setup.xml")          # in place, against its own dir
+
+OpenSim resolves a setup's relative paths against the setup file's own folder,
+so a relative setup survives the session folder moving or landing on another
+machine; a setup full of `C:\Users\<you>\...` works on exactly one. Two rules
+make it safe to run blindly: a path with no relative form (different Windows
+drive, UNC share) is left absolute rather than mangled, and only values that
+look like absolute paths are touched.
+
+`simulate.opensim.relativise_setup_xml` (previously the only copy, used by
+`run_cmc`) now delegates to it, and fixes two bugs it had on the way: a
+single path CONTAINING SPACES was silently skipped, and cross-drive paths were
+mangled rather than left alone -- `os.path.relpath` only raises across drives
+when it runs ON Windows; on Linux it returns `../D:\models\x.osim`, which
+would then have been written into a setup file. 15 tests.
+
+`scale_model` now relativises the `scale_setup.xml` it writes. The tool object
+keeps absolute paths, so the run itself is untouched -- only the file changes.
+
+### `scale_setup.xml` is re-runnable
+
+It used to be a RECORD, not a re-runnable file: it named the joint-centre
+augmented TRC (and, when markers were dropped, the sanitised model) inside
+`_temp_scaling/`, which is deleted on success. Those inputs are now copied up
+beside the setup and the setup repointed at them before the temp folder goes.
+
+New `run_scale_setup(xml, mass=None)` runs a setup exactly as written -- no
+paths overridden, nothing re-enabled -- for reproducing a scaling run, or for
+a setup built in the OpenSim GUI. Worth knowing: a setup `scale_model` wrote
+has its MarkerPlacer OFF (marker registration is a separate standalone-IK
+pass, because ScaleTool's own MarkerPlacer throws bad_alloc on some complex
+models), so re-running it reproduces the DIMENSIONAL scaling only.
+
 ## [3.0.4] — 2026-09-08
 
 Fixes for what the 3.0.1-3.0.3 moves broke, found by actually importing the

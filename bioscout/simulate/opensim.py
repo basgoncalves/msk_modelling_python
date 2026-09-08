@@ -1467,39 +1467,17 @@ def find_non_zero_mom_arm_muscles(ma_data: pd.DataFrame, muscles: list) -> list:
     return non_zero_muscles
 
 def relativise_setup_xml(xml_path):
-    """Rewrite absolute filesystem paths in an OpenSim/CEINMS setup XML to paths
-    RELATIVE to the setup file's own directory, so the setup is portable (OpenSim
-    resolves relative paths against the setup dir). Only rewrites values that look
-    like absolute paths (drive-letter, UNC, or POSIX-absolute); everything else is
-    left untouched. Best-effort — no-op on parse failure."""
-    import xml.etree.ElementTree as _ET
-    try:
-        xml_path = os.path.abspath(xml_path)
-        base = os.path.dirname(xml_path)
-        tree = _ET.parse(xml_path)
-        root = tree.getroot()
-    except Exception:
-        return
-    def _is_abs(t):
-        return len(t) > 2 and (t[1:3] in (":\\", ":/") or t.startswith(("/", "\\\\")))
-    changed = False
-    for el in root.iter():
-        t = (el.text or "").strip()
-        if not t or " " in t and not _is_abs(t):
-            continue
-        # a value may be a space-separated LIST of paths (e.g. force set files)
-        parts = t.split()
-        if parts and all(_is_abs(p) for p in parts):
-            try:
-                el.text = " ".join(os.path.relpath(p, base).replace("/", "\\") for p in parts)
-                changed = True
-            except Exception:
-                pass
-    if changed:
-        try:
-            tree.write(xml_path)
-        except Exception:
-            pass
+    """Rewrite absolute paths in an OpenSim/CEINMS setup XML to paths RELATIVE to
+    the setup file's own directory, so the setup is portable (OpenSim resolves
+    relative paths against the setup dir). Best-effort -- no-op on failure.
+
+    The implementation is :func:`bioscout.utils.paths.relativise_xml`, shared
+    with every other tool that writes a setup. This wrapper keeps the name its
+    callers use and the Windows-style separator this one has always written.
+    """
+    from bioscout.utils.paths import relativise_xml
+    return relativise_xml(xml_path, sep="\\")
+
 
 def create_analysis_tool(marker_trc, externalloadsfile, osim_modelPath,
                          results_directory, actuators=None):
