@@ -241,9 +241,14 @@ bioscout/
                           input-prep role as exportC3D.py, just simulate's
                           side of it rather than session's)
                        pipeline.py's single-subject run_subject() logic
-                       (IK->ID->MA->SO->CEINMS->JRA) moves in here too, as a
-                       plain function `session/` calls for its batch runs —
-                       it stops being reachable as its own CLI subcommand.
+                       (IK->ID->MA->SO->CEINMS->JRA) was PLANNED to move in
+                       here as a plain function `session/` calls for its
+                       batch runs, no longer reachable as its own CLI
+                       subcommand — instead it (and run_subject_mode() /
+                       _run_session_ceinms()) was deleted outright, not
+                       migrated. Rebuilding that batch-across-subjects
+                       sequencing (now missing entirely) is still open work,
+                       whenever `session`/`simulate` grow to cover it.
   session/           NEW — everything `bioscout session` backs
                        <- utils/session.py (258KB), utils/session_form.py,
                           utils/session_layout.py, utils/session_paths.py,

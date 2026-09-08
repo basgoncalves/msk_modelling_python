@@ -134,10 +134,10 @@ bioscout                 launch the GUI
 bioscout help [VERB]     the verb list, or one verb's detail
 bioscout init            create a project: folders, models, settings template
 bioscout gui             launch the GUI
-bioscout run             the pipeline: IK -> ID -> MA -> SO -> CEINMS -> JRA
 bioscout session         new / export / classify / ingest / reset
 bioscout model           check / edit / compare / ma / validate / joint-centres
 bioscout tps             build an MRI-personalised model
+bioscout simulate        run an OpenSim/CEINMS stage on an existing session
 bioscout plot            figures, summaries, Collings ranking, JCF direction
 bioscout utils           env / install / md2pdf / pylance
 bioscout lab             EXPERIMENTAL 3.0: video and wearable tracking
@@ -148,23 +148,25 @@ OpenSim import — so it still answers on a machine where the environment is
 half-built, which is when you need it most.
 
 ```bash
-bioscout run 021 --session pre,post --replace
+bioscout simulate so simulations/023/pre --replace
 bioscout session new simulations/022/pre        # opens a dialog
 bioscout model check models --strict
 bioscout plot --list
-bioscout help run
+bioscout help session
 ```
 
 ### Coming from the flags
 
-Every old flag still works. It is hidden from `--help` and prints one line
-naming its replacement, so existing scripts keep running while you migrate.
-They will be removed one release after that.
+Every old flag still works — with one exception: `--run_subject` (and its
+`--REPLACE`/`-b settings.py`/`--do-*` stage flags) is gone outright, not
+aliased. It drove the old single-subject pipeline runner, which had no test
+coverage and no honest CLI replacement yet; see `simulate` above for the
+stages that already exist as separate steps. Every other old flag is hidden
+from `--help` and prints one line naming its replacement, so existing scripts
+keep running while you migrate. They will be removed one release after that.
 
 | old | new |
 |---|---|
-| `--run_subject X --REPLACE` | `run X --replace` |
-| `-b settings.py` | `run --batch settings.py` |
 | `--new-session P --from-session Q --body-mass M` | `session new P` (a dialog asks) |
 | `--c3d-export P` | `session export P` |
 | `--classifier P` | `session classify P` |
@@ -455,9 +457,12 @@ C:/…/Powerlifiting/c3dfiles/25_03_31/Walking_02.c3d
 3. **Drop the scaled model** at `models/Athlete_04/25_03_31/scaled.osim` (matching
    the `model_so`/`model_ceinms` names from step 1).
 
-4. **Run** — `--export` regenerates markers/GRF/EMG + `trial_settings.xml` from each c3d:
+4. **Run** — `session export` regenerates markers/GRF/EMG + `trial_settings.xml`
+   from each c3d, then `simulate` runs a stage:
    ```bash
-   bioscout run Athlete_04 --session 25_03_31 --export --replace
+   bioscout session export simulations/Athlete_04/25_03_31
+   bioscout simulate so simulations/Athlete_04/25_03_31 --replace
+   bioscout simulate ceinms simulations/Athlete_04/25_03_31 --replace
    ```
 
 (`session ingest` is also available on the Python API as `session.ingest_c3d(source=…)`.)
@@ -472,24 +477,36 @@ C:/…/Powerlifiting/c3dfiles/25_03_31/Walking_02.c3d
 > 3.0 and not stable yet**. Ignore them for pipeline work; they're documented in
 > [Future add-ons](#future-add-ons).
 
-**Command line** — run the full pipeline (SO + CEINMS) for one subject:
+> There is no longer a single CLI verb that drives the whole pipeline
+> (export → scale → IK → ID → MA → SO → CEINMS → JRA) for one subject in one
+> call — the old `bioscout run` did that, backed by `pipeline.run_subject()`,
+> and both were removed outright (no test coverage, no honest per-stage
+> story). Two ways to run the pipeline today:
+
+**Command line** — one session, one stage at a time, driven by that session's
+`session.yaml` (see `bioscout session new`):
 
 ```bash
 cd /path/to/my_project
-bioscout run Athlete_03_Cateli
+bioscout simulate exbiomec simulations/Athlete_03_Cateli/25_03_31   # IK -> ID -> MA
+bioscout simulate so simulations/Athlete_03_Cateli/25_03_31         # SO -> moments -> JRA
+bioscout simulate ceinms simulations/Athlete_03_Cateli/25_03_31     # calibrate -> execute -> JRA
 ```
 
-Restrict scope, force a rebuild, or re-export inputs from C3D:
+Restrict scope or force a rebuild:
 
 ```bash
-bioscout run Athlete_03_Cateli --session 25_03_31 --trial Walking_02
-bioscout run Athlete_03_Cateli --replace      # overwrite existing outputs
-bioscout run Athlete_03_Cateli --export       # regenerate inputs/ from c3d first
+bioscout simulate so simulations/Athlete_03_Cateli/25_03_31 --trial Walking_02
+bioscout simulate so simulations/Athlete_03_Cateli/25_03_31 --replace   # overwrite existing outputs
 ```
 
-`--session` and `--trial` accept comma-separated lists; `bioscout run` with no
-subject runs every subject in `settings.py`. Runs are **idempotent** — a stage is
-skipped when its output already exists unless `--replace` is given.
+`--trial` accepts a comma-separated list; `--iteration` restricts to one model
+arm (default: every one on disk). Runs are **idempotent** — a stage is skipped
+when its output already exists unless `--replace` is given.
+
+**Batch, across subjects** — `bioscout -b settings.py` (a legacy flag, not yet
+its own verb) still drives `pipeline.run_project()` / `run_pipeline()` from a
+project's `settings.py`, unaffected by this removal.
 
 ### Running individual steps on one trial
 
@@ -845,11 +862,14 @@ bioscout session reset                               # the entire simulations/ f
 bioscout session reset --trial Walking_02 --dry-run  # preview, touch nothing
 bioscout session reset --trial Walking_02 --raw      # prune inputs/ to just the c3d + trial_settings.xml
 
-# reset-then-run: `run --reset` resets exactly the trials it is about to run
-bioscout run Athlete_03_Cateli --session 25_03_31 --trial Walking_02 --reset --replace
+# reset-then-run is two commands now: reset, then simulate the stage(s) needed
+bioscout session reset --session 25_03_31 --trial Walking_02
+bioscout simulate so simulations/Athlete_03_Cateli/25_03_31 --trial Walking_02 --replace
 
-# add --export to also regenerate inputs/ (markers/GRF/EMG) from the C3D
-bioscout run Athlete_03_Cateli --session 25_03_31 --trial Walking_02 --reset --export --replace
+# add `session export` first to also regenerate inputs/ (markers/GRF/EMG) from the C3D
+bioscout session reset --session 25_03_31 --trial Walking_02
+bioscout session export simulations/Athlete_03_Cateli/25_03_31
+bioscout simulate so simulations/Athlete_03_Cateli/25_03_31 --trial Walking_02 --replace
 ```
 
 When scoped to a trial, sibling trials and session-level files are left
