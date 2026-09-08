@@ -12,6 +12,30 @@ All notable changes to BioScout are documented here.
 > and a note here.
 
 
+## [3.0.0] — 2026-09-08
+
+**Breaking.** The `run` verb and `pipeline.run_subject()` are gone outright —
+no hidden alias, no compat shim. `--run_subject`/`--REPLACE`/`--export`/
+`--do-scale`/`--do-exbiomec`/`--do-so`/`--do-ceinms` are all removed, along
+with `run_subject_mode()` in `__main__.py` (which was already dead code: a
+module-level `--run_subject` dispatch always ran first and exited before it
+could ever be reached) and the now-orphaned `pipeline._run_session_ceinms()`.
+There is currently no single CLI call that batches a pipeline run across
+subjects, or does export/scale/reset in one step — `bioscout -b settings.py`
+(unchanged) still drives `run_project()`/`run_pipeline()` for multi-subject
+batches; single-session, single-stage work goes through the new `simulate`
+verb below. Closing that gap for good is follow-up work for `session`/
+`simulate`, not part of this release.
+- New `bioscout simulate exbiomec|ma|so|ceinms SESSION_PATH`: runs one stage
+  of `Iteration.run()` directly against an existing session (needs a
+  `session.yaml` — see `bioscout session new`), with `--iteration`,
+  `--trial` and `--replace`. Covers the stage groupings that already exist
+  as separate switches; there's no honest standalone `ik`/`id`/`jra` yet.
+- `openSim.py`: dropped `compare_osim_models` (zero callers); renamed
+  `export_c3d` to `c3d_to_trc` (it collided in name, not purpose, with
+  `session/exportC3D.py`). `bioscout.utils.session`'s re-export of
+  `run_subject` is gone with it.
+
 ## [2.1.0] — 2026-09-01
 
 - New `bioscout plot jcf` (`bioscout/plot/jcf_direction.py`): polar plot of
