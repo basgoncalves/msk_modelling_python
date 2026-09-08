@@ -2196,7 +2196,7 @@ class BatchC3DExport(ctk.CTkFrame):
                     # scaffold_session_yaml builds the trial list from the
                     # session's own c3ds — the one blessed way to create the
                     # file (utils/session.py). It returns None when it cannot.
-                    from utils.session import scaffold_session_yaml
+                    from bioscout.session.session import scaffold_session_yaml
                     made = scaffold_session_yaml(str(root))
                     if made:
                         print(f"[OK] Created {made}")
@@ -2208,7 +2208,7 @@ class BatchC3DExport(ctk.CTkFrame):
                     # SURGICAL writes only (SessionForm patches value spans) —
                     # a re-dump would wipe the hand-written comments, which is
                     # the File Editor's cardinal rule too.
-                    from utils.session_form import SessionForm
+                    from bioscout.session.form import SessionForm
                     form = SessionForm(str(root))
                     highpass, lowpass, _notch = self._get_emg_filter_params()
                     # GUI naming vs session.yaml naming: the 'High (Hz)' field
@@ -2235,7 +2235,7 @@ class BatchC3DExport(ctk.CTkFrame):
                 # numpy-only (movement_detector imports no scipy/OpenSim), so
                 # this runs wherever the export itself ran. write_session_yaml
                 # backs the old file up before correcting trial types.
-                from movement_detector.session import classify_session
+                from bioscout.session.movement_detector.session import classify_session
                 classify_session(str(root), quiet=True, no_plots=False,
                                  write_session_yaml=want_yaml)
                 print(f"[OK] Movement detection written under {root}")

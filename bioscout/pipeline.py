@@ -282,7 +282,9 @@ def _run_scaling(subj, sdir, session, config, u, replace=True):
     ``{session: static_trial_name}`` map), else the Subject's ``static_trial``,
     else the first trial folder whose name starts with 'static'. Outputs go to
     ``models/<subject>/<session>/``. Returns the final model path, or None."""
-    from bioscout.utils import get_openSim as _get_os; _os = _get_os()
+    from bioscout.model.edit.osim_ops import increase_isometric_force
+    from bioscout.model.muscle_optimize import muscle_optimimizer_Modenese2015
+    from bioscout.model.scale.osim_scale import scale_model
     import shutil
 
     generic = subj.generic_model_path()
@@ -352,22 +354,22 @@ def _run_scaling(subj, sdir, session, config, u, replace=True):
               f"{os.path.basename(scale_input or prescaled)}")
     else:
         scale_input = generic
-    _os.scale_model(scale_input, trc, scaled, scale_setup_output_dir=model_dir,
-                    marker_set_file=markerset,
-                    linear_scaling=linear_scaling, marker_placer=marker_placer)
+    scale_model(scale_input, trc, scaled, scale_setup_output_dir=model_dir,
+                marker_set_file=markerset,
+                linear_scaling=linear_scaling, marker_placer=marker_placer)
 
     # 2) muscle-parameter optimisation (Modenese 2015) -> scaled_opt_N<N>.osim
     #    Reference is the generic template even for a prescaled model (preserves
     #    the template's muscle operating range in the personalised geometry).
     n_eval = int(getattr(config, "muscle_opt_neval", 10) or 10)
     opt = os.path.join(model_dir, f"scaled_opt_N{n_eval}.osim")
-    _os.muscle_optimimizer_Modenese2015(scaled, save_path=opt,
-                                        ref_model_path=generic, N_eval=n_eval)
+    muscle_optimimizer_Modenese2015(scaled, save_path=opt,
+                                    ref_model_path=generic, N_eval=n_eval)
 
     # 3) isometric-force scaling x factor -> final (named as subj.model_so)
     factor = float(getattr(config, "muscle_force_factor", 1.0) or 1.0)
     if factor and factor != 1.0:
-        _os.increase_isometric_force(opt, muscleList="all", factor=factor)
+        increase_isometric_force(opt, muscleList="all", factor=factor)
         produced = opt.replace(".osim", f"_increased_{factor:.2f}.osim")
         if os.path.exists(produced) and os.path.abspath(produced) != os.path.abspath(final):
             shutil.copyfile(produced, final)

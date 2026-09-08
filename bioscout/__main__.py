@@ -201,7 +201,7 @@ parser.add_argument('--c3d-export', '--export-session', dest='c3d_export',
 parser.add_argument('--classifier', '--classify', dest='classifier',
                     type=str, default=None, metavar='SESSION_PATH',
                     help="Classify every trial in a session from its markers/GRF "
-                         "(bioscout.movement_detector). Writes "
+                         "(bioscout.session.movement_detector). Writes "
                          "session_auto_detection.yaml beside session.yaml.")
 parser.add_argument('--no-plots', dest='classifier_no_plots', action='store_true',
                     help="--classifier: skip the per-trial QC figures "
@@ -465,7 +465,7 @@ if getattr(args, 'pylance_fix', None) is not None:
 
 # --- --new-session : scaffold a session.yaml from the c3d files --------------
 if getattr(args, 'new_session', None):
-    from bioscout.utils.session import scaffold_session_yaml
+    from bioscout.session.session import scaffold_session_yaml
     _p = scaffold_session_yaml(args.new_session,
                                template=getattr(args, 'from_session', None),
                                body_mass=getattr(args, 'body_mass', None))
@@ -478,7 +478,7 @@ if getattr(args, 'new_session', None):
 # --- --c3d-export : raw export, no model required ----------------------------
 if getattr(args, 'c3d_export', None):
     from bioscout import Session
-    from bioscout.utils.session_layout import c3d_root
+    from bioscout.session.layout import c3d_root
     _sp = os.path.abspath(args.c3d_export)
     if not os.path.isfile(os.path.join(_sp, "session.yaml")):
         print(f"[c3d-export] no session.yaml in {_sp}\n"
@@ -499,7 +499,7 @@ if getattr(args, 'c3d_export', None):
     _yp = os.path.join(_sp, "session.yaml")
     _c = _y.safe_load(open(_yp, encoding="utf-8")) or {}
     if _c.get("body_mass") in (None, "", 0):
-        from bioscout.utils.session import body_mass_from_static
+        from bioscout.session.session import body_mass_from_static
         _m = body_mass_from_static(_sp, _c.get("static_trial"))
         if _m:
             # Put it with the other subject facts rather than appending it to
@@ -522,7 +522,7 @@ if getattr(args, 'c3d_export', None):
 
 # --- --classifier: movement detection over a whole session -------------------
 if getattr(args, 'classifier', None):
-    from bioscout.movement_detector.session import classify_session
+    from bioscout.session.movement_detector.session import classify_session
     classify_session(args.classifier,
                      no_plots=getattr(args, 'classifier_no_plots', False),
                      write_session_yaml=getattr(args, 'write_session_yaml', False))
@@ -1473,7 +1473,7 @@ def _is_video_batch_settings(settings_path: str) -> bool:
 
 def run_add_subject_mode(project_path: str) -> int:
     """Interactively add a subject to subjects.json in *project_path*."""
-    from utils.subject_registry import SubjectRegistry, prompt_add_subject
+    from bioscout.core.subject_registry import SubjectRegistry, prompt_add_subject
     root = Path(project_path).resolve()
     if not root.is_dir():
         print(f"[error] Project path does not exist: {root}")
@@ -1607,7 +1607,7 @@ def run_tps_mode(project_path=None) -> int:
     print()
 
     # --- iteration -----------------------------------------------------
-    from bioscout.utils.session import load_session_yaml
+    from bioscout.session.session import load_session_yaml
     cfg = load_session_yaml(os.path.join(session_dir, "session.yaml"))
     iterations = sorted(cfg.get("iterations") or {})
     # A "*_mri" iteration NAMES the file this step produces; the model to warp

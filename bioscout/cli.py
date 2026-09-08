@@ -589,7 +589,7 @@ def _direct(ns: argparse.Namespace) -> Optional[int]:
         # raises a clear FileNotFoundError when session.yaml is missing rather
         # than silently doing nothing, which is exactly what a run command
         # should do on a bad path.
-        from bioscout.utils.session import Session
+        from bioscout.session.session import Session
         stage_kwarg = {"exbiomec": "do_exbiomec", "ma": "do_muscle_analysis",
                        "so": "do_so", "ceinms": "do_ceinms"}[a]
         try:

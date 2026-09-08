@@ -7,7 +7,7 @@ Two independent paths, for two kinds of input:
 squatting, side-step cut, shuffle, deceleration and backward gait from pose
 landmark time-series::
 
-    from bioscout.movement_detector import detect_segments, DetectorConfig
+    from bioscout.session.movement_detector import detect_segments, DetectorConfig
     segments = detect_segments(landmarks)
 
 **Marker-based mocap** — whole-TRIAL classification from the markers and
@@ -16,7 +16,7 @@ ground reaction forces BioScout exports into
 rather than "what is happening in this frame", so a project can check its
 trials against their filenames::
 
-    from bioscout.movement_detector import classify_trial
+    from bioscout.session.movement_detector import classify_trial
     label, conf, why, feats = classify_trial(exp_dir, body_mass=61.3)
 
 Thresholds for the mocap path are SI (m, s, body weights) and live in
@@ -76,18 +76,18 @@ __all__ = [
 
 
 def prepare_cycle_runs(*a, **k):
-    """Lazy re-export; see bioscout.movement_detector.cycle_runs."""
+    """Lazy re-export; see bioscout.session.movement_detector.cycle_runs."""
     from .cycle_runs import prepare_cycle_runs as _f
     return _f(*a, **k)
 
 
 def write_cycle_files(*a, **k):
-    """Lazy re-export; see bioscout.movement_detector.cycle_runs."""
+    """Lazy re-export; see bioscout.session.movement_detector.cycle_runs."""
     from .cycle_runs import write_cycle_files as _f
     return _f(*a, **k)
 
 
 def classify_session(*a, **k):
-    """Lazy re-export; see bioscout.movement_detector.session."""
+    """Lazy re-export; see bioscout.session.movement_detector.session."""
     from .session import classify_session as _f
     return _f(*a, **k)

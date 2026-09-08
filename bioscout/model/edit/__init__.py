@@ -17,11 +17,11 @@ and (next) the GUI.
     res.ok, res.model, res.changed
 
 This package **adds no biomechanics**. Every operation delegates to code that
-was already here — ``utils/openSim.py``, ``utils/scale_measurements.py``,
+was already here — ``simulate/opensim.py``, ``utils/scale_measurements.py``,
 ``change_moment_arms``, ``muscle_inspect``, ``utils/model_report.py``. What it
 adds is agreement between them:
 
-* **no operation prompts.** ``utils/openSim.py`` uses ``input()`` as a lazy
+* **no operation prompts.** ``simulate/opensim.py`` uses ``input()`` as a lazy
   argument default in about forty places, which hangs a batch run and makes a
   GUI impossible.
 * **one output-naming rule** (:mod:`~bioscout.model.edit.naming`) instead of the

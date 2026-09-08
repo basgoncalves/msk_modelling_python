@@ -1,4 +1,4 @@
-"""Tests for :mod:`bioscout.utils.emg_filter`.
+"""Tests for :mod:`bioscout.emg.filter`.
 
 The load-bearing test is :meth:`TestDefaults.test_defaults_match_the_old_hardcoded_values`:
 adding a config block must not silently change any result computed before it
@@ -11,7 +11,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from bioscout.utils.emg_filter import (DEFAULTS, describe, from_session_dir,
+from bioscout.emg.filter import (DEFAULTS, describe, from_session_dir,
                                        session_config_near, settings_for,
                                        to_filter_kwargs)
 

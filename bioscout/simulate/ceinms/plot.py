@@ -1,4 +1,4 @@
-"""bioscout.utils.ceinms.plot — Figures made from CEINMS output — calibration parameters, model
+"""bioscout.simulate.ceinms.plot — Figures made from CEINMS output — calibration parameters, model
 comparisons, moment tracking, optimisation results and muscle forces.
 
 Split out of the former flat `utils/ceinms.py`; see the package

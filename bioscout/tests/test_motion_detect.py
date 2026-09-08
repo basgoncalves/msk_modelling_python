@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from bioscout.utils.motion_detect import (
+from bioscout.session.motion_detect import (
     DEFAULT_THRESHOLD, TimeRange, detect_time_range, read_trc,
 )
 

@@ -1,4 +1,4 @@
-"""Tests for bioscout.utils.gapfill — marker gap filling.
+"""Tests for bioscout.simulate.gapfill — marker gap filling.
 
 Every test here is about the same thing: a gap filler that is wrong is worse
 than one that does nothing, because OpenSim's IK ignores an absent marker and
@@ -11,7 +11,7 @@ import unittest
 
 import numpy as np
 
-from bioscout.utils import gapfill as gf
+from bioscout.simulate import gapfill as gf
 
 
 # --------------------------------------------------------------------------- #

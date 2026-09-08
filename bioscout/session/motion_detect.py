@@ -237,7 +237,7 @@ def _session_layout():
     a convenience import at the bottom of it would quietly undo that.
     """
     try:
-        import bioscout.utils.session_layout as L        # normal case
+        import bioscout.session.layout as L        # normal case
         return L
     except Exception:
         import importlib.util

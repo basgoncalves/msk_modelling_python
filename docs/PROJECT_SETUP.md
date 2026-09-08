@@ -141,7 +141,7 @@ session's `session.xml`, so `settings.py` shrinks to *what to run* and
 
 ```python
 from pathlib import Path
-from bioscout.utils.analysis import discover_sessions
+from bioscout.core.analysis import discover_sessions
 
 __version__  = "2.0.0"
 RUN_PIPELINE = True

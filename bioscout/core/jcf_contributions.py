@@ -71,7 +71,7 @@ def write_sto(path, header, df):
 def model_muscles(model_path):
     """Muscle names in the .osim (the ONLY columns that may be zeroed)."""
     try:
-        from .openSim import _quiet_model
+        from bioscout.model.opensim_base import _quiet_model
         m = _quiet_model(model_path)
     except Exception:
         import opensim as osim
@@ -160,7 +160,7 @@ def _jra_task(args):
     write_sto(tmp_forces, header, f)
     if setup_template and _o.path.exists(setup_template):
         _sh.copyfile(setup_template, setup_xml)
-    from bioscout.utils import openSim as _os
+    from bioscout.simulate import opensim as _os
     if _os is None:                       # circular-import fallback
         from bioscout import utils as _u
         _os = _u.get_openSim()
@@ -223,7 +223,7 @@ def decompose(model_path, ik_file, grf_xml, forces_file, out_dir, jra_columns,
         write_sto(tmp_forces, header, f)
         if setup_template and os.path.exists(setup_template):
             shutil.copyfile(setup_template, setup_xml)
-        from bioscout.utils import openSim as _os
+        from bioscout.simulate import opensim as _os
         _os.run_jra(osim_modelPath=model_path, ik_output=ik_file, grf_xml=grf_xml,
                     setup_xml=setup_xml, actuators=None,
                     muscle_force_path=tmp_forces, saveFileName=sto)

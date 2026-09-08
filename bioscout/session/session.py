@@ -1,4 +1,4 @@
-"""bioscout.utils.session — the single home for everything session-related.
+"""bioscout.session.session — the single home for everything session-related.
 
 Consolidates what used to live in utils/session_config.py, utils/session_yaml.py,
 utils/session_layout.py and core/session_manager.py, plus the canonical
@@ -28,7 +28,7 @@ try:
 except Exception:
     yaml = None
 
-from bioscout.utils.analysis import Analyse
+from bioscout.core.analysis import Analyse
 
 # ===========================================================================
 # CONFIG  (inlined from utils/session_config.py)
@@ -159,7 +159,7 @@ class SessionSpec:
 
     @property
     def c3d_dir(self) -> Optional[str]:
-        from .session_layout import c3d_root
+        from .layout import c3d_root
         return c3d_root(self.path) if self.path else None
 
     @property
@@ -1379,7 +1379,7 @@ def write_session_yaml(spec: SessionSpec, path=None) -> str:
     # the spec from several sources, which is where the FAIS duplicates
     # actually came from.
     try:
-        from . import run_check as _rc
+        from bioscout.utils import run_check as _rc
         _dups = _rc.duplicate_yaml_keys(text)
         if _dups:
             raise ValueError(
@@ -1447,7 +1447,7 @@ def body_mass_from_static(session_dir, static_trial=None, gravity=9.80665):
     """
     import glob as _glob
     import numpy as _np
-    from ..movement_detector.mocap import read_grf, _quiet_body_weight
+    from .movement_detector.mocap import read_grf, _quiet_body_weight
 
     exp = os.path.join(session_dir, "2_experimental")
     if not os.path.isdir(exp):
@@ -1517,7 +1517,7 @@ def scaffold_session_yaml(session_dir, template=None, body_mass=None,
     ``overwrite`` is False.
     """
     import glob as _glob
-    from .session_layout import c3d_root
+    from .layout import c3d_root
 
     session_dir = os.path.abspath(session_dir)
     dst = os.path.join(session_dir, "session.yaml")
@@ -1908,7 +1908,7 @@ def _rm_empty_inputs(trial_path):
 # numbered layout (1_c3dfiles / 2_experimental / 3_iterations/<name>) and the
 # older flat one, preferring whatever exists on disk. Never join these names by
 # hand — that is what keeps the two layouts from drifting apart.
-from . import session_layout as _layout
+from . import layout as _layout
 
 # Which experimental subfolder the runners read raw inputs from. Normally the
 # session's own (1_/2_-numbered or plain); a downsample run points this at e.g.
@@ -2476,7 +2476,7 @@ class Iteration:
         # which is how a generated file with `Voltage_1:` twice calibrated on
         # the wrong data without a word (IMPLEMENTATIONS §1).
         try:
-            from . import run_check as _rc
+            from bioscout.utils import run_check as _rc
             with open(path, "r", encoding="utf-8", errors="replace") as _fh:
                 _dups = _rc.duplicate_yaml_keys(_fh.read())
             for _k, _a, _b in _dups:
@@ -2616,7 +2616,7 @@ class Iteration:
         self._apply_session_config(t, name, force_type)     # session.yaml is the source of truth
         if _norm_only:
             try:
-                from .analysis import LAYOUT_DIRS as _LD
+                from bioscout.core.analysis import LAYOUT_DIRS as _LD
                 os.chdir(self.session_dir)          # cannot rmdir the cwd on Windows
                 for _d in _LD.values():
                     _p2 = os.path.join(_tp, _d)
@@ -2966,7 +2966,7 @@ class Iteration:
         (name or list) restricts distribution to those c3d (matched by file stem), so
         only the selected trials' folders are touched; default: every loose ``*.c3d``."""
         import shutil
-        from .session_layout import c3d_root as _c3d_root
+        from .layout import c3d_root as _c3d_root
         src = source or self.session_dir
         _tset = ({trials} if isinstance(trials, str) else set(trials)) if trials else None
         # In the session-centric layout the c3d already lives at its canonical
@@ -3033,7 +3033,7 @@ class Iteration:
         # tagged sibling is a loud warning, because only the rig's owner
         # knows which column is the signal.
         try:
-            from . import run_check as _rc
+            from bioscout.utils import run_check as _rc
         except Exception:                                      # noqa: BLE001
             _rc = None
         if _rc is not None:
@@ -3200,7 +3200,7 @@ class Iteration:
     def _resolve_model_file(self, rel, key="so_model"):
         """Resolve a session.yaml path through the one shared rule.
 
-        ``key`` selects the base order (see :mod:`bioscout.utils.session_paths`).
+        ``key`` selects the base order (see :mod:`bioscout.session.paths`).
         It matters: a markerset is a project asset and a model is searched from
         the iteration folder outward. Everything used to go through the model
         search, so ``markerset: setup_files/markers_FAIS.xml`` resolved
@@ -3213,7 +3213,7 @@ class Iteration:
         if not rel:
             return None
         from bioscout import utils as _u
-        from bioscout.utils.session_paths import resolve as _resolve_path
+        from bioscout.session.paths import resolve as _resolve_path
         md = str(getattr(_u, "MODELS_DIR", "") or "")
         pd = str(getattr(_u, "PROJECT_DIR", None)
                  or (os.path.dirname(md) if md else os.getcwd()))
@@ -3421,7 +3421,9 @@ class Iteration:
             missing). Outputs land in this iteration's folder where the pipeline
             reads them."""
         import shutil
-        from bioscout.utils import get_openSim as _get_os; _os = _get_os()
+        from bioscout.model.edit.osim_ops import increase_isometric_force
+        from bioscout.model.muscle_optimize import muscle_optimimizer_Modenese2015
+        from bioscout.model.scale.osim_scale import scale_model
         # session.yaml owns the static trial's NAME (see the parameter docs).
         if not static_trial:
             static_trial = str(self._cfg.get("static_trial") or "Static_01")
@@ -3535,9 +3537,9 @@ class Iteration:
         # The ScaleTool setup XML travels WITH the model it produced rather
         # than staying in the iteration folder — it is the record of how that
         # .osim was made, and it is what "View setup XML" should find beside it.
-        _os.scale_model(generic, trc, scaled, scale_setup_output_dir=_mdir,
-                        mass=(float(mass) if mass else None), marker_set_file=markerset,
-                        linear_scaling=linear, marker_placer=mplace)
+        scale_model(generic, trc, scaled, scale_setup_output_dir=_mdir,
+                    mass=(float(mass) if mass else None), marker_set_file=markerset,
+                    linear_scaling=linear, marker_placer=mplace)
 
         # Name the model after what it IS. OpenSim's ScaleTool names its output
         # after the tool, and openSim.scale_model calls the tool "ModelScaling",
@@ -3584,8 +3586,8 @@ class Iteration:
             print(f"[Session] {self.label}: muscle optimisation (Modenese2015, N={n_eval}) — slow ...")
             base = os.path.join(
                 _mdir, f"{self.subject_name}_scaled_opt_N{n_eval}.osim")
-            _os.muscle_optimimizer_Modenese2015(scaled, save_path=base,
-                                                ref_model_path=generic, N_eval=n_eval)
+            muscle_optimimizer_Modenese2015(scaled, save_path=base,
+                                            ref_model_path=generic, N_eval=n_eval)
         else:
             base = scaled
             print(f"[Session] {self.label}: muscle-opt skipped — "
@@ -3600,7 +3602,7 @@ class Iteration:
         # 4) SO model = base with isometric force x mvic_factor. increase_isometric_force
         #    writes <base>_increased_X.osim and leaves base untouched.
         if mvic_factor and mvic_factor != 1.0:
-            _os.increase_isometric_force(base, muscleList="all", factor=mvic_factor)
+            increase_isometric_force(base, muscleList="all", factor=mvic_factor)
             produced = base.replace(".osim", f"_increased_{mvic_factor:.2f}.osim")
             src = produced if os.path.exists(produced) else base
             if os.path.abspath(src) != os.path.abspath(so_path):
@@ -3709,7 +3711,7 @@ class Iteration:
             except Exception:
                 pass
             try:
-                from bioscout.movement_detector.session import classify_session
+                from bioscout.session.movement_detector.session import classify_session
                 classify_session(self.session_dir, per_trial=True, quiet=True)
             except Exception as e:
                 log(f"  [detect WARN] movement detection skipped: "
@@ -3791,8 +3793,8 @@ class Iteration:
         # against the trial folder and fails.
         _cwd0 = os.getcwd()
         try:                                    # start (and keep) the run quiet
-            from bioscout.utils import get_openSim as _get_os; _os = _get_os()
-            _os._quiet_osim()
+            from bioscout.model.opensim_base import _quiet_osim
+            _quiet_osim()
         except Exception:
             pass
         names = ([trials] if isinstance(trials, str)
@@ -3830,7 +3832,7 @@ class Iteration:
         # (IMPLEMENTATIONS §1). Warn NOW, with the worst offenders named.
         if os.name == "nt":
             try:
-                from . import run_check as _rc
+                from bioscout.utils import run_check as _rc
                 _hits = _rc.long_paths(self.path)
                 if _hits:
                     log(f"  [preflight WARNING] {len(_hits)}+ path(s) within "
@@ -3899,7 +3901,7 @@ class Iteration:
             # ``force`` overrides ``replace``: prerequisite runs (before SO/CEINMS)
             # pass force=False so IK/ID are only computed when MISSING and are
             # reused otherwise — ``replace`` overwrites only the requested stage.
-            from bioscout.utils.analysis import Analyse
+            from bioscout.core.analysis import Analyse
             _r = replace if force is None else force
             if not isinstance(t, Analyse):
                 print(f"[Session] {self.label}: _exbio expects an Analyse, got {type(t)}")
@@ -4075,7 +4077,7 @@ class Iteration:
                                     f"stage first:")
                                 log(f"      it.run(trials=['{cn}'], do_exbiomec=True, "
                                     f"do_muscle_analysis=True)")
-                                log(f"    (or set bioscout.utils.session.CEINMS_AUTOPREP "
+                                log(f"    (or set bioscout.session.session.CEINMS_AUTOPREP "
                                     f"= True to restore the old self-repairing behaviour)")
                                 _prep_failed.append(cn)
                             elif _stale:
@@ -4146,7 +4148,7 @@ class Iteration:
         # this says what EXISTS, per trial per stage, and the difference is
         # printed as a table that cannot scroll past unnoticed.
         try:
-            from . import run_check as _rc
+            from bioscout.utils import run_check as _rc
             _req = [st for st, on in (("export", export),
                                       ("exbiomec", do_exbiomec),
                                       ("muscle_analysis", do_muscle_analysis),
@@ -4203,7 +4205,8 @@ def _bootstrap_project(session_dir, run_name, project_dir=None, verbose=False):
     # Project bootstrap / first model loads can leave OpenSim's logger at 'info';
     # apply the configured level now so the run starts quiet.
     try:
-        utils.openSim._quiet_osim()
+        from bioscout.model.opensim_base import _quiet_osim
+        _quiet_osim()
     except Exception:
         pass
 

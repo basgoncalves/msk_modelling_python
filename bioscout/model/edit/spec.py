@@ -8,7 +8,7 @@ from that description rather than hand-written per operation. Adding an
 operation is one ``@op`` decorator, and it appears in all of them at once.
 
 That is the whole point. bioscout already had the capability three times over
-(``utils/openSim.py``, ``change_moment_arms``, ``muscle_inspect``), but each
+(``simulate/opensim.py``, ``change_moment_arms``, ``muscle_inspect``), but each
 with its own calling convention, its own interactive prompt, and its own idea
 of where the output goes. This module does not reimplement any of that work --
 every op delegates -- it just makes them agree.
@@ -16,7 +16,7 @@ every op delegates -- it just makes them agree.
 The three rules an op must follow, none of which the underlying functions
 consistently did:
 
-1. **Never prompt.** ``utils/openSim.py`` has ~40 bare ``input()`` calls used as
+1. **Never prompt.** ``simulate/opensim.py`` has ~40 bare ``input()`` calls used as
    lazy argument defaults; they block a GUI and hang a batch run. An op always
    passes every argument explicitly.
 2. **Always take an explicit output path.** Callers of

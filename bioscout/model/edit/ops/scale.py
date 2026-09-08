@@ -20,7 +20,7 @@ __all__ = []
 @op("scale",
     verb="scale",
     summary="Linear-scale a generic model onto a static trial (ScaleTool)",
-    delegates_to="bioscout.utils.openSim.scale_model",
+    delegates_to="bioscout.model.scale.osim_scale.scale_model",
     suffix="_scaled",
     notes=("Verifies afterwards that the femur and shank lengths actually "
            "CHANGED. OpenSim's ModelScaler cannot compute a measurement whose "
@@ -46,8 +46,7 @@ __all__ = []
 def scale(model, out, *, static_trc, mass=None, marker_set=None,
           linear_scaling=True, marker_placer=True, time_range=None,
           setup_dir=None, **_):
-    from bioscout.utils import get_openSim
-    _os = get_openSim()
+    from bioscout.model.scale import osim_scale as _os
 
     if not os.path.exists(static_trc):
         return OpResult(False, "scale", str(model),

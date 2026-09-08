@@ -1,4 +1,4 @@
-"""Tests for :mod:`bioscout.utils.session_form` — the session editor's model.
+"""Tests for :mod:`bioscout.session.form` — the session editor's model.
 
 The thing being pinned is that editing a field changes THAT field and nothing
 else. session.yaml is hand-written and its comments carry the study's reasoning;
@@ -14,7 +14,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from bioscout.utils.session_form import SessionForm
+from bioscout.session.form import SessionForm
 
 # A session.yaml with the shapes that matter: a leading comment block, a
 # trailing comment on a value, a block list, a flow-ish nested mapping, and the
@@ -335,7 +335,7 @@ class TestEmgFilter(_Session):
         self.assertNotIn("emg_filter", yaml.safe_load(out))
 
     def test_the_written_block_is_read_back_by_emg_filter(self):
-        from bioscout.utils.emg_filter import settings_for
+        from bioscout.emg.filter import settings_for
         import yaml
         out = self.saved(lambda f: f.set_emg_filter(bandpass_high=350.0,
                                                     envelope_order=2))

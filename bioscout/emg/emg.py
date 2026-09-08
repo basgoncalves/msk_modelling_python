@@ -1,12 +1,12 @@
 """
-bioscout.utils.emg — unified EMG processing surface.
+bioscout.emg.emg — unified EMG processing surface.
 
 Combines the EMG helpers that were split between ``utils/__init__.py`` and
 ``utils/emg_normalise.py``:
 
 * DataFrame-level routines (``filter_emg``, ``load_sto``, ``write_sto_file``,
   ``time_normalise_df``, ``plot_emg_results``, ``emg_amplitude_normalise``) are
-  imported from :mod:`bioscout.utils.emg_normalise` (their implementation home).
+  imported from :mod:`bioscout.emg.normalise` (their implementation home).
 * File/path-level and session-level routines (``filter_emg_file``,
   ``amplitude_normalise_emg``, ``emg_processing_file``,
   ``normalise_emg_across_session``) live here.
@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 import scipy.signal
 
 from bioscout import utils as _u
-from .emg_normalise import (
+from .normalise import (
     filter_emg, load_sto, write_sto_header, write_sto_file,
     time_normalise_df, mmfn, plot_emg_results, emg_amplitude_normalise,
 )

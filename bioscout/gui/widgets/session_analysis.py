@@ -118,7 +118,7 @@ def _read_yaml(path: Path) -> dict:
     only READING a file still fills on a machine where the package cannot.
     """
     try:
-        from bioscout.utils.session import load_session_yaml
+        from bioscout.session.session import load_session_yaml
         return load_session_yaml(str(path)) or {}
     except Exception:                                          # noqa: BLE001
         pass
@@ -142,7 +142,7 @@ def _is_all(v) -> bool:
 
 
 def _as_list(v) -> List[str]:
-    """Mirror of ``bioscout.utils.session._as_list``: 'a b c' / ['a','b'] /
+    """Mirror of ``bioscout.session.session._as_list``: 'a b c' / ['a','b'] /
     None -> list[str], with 'all' and None both meaning "every trial" ([]).
 
     Kept faithful deliberately — a panel that parses session.yaml differently
@@ -506,7 +506,7 @@ class SessionAnalysisTab(ctk.CTkFrame):
             return
         changed = []
         try:
-            from bioscout.utils.session_form import SessionForm
+            from bioscout.session.form import SessionForm
             form = SessionForm(str(d))
             for key, (var, kind, old, _m) in self._ed_vars.items():
                 if kind == "bool":
@@ -555,7 +555,7 @@ class SessionAnalysisTab(ctk.CTkFrame):
         if not d or it == "—":
             return
         try:
-            from bioscout.utils.session_form import SessionForm
+            from bioscout.session.form import SessionForm
             form = SessionForm(str(d))
             for key, (var, kind, old, _m) in self._ed_vars.items():
                 if kind == "bool":
@@ -1131,7 +1131,7 @@ class SessionAnalysisTab(ctk.CTkFrame):
 
         # -- everything SessionForm already knows how to complain about ------
         try:
-            from bioscout.utils.session_form import SessionForm
+            from bioscout.session.form import SessionForm
             for p in SessionForm(str(d)).problems():
                 # problems() SHOUTS the ones that stop a run ("NO C3D FILES",
                 # "DUPLICATE emg_map key(s)") and phrases the rest in lower

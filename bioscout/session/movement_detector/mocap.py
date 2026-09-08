@@ -345,7 +345,7 @@ class MocapConfig:
         default, so passing a partial settings object is fine and passing none
         gives exactly the old behaviour.
 
-            from bioscout.movement_detector import MocapConfig
+            from bioscout.session.movement_detector import MocapConfig
             cfg = MocapConfig.from_settings(settings.BatchSettings)
         """
         _MAP = {
@@ -2792,7 +2792,7 @@ def classify_trial(exp_dir: str, body_mass: Optional[float] = None,
 
     Returns ``(label, confidence, reason, TrialFeatures)``.
 
-        from bioscout.movement_detector import classify_trial
+        from bioscout.session.movement_detector import classify_trial
         label, conf, why, feats = classify_trial(
             "simulations/021/session1/2_experimental/RunG3", body_mass=61.3)
     """

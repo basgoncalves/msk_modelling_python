@@ -140,7 +140,7 @@ def test_default_calibration_resolves_silent_iterations(tmp_path):
 
 # --- what actually reaches calibrationCfg.xml ------------------------------
 def test_param_ranges_precedence():
-    from bioscout.utils.ceinms.configs import calibration_param_ranges
+    from bioscout.simulate.ceinms.configs import calibration_param_ranges
 
     class Settings:                      # a project settings.py, snake_case
         optimal_fiber_length = "0.5 2"

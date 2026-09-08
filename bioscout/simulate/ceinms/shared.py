@@ -1,10 +1,10 @@
 """
-bioscout.utils.ceinms — CEINMS (Calibrated EMG-Informed Neuromusculoskeletal
+bioscout.simulate.ceinms — CEINMS (Calibrated EMG-Informed Neuromusculoskeletal
 Modelling) helpers: build the excitation generator, subject/calibration/execution
 XMLs and input data, run the CEINMS calibration + execution binaries, and plot
 the results. Driven by the project settings (EMG->muscle mapping, muscle groups,
 calibration parameters) and the per-trial Analyse objects in
-:mod:`bioscout.utils.analysis`.
+:mod:`bioscout.core.analysis`.
 """
 import os
 import re

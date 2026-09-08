@@ -1,4 +1,4 @@
-"""bioscout.utils.ceinms.configs — Builders for every CEINMS XML: the subject model, the excitation
+"""bioscout.simulate.ceinms.configs — Builders for every CEINMS XML: the subject model, the excitation
 generator, calibration cfg/setup, input data, and the execution and
 optimise configurations.
 

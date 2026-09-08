@@ -53,7 +53,7 @@ def classify_session(session_path: str, settings=None, no_plots: bool = False,
     """
     import csv as _csv
     import yaml as _yaml
-    from bioscout.movement_detector import (classify_trial, segment_trial,
+    from bioscout.session.movement_detector import (classify_trial, segment_trial,
                                             gait_cycles, plot_trial_tasks,
                                             MocapConfig)
 

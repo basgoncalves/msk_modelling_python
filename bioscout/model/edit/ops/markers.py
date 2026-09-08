@@ -26,7 +26,7 @@ __all__ = []
 @op("place_markers",
     verb="markers",
     summary="Register model markers to the static pose by standalone IK",
-    delegates_to="bioscout.utils.openSim.place_markers_via_ik",
+    delegates_to="bioscout.model.scale.osim_scale.place_markers_via_ik",
     suffix="_mk",
     notes=("Does not change segment dimensions — only where the virtual markers "
            "sit on the bodies. Safe to run on an already-scaled model, which is "
@@ -40,8 +40,7 @@ __all__ = []
               help="Window of the static trial to average, as two numbers"),
     ])
 def place_markers(model, out, *, static_trc, marker_set=None, time_range=None, **_):
-    from bioscout.utils import get_openSim
-    _os = get_openSim()
+    from bioscout.model.scale import osim_scale as _os
 
     if not os.path.exists(static_trc):
         return OpResult(False, "place_markers", str(model),

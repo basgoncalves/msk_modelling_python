@@ -1,4 +1,4 @@
-"""bioscout.utils.ceinms.commands — Running the CEINMS executables: the terminal wrapper, calibration,
+"""bioscout.simulate.ceinms.commands — Running the CEINMS executables: the terminal wrapper, calibration,
 execution, the weight loop and CEINMSoptimise.
 
 Split out of the former flat `utils/ceinms.py`; see the package

@@ -1,6 +1,6 @@
-"""bioscout.utils.ceinms — the CEINMS toolbox: Python helpers AND the binaries.
+"""bioscout.simulate.ceinms — the CEINMS toolbox: Python helpers AND the binaries.
 
-    from bioscout.utils import ceinms
+    from bioscout.simulate import ceinms
     ceinms.create_ceinms_cfg(...)          # configs.py
     ceinms.executable(...)                 # commands.py
     ceinms.ExecutionMode(trial).run(fn)    # modes.py
@@ -34,7 +34,7 @@ LAYOUT
     three-arm `bounds` run into a one-arm run with no error — a config option
     silently ignored, which is worse than one that fails.
 
-        from bioscout.utils.ceinms.modes import ExecutionMode   # no OpenSim
+        from bioscout.simulate.ceinms.modes import ExecutionMode   # no OpenSim
 """
 import os as _os
 

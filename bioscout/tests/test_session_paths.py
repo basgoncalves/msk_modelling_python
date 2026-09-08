@@ -1,4 +1,4 @@
-"""Tests for :mod:`bioscout.utils.session_paths`.
+"""Tests for :mod:`bioscout.session.paths`.
 
 The case that motivated the module is :meth:`TestRealFaisLayout` — a value that
 resolves against a base other than the one it was written for. That is not an
@@ -14,7 +14,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from bioscout.utils.session_paths import BASES, Resolved, report, resolve, resolve_all
+from bioscout.session.paths import BASES, Resolved, report, resolve, resolve_all
 
 
 class _Project(unittest.TestCase):

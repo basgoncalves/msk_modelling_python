@@ -420,7 +420,7 @@ class TestRunPathWarning(_Tree):
         try:
             from bioscout.utils import analysis as _a
         except Exception as exc:                      # pragma: no cover
-            self.skipTest(f"bioscout.utils.analysis unavailable here: {exc}")
+            self.skipTest(f"bioscout.core.analysis unavailable here: {exc}")
         self._a = _a
         _a._GEOMETRY_CHECKED.clear()
         self.addCleanup(_a._GEOMETRY_CHECKED.clear)

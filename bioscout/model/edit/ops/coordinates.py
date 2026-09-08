@@ -27,7 +27,7 @@ _COORD_BLOCK = r'(<Coordinate\s+name="{name}"[^>]*>)(.*?)(</Coordinate>)'
     verb="coordinates",
     summary="Widen a coordinate's range of motion (degrees)",
     delegates_to="text surgery on <range>, same contract as "
-                 "bioscout.utils.openSim.edit_model_range_coordinates",
+                 "bioscout.model.edit.osim_ops.edit_model_range_coordinates",
     needs_opensim=False,
     suffix="_rom",
     notes=("Degrees in, radians written. Text surgery rather than an OpenSim "
@@ -108,7 +108,7 @@ def set_range(model, out, *, coordinate, lo=None, hi=None, mirror=True,
 @op("lock",
     verb="coordinates",
     summary="Lock or unlock coordinates",
-    delegates_to="bioscout.utils.openSim.lock_model_coordinates",
+    delegates_to="bioscout.model.edit.osim_ops.lock_model_coordinates",
     suffix="_lock",
     params=[
         Param("coordinates", "list[str]", required=True, choices_from="coordinates",
@@ -117,8 +117,7 @@ def set_range(model, out, *, coordinate, lo=None, hi=None, mirror=True,
               help="Unlock instead of lock"),
     ])
 def lock(model, out, *, coordinates, unlock=False, **_):
-    from bioscout.utils import get_openSim
-    _os = get_openSim()
+    from bioscout.model.edit import osim_ops as _os
 
     _os.lock_model_coordinates(str(model), coordinates_to_lock=list(coordinates),
                                save_path=str(out), unlock=bool(unlock))

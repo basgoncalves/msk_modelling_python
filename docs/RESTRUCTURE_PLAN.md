@@ -7,32 +7,65 @@ answer: `bioscout/session/`. Today it doesn't — `session.py` (258KB) lives in
 and the `model` verb's actions are spread across four unrelated top-level
 folders (`model/`, `model_edit/`, `change_moment_arms/`, `muscle_inspect/`).
 
-## 0. Status (as of 2026-09-08, v3.0.1)
+## 0. Status (as of 2026-09-08, v3.0.2)
 
-**Stages 1-4 shipped** (v3.0.0 + v3.0.1). Package tree now:
-`plot/figures.py`, `plot/collings.py`, `model/{edit,moment_arms,inspect,tps,scale}/`,
-`simulate/mrs/` (`simulate/` is new; the OpenSim/CEINMS stage code is still
-in `utils/openSim.py` + `utils/ceinms/` until stage 6). CLI: `run`, `project`,
-`scale`, `mrs` are no longer top-level verbs (`init --from-settings`,
-`model scale`, `simulate mrs`); `model ma` is `model tune-ma`;
-`simulate exbiomec|ma|so|ceinms` exists. Deviations from the text below:
-- `run` and `pipeline.run_subject()` were **deleted outright**, not kept as a
-  hidden alias (explicit decision). No single CLI call batches a pipeline run
-  across subjects or does export/scale/reset in one step; `bioscout -b
-  settings.py` still drives `run_project()`/`run_pipeline()` meanwhile.
-  Rebuilding that sequencing under `session`/`simulate` is unstarted.
-- `simulate` only has the stage groupings that already exist as separate
+**Stages 1-8 shipped.** The package tree now looks like section 2 for
+everything except the last three stages. What exists today:
+
+```
+bioscout/  core/ (analysis, subject_registry, jcf_contributions)
+           emg/ (emg, analysis, channels, filter, normalise)
+           model/ (check/verify + edit/ moment_arms/ inspect/ tps/ scale/
+                   + opensim_base.py, muscle_optimize.py)
+           session/ (session, form, layout, paths, exportC3D, motion_detect,
+                     movement_detector/)
+           simulate/ (opensim.py, ceinms/, mrs/, gapfill.py)
+           plot/ (figures, collings, compare, config, tidy, work, jcf_direction)
+           gui/  load_tracking/  record/  utils/  config/  tests/
+```
+
+CLI: ten verbs -- help, init, gui, session, model, tps, simulate, plot, utils,
+lab. `run`, `project`, `scale`, `mrs` are gone as top-level verbs
+(`init --from-settings`, `model scale`, `simulate mrs`); `model ma` is
+`model tune-ma`; `simulate exbiomec|ma|so|ceinms` exists.
+
+Deviations from the text below, all deliberate:
+- `run` and `pipeline.run_subject()` were **deleted outright** rather than kept
+  as a hidden alias. No single CLI call batches a pipeline run across subjects
+  or does export/scale/reset in one step; `bioscout -b settings.py` still
+  drives `run_project()`/`run_pipeline()` meanwhile. Rebuilding that
+  sequencing under `session`/`simulate` is unstarted.
+- `simulate` only exposes the stage groupings that already exist as separate
   switches on `Iteration.run()` -- no standalone `ik`/`id`/`jra`/`cmc` yet.
-- `model_scaler.py` kept its name under `model/scale/` (the GUI imports it);
-  `scale_measurements.py` became `model/scale/measurements.py`.
-- `tps` is still a top-level verb (the package moved to `model/tps/`; nesting
-  the verb under `model` is not done).
-- Untested at runtime here: the moves were verified by import-path
-  resolution, `compileall`, and the stdlib-only test modules (test_cli,
-  test_model_edit, test_validation_paths, test_project_config -- 78 tests);
-  run `bioscout.test()` in the real env before trusting a pipeline run.
+- `model_scaler.py` kept its name under `model/scale/`; `scale_measurements.py`
+  became `model/scale/measurements.py`; the openSim.py scale share became
+  `model/scale/osim_scale.py`.
+- `tps` is still a top-level verb (its package moved to `model/tps/`, but
+  nesting the VERB under `model` is not done).
+- `utils/model_report.py` has NOT moved to `model/report.py` yet.
+- `utils.openSim` / `get_openSim()` were kept as names but now resolve to
+  `bioscout.simulate.opensim` (the simulation half only). Model-side functions
+  are deliberately unreachable through them.
 
-**Next**: stage 5 (`emg/`), then 6-12.
+**Not started**: stages 9-12 -- `summary.py` -> `plot/`, `lab/`
+(load_tracking + record + subject_profile), `devtools/` + `utils/filters.py` +
+`utils/text_prints.py`, and `init/`. `utils/` still holds io/helpers/shared/
+xml_utils/logger/stats/resource_cleanup (its intended contents) PLUS
+model_report, summary, file_edit, subject_profile, project_config, analyse and
+the devtools-bound modules, which those stages move out.
+
+**How stages 5-8 were verified** (no OpenSim/scipy in the agent's environment,
+so this is static + partial-suite, NOT a pipeline run):
+- every one of openSim.py's 62 functions compared AST-node-by-AST-node against
+  its new home -- byte-equivalent, none dropped, none duplicated;
+- a resolver over every absolute AND relative import in the package (this
+  caught a real 3.0.1 bug: `core/analysis.py`'s `from ..muscle_inspect`);
+- `compileall` over the committed tree;
+- the test modules that run without scipy/matplotlib: 264 tests, same
+  pass/fail set as before the restructure, with three modules newly ABLE to
+  import.
+**Still needs a real run**: `bioscout.test()` in the conda env, and one
+pipeline pass (scale -> IK -> ID -> SO -> CEINMS) before trusting this.
 
 ## 1. Target CLI tree
 
@@ -399,11 +432,11 @@ happened yet — only the naming/dead-code decision has, ahead of the actual
    Same stage, same shape: move `mrs/` under `simulate/mrs/` and wire
    `simulate mrs` into the routing -- no `bioscout mrs` alias, drop the old
    top-level shortcut outright.
-5. **Extract `emg/`**: move the emg*.py files out of `utils/` into their own
+5. ~~DONE (v3.0.2)~~ **Extract `emg/`**: move the emg*.py files out of `utils/` into their own
    top-level package; update the ~4 importers (gui/, pipeline.py, session.py,
    analysis.py). Do this before stage 6/7 since both `session/` and
    `simulate/ceinms/` will need to import from it once they move.
-6. **Split `openSim.py` and extract `model/`'s and `simulate/`'s shares of
+6. ~~DONE (v3.0.2)~~ **Split `openSim.py` and extract `model/`'s and `simulate/`'s shares of
    it**: mechanical now that the split is fully mapped out (section 2) --
    `model/opensim_base.py`, `model/edit/`'s additions, `model/muscle_optimize.py`
    and `model/scale/`'s additions go with stage 3/4's `model/` work;
@@ -413,9 +446,9 @@ happened yet — only the naming/dead-code decision has, ahead of the actual
    dropped/renamed, see section 0; nothing left to decide there.) ~27+
    import sites combined across both halves — an actual find/replace pass
    plus a full `bioscout.test()` run, not by hand.
-7. **Extract `session/`**: move `session.py` + friends + `exportC3D.py` +
+7. ~~DONE (v3.0.2)~~ **Extract `session/`**: move `session.py` + friends + `exportC3D.py` +
    `motion_detect.py`; same treatment.
-8. **Extract `core/`**: move `analysis.py` into the existing `core/`, along
+8. ~~DONE (v3.0.2)~~ **Extract `core/`**: move `analysis.py` into the existing `core/`, along
    with `subject_registry.py` and `jcf_contributions.py`.
 9. **Move `summary.py` into `plot/`**, alongside `figures.py`/`collings.py`
    from stage 2 -- small, can ride along with that stage instead of getting

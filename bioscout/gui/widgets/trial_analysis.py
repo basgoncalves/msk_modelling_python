@@ -1022,7 +1022,7 @@ class TrialAnalysisTab(ctk.CTkFrame):
             self.status_callback("Pick a trial first", "warning")
             return
         try:
-            from bioscout.utils.motion_detect import detect_time_range
+            from bioscout.session.motion_detect import detect_time_range
             from bioscout.utils import session_layout as L
             exp = Path(L.experimental_root(str(d))) / trial
         except Exception as exc:

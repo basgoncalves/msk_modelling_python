@@ -485,7 +485,7 @@ def aggregate_band(values_by_arm):
 class ExecutionMode(object):
     """The chosen CEINMS execution mode, and everything that follows from it.
 
-    Reachable as ``bioscout.utils.ceinms.ExecutionMode`` -- `ceinms.py`
+    Reachable as ``bioscout.simulate.ceinms.ExecutionMode`` -- `ceinms.py`
     re-exports it, so there is one API surface even though the logic lives
     here.
 

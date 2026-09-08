@@ -45,8 +45,8 @@ def _load(name, rel):
 
 
 try:
-    if "bioscout.utils.session" in sys.modules:
-        S = sys.modules["bioscout.utils.session"]
+    if "bioscout.session.session" in sys.modules:
+        S = sys.modules["bioscout.session.session"]
     else:
         _pkg = types.ModuleType("bioscout")
         _pkg.__path__ = [_PKG]
@@ -55,7 +55,7 @@ try:
         sys.modules.setdefault("bioscout", _pkg)
         sys.modules.setdefault("bioscout.utils", _u)
         _u.file_edit = _load("bioscout.utils.file_edit", "utils/file_edit.py")
-        S = _load("bioscout.utils.session", "utils/session.py")
+        S = _load("bioscout.session.session", "utils/session.py")
         _u.session = S
     import yaml
     HAVE = True

@@ -1,6 +1,6 @@
 # Muscle contributions to the joint contact force
 
-`bioscout.utils.jcf_contributions` + `Analyse.run_jra_contributions()`
+`bioscout.core.jcf_contributions` + `Analyse.run_jra_contributions()`
 
 ## The idea
 
@@ -66,7 +66,7 @@ costs no extra runs because one JRA output carries every joint.
 Path-level API (no Analyse object needed):
 
 ```python
-from bioscout.utils.jcf_contributions import decompose, summarise, plot_contributions
+from bioscout.core.jcf_contributions import decompose, summarise, plot_contributions
 df = decompose(model_path, ik_file, grf_xml, forces_file, out_dir,
                jra_columns=BatchSettings.JRA_COLUMNS(model, "r"))
 ```

@@ -52,7 +52,7 @@ def _resolve_utils():
     _utils_path = str(_Path(__file__).parent)
     if _utils_path not in _sys.path:
         _sys.path.insert(0, _utils_path)
-    import utils as _u
+    from bioscout import utils as _u
     return _u
 
 
@@ -1145,7 +1145,7 @@ def export_session(session_dir, emg_string_list=None, c3d_dirname=None,
     (time, EMG01..EMGnn) so CEINMS pairs the excitation generator with each
     trial's excitations consistently. Returns the list of exported trial names.
     """
-    from .session_layout import c3d_root, experimental_root
+    from .layout import c3d_root, experimental_root
 
     # Default to whatever this session already uses — `1_c3dfiles`/`2_experimental`
     # on a numbered session, the plain names on an older one. An explicit

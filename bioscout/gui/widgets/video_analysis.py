@@ -2805,7 +2805,7 @@ class VideoAnalysisTab(ctk.CTkFrame):
     def _detect_dominant_motion(self) -> str:
         """Detect the dominant motion type from In/Out crop frames. Returns task label."""
         try:
-            from movement_detector.detector import detect_segments
+            from bioscout.session.movement_detector.detector import detect_segments
         except ImportError:
             return "trial"
 
@@ -2909,7 +2909,7 @@ class VideoAnalysisTab(ctk.CTkFrame):
         #     classifies each frame (standing / walking / running / squatting /
         #     jumping / side_cut / …) and saves the segments as JSON.
         try:
-            from movement_detector.detector import detect_segments, segments_to_dict
+            from bioscout.session.movement_detector.detector import detect_segments, segments_to_dict
             if self._frame_poses:
                 segs = detect_segments(self._frame_poses, fps=self._video_fps or 30.0)
                 if segs:

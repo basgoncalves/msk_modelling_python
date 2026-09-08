@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from config.config_manager import ConfigManager
 from utils.logger import logger
-from utils.subject_registry import SubjectRegistry
+from bioscout.core.subject_registry import SubjectRegistry
 
 
 def _resolve_project_root() -> Path:

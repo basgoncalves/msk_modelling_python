@@ -1,8 +1,8 @@
 """Inspect a c3d's analog channels and write the emg_map for session.yaml.
 
-    python -m bioscout.utils.emg_channels TRIAL.c3d              # the table
-    python -m bioscout.utils.emg_channels TRIAL.c3d --yaml       # emg_map stub
-    python -m bioscout.utils.emg_channels TRIAL.c3d --yaml -o emg_map.yaml
+    python -m bioscout.emg.channels TRIAL.c3d              # the table
+    python -m bioscout.emg.channels TRIAL.c3d --yaml       # emg_map stub
+    python -m bioscout.emg.channels TRIAL.c3d --yaml -o emg_map.yaml
 
 WHY THIS EXISTS
     `emg_map` is the only statement in a project of which analog channel is

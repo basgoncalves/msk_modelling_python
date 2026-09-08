@@ -1,6 +1,6 @@
 """EMG Analysis tab — frequency content and muscle synergies, on chosen channels.
 
-A viewer over ``bioscout.utils.emg_analysis``; the maths lives there so it can
+A viewer over ``bioscout.emg.analysis``; the maths lives there so it can
 be scripted and tested without a display.
 
 * **Frequency** — power spectrum per channel, mains band shaded red, sub-20 Hz
@@ -210,7 +210,7 @@ class EMGAnalysisTab(ctk.CTkFrame):
 
     # ------------------------------------------------------------ loading
     def _load(self) -> bool:
-        from bioscout.utils.emg_analysis import read_emg_mot
+        from bioscout.emg.analysis import read_emg_mot
         f = self._file_map.get(self._file_var.get())
         if not f:
             return False
@@ -282,7 +282,7 @@ class EMGAnalysisTab(ctk.CTkFrame):
         if not sel:
             self._msg.configure(text="no channel selected")
             return
-        from bioscout.utils.emg_analysis import frequency_report
+        from bioscout.emg.analysis import frequency_report
         rep = frequency_report(sel, self._fs)
         if not rep:
             self._msg.configure(text="no channel produced a spectrum")
@@ -323,7 +323,7 @@ class EMGAnalysisTab(ctk.CTkFrame):
         if len(sel) < 2:
             self._msg.configure(text="select at least 2 non-flat channels")
             return
-        from bioscout.utils.emg_analysis import synergy_report
+        from bioscout.emg.analysis import synergy_report
         try:
             target = float(self._vaf_var.get())
         except ValueError:

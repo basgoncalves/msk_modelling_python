@@ -150,7 +150,7 @@ class CEINMSSetupTab(ctk.CTkFrame):
             return
         path = sim / pid / st
         try:
-            from utils.session_form import SessionForm
+            from bioscout.session.form import SessionForm
             self.form = SessionForm(str(path))
             self.session_state.configure(
                 text=f"{path}  ·  {len(self.form.trials())} trials",

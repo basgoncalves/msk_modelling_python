@@ -1,5 +1,5 @@
 """
-bioscout.utils.analysis — the analysis object model.
+bioscout.core.analysis — the analysis object model.
 
 This module lives next to :class:`bioscout.utils.Analyse` and gathers the
 typed objects that wrap it:
@@ -407,7 +407,7 @@ class Subject:
             names = sorted(d for d in os.listdir(base) if os.path.isdir(os.path.join(base, d)))
         else:
             names = []
-        from bioscout.utils.session import Iteration as _S, find_session_dir as _fsd
+        from bioscout.session.session import Iteration as _S, find_session_dir as _fsd
         _it = self._iteration()
         out = []
         for _n in names:
@@ -422,7 +422,7 @@ class Subject:
 
     def get_session(self, name):
         """Session by name, within THIS subject."""
-        from bioscout.utils.session import Iteration as _S, find_session_dir as _fsd
+        from bioscout.session.session import Iteration as _S, find_session_dir as _fsd
         return _S(_fsd(name, subject=self.name), self._iteration())
 
     def trials(self, session=None, force_type="SO"):
@@ -745,7 +745,7 @@ def _trial_class():
     return Analyse
 
 
-# NOTE: the Session class now lives in bioscout.utils.session
+# NOTE: the Session class now lives in bioscout.session.session
 
 _DEFAULT_PALETTE = ["green", "blue", "red", "purple", "orange",
                     "brown", "teal", "magenta", "olive", "cyan"]
@@ -818,23 +818,27 @@ def discover_subjects(models_dir=None, session=None, names=None,
 # ===========================================================================
 
 def _force_load_helper(utils, name):
-    """Load a lazily-imported helper (openSim/ceinms) onto ``utils``."""
+    """Load a lazily-imported helper (openSim/ceinms) onto ``utils``.
+
+    Both moved out of ``utils/`` in the stage-6 restructure: ``openSim`` is now
+    ``bioscout.simulate.opensim`` (the simulation half of the old god-module)
+    and ``ceinms`` is ``bioscout.simulate.ceinms``. The attribute names on
+    ``utils`` are kept so existing ``utils.openSim`` / ``utils.ceinms`` call
+    sites keep resolving.
+    """
     if getattr(utils, name, None) is not None:
         return
-    mod = None
-    try:                                   # bare import (utils/ dir is on sys.path)
-        mod = importlib.import_module(name)
+    target = {"openSim": "bioscout.simulate.opensim",
+              "ceinms": "bioscout.simulate.ceinms"}.get(name, name)
+    try:
+        mod = importlib.import_module(target)
     except Exception:
-        try:                               # package-qualified fallback
-            mod = importlib.import_module(f"bioscout.utils.{name}")
-        except Exception:
-            if name == "openSim":
-                print(f"[bioscout] could not load '{name}' — traceback:")
-                traceback.print_exc()
-            return
+        if name == "openSim":
+            print(f"[bioscout] could not load '{name}' ({target}) — traceback:")
+            traceback.print_exc()
+        return
     setattr(utils, name, mod)
     sys.modules.setdefault(name, mod)
-
 
 def check_settings_version(settings, project_dir=None, verbose=True):
     """Compare a project's ``settings.__version__`` to the package schema version.
@@ -1172,8 +1176,8 @@ def __getattr__(name):
         return getattr(utils, name)
     if name in ("Session", "Iteration", "open_session"):
         # Session (session-level) + Iteration (runnable) live in
-        # bioscout.utils.session. Re-export lazily so legacy
-        # `from bioscout.utils.analysis import Session` keeps working, without a
+        # bioscout.session.session. Re-export lazily so legacy
+        # `from bioscout.core.analysis import Session` keeps working, without a
         # module-load import cycle (session imports Analyse).
         from bioscout.utils import session as _s
         return getattr(_s, name)
@@ -1350,7 +1354,7 @@ def subject_session_for_trial(trial_path):
 
     Returns ``(None, None)`` when the path is too shallow to interpret.
     """
-    from bioscout.utils.session_layout import ITERATIONS_DIRS
+    from bioscout.session.layout import ITERATIONS_DIRS
 
     iteration_dir = os.path.dirname(os.path.normpath(trial_path))
     parent = os.path.dirname(iteration_dir)
@@ -1966,7 +1970,7 @@ class Analyse:
             # downstream reads — the same duplication prune_legacy_inputs was
             # written to clean up after the fact. Point at the original.
             try:
-                from .session_layout import c3d_root as _c3d_root
+                from bioscout.session.layout import c3d_root as _c3d_root
                 _sd = os.path.dirname(os.path.dirname(os.path.normpath(exp)))
                 _cand = os.path.join(_c3d_root(_sd),
                                      os.path.basename(os.path.normpath(exp)) + ".c3d")
@@ -2150,7 +2154,7 @@ class Analyse:
                 # Use the robust OpenSim C3D reader (exportC3D) for the time range.
                 # io.load_c3d's `c3d` library fails on some c3d (large analog blocks),
                 # printing a spurious "Could not read ...inputs\c3dfile.c3d" during export.
-                import exportC3D
+                from bioscout.session import exportC3D
                 _tr = exportC3D.get_time_range_from_c3d(os.path.abspath(self.c3d))
                 if _tr and len(_tr) == 2:
                     self.time_range = [float(_tr[0]), float(_tr[1])]
@@ -2914,7 +2918,9 @@ class Analyse:
             print(f"Model not found: {self.model_dir}")
             return
         
-        _u.openSim.edit_model_range_coordinates(osim_modelPath=self.model_dir, coordinate_name=coordinate_name, new_range=new_range, save_path=self.model_dir)
+        from bioscout.model.edit.osim_ops import edit_model_range_coordinates as \
+            _edit_model_range_coordinates
+        _edit_model_range_coordinates(osim_modelPath=self.model_dir, coordinate_name=coordinate_name, new_range=new_range, save_path=self.model_dir)
 
     # analyses to run
     def scale_emg(self, scale_factor=1.0):
@@ -2976,7 +2982,7 @@ class Analyse:
             _emg_channels = list((_scfg.get("emg_map") or {}).keys()) or None
         except Exception:
             _emg_channels = None
-        import exportC3D
+        from bioscout.session import exportC3D
 
         print("Exporting C3D file...")
 
@@ -3100,15 +3106,16 @@ class Analyse:
         if _u.openSim is not None:
             return _u.openSim
         try:
-            from . import openSim as _os_mod
+            from bioscout.simulate import opensim as _os_mod
             _u.openSim = _os_mod
             return _u.openSim
         except Exception:
             pass
         try:
             import importlib.util as _ilu, os as _os_m
-            _p = _os_m.path.join(_os_m.path.dirname(_os_m.path.abspath(_u.__file__)), 'openSim.py')
-            _spec = _ilu.spec_from_file_location('utils.openSim', _p)
+            import bioscout.simulate as _sim_pkg
+            _p = _os_m.path.join(_os_m.path.dirname(_os_m.path.abspath(_sim_pkg.__file__)), 'opensim.py')
+            _spec = _ilu.spec_from_file_location('bioscout.simulate.opensim', _p)
             _mod = _ilu.module_from_spec(_spec)
             _spec.loader.exec_module(_mod)
             _u.openSim = _mod
@@ -3660,7 +3667,7 @@ class Analyse:
         The JointReaction is linear in the applied forces, so the JCF splits
         exactly into a non-muscle baseline (gravity + inertia + GRF + residuals
         + reserves) plus one term per muscle group. See
-        ``bioscout.utils.jcf_contributions`` and docs/JCF_CONTRIBUTIONS.md.
+        ``bioscout.core.jcf_contributions`` and docs/JCF_CONTRIBUTIONS.md.
 
         forces_type: 'so' | 'ceinms' | 'both'.
         Writes joint_contact_forces/contributions_<type>/contributions.csv,
@@ -4012,7 +4019,7 @@ class Analyse:
                 _stance_win = (_win[0], max(_offs) if _offs else _win[0] + 0.62 * _cyc)
                 if _entity is not None and _gait_like:
                     try:
-                        from ..muscle_inspect import literature_jcf as _ljcf
+                        from bioscout.model.inspect import literature_jcf as _ljcf
                         _S = _u.settings.BatchSettings
                         _ljcf.overlay_joint_contact_force(
                             ax, entity=_entity, gait_window=_win,
@@ -4310,11 +4317,13 @@ class Analyse:
         results = {}
         for leg in ['l', 'r']:
             try:
-                wrong, disc, action, frames = _u.openSim.checkMuscleMomentArms(
-                    model_file_path=self.model_dir,
-                    ik_file_path=self.ik,
-                    leg=leg,
-                    threshold=0.005)
+                from bioscout.model.edit.osim_ops import checkMuscleMomentArms as \
+                    _checkMuscleMomentArms
+                wrong, disc, action, frames = _checkMuscleMomentArms(
+          model_file_path=self.model_dir,
+          ik_file_path=self.ik,
+          leg=leg,
+          threshold=0.005)
                 results[leg] = {'wrong': bool(wrong), 'muscle_action': action, 'frames': frames}
             except Exception as e:
                 self._log(f'[Error] during moment arm check for {leg} leg: {e}')
@@ -5422,7 +5431,7 @@ class Analyse:
         ``(success, corrected_model_path, log_path)``. Needs the `opensim` package.
         """
         os.makedirs(self.path, exist_ok=True); os.chdir(self.path)
-        from ..muscle_inspect import muscle_checker as _mc
+        from bioscout.model.inspect import muscle_checker as _mc
 
         model = os.path.abspath(self.model_path)          # alias of model_dir
         motion = os.path.abspath(motion or self.joint_angles)   # alias of ik (joint_angles.mot)
@@ -5491,7 +5500,7 @@ class Analyse:
         #    (Lightweight: compute once and plot — no multi-iteration path CORRECTION,
         #    which is expensive. To run the full detect-and-fix, call muscle_inspect().)
         try:
-            from ..muscle_inspect import muscle_checker as _mc
+            from bioscout.model.inspect import muscle_checker as _mc
             tvec, names, L = _mc.compute_lengths(model, motion, None, None, 6.0)
             _mc.plot_length_waveforms(tvec, names, L, None, out,
                                       tag=os.path.splitext(os.path.basename(model))[0])
@@ -5503,7 +5512,7 @@ class Analyse:
         #    the poses the task really used, not a synthetic ROM sweep. The old
         #    static ROM sweep is still available via run_validation() if wanted.
         try:
-            from ..muscle_inspect import muscle_length_validation as _mlv, paths as _mpaths
+            from bioscout.model.inspect import muscle_length_validation as _mlv, paths as _mpaths
             _mot = _u.load_any_data_file(motion)
             _mlv.run_validation_motion(model, _mot, _mpaths.resolve_literature_csv(),
                                        out, side=side)
@@ -5512,7 +5521,7 @@ class Analyse:
 
         # 2b. joint ISOMETRIC and ISOKINETIC strength vs literature bands.
         try:
-            from ..muscle_inspect import strength as _mstr, paths as _mpaths
+            from bioscout.model.inspect import strength as _mstr, paths as _mpaths
             if os.path.exists(_mpaths.LITERATURE_STRENGTH_CSV) and \
                os.path.exists(_mpaths.MUSCLE_FUNCTIONS_CSV):
                 _mstr.run_strength(model, _mpaths.LITERATURE_STRENGTH_CSV,
@@ -5529,7 +5538,7 @@ class Analyse:
         #    Overlays the trial's |resultant| JCF (÷ body weight, over 0-100% cycle)
         #    on the digitised literature bands for hip & knee.
         try:
-            from ..muscle_inspect import literature_jcf as _ljcf
+            from bioscout.model.inspect import literature_jcf as _ljcf
             is_gait = EVENT_SCHEMAS.get(self.get_trial_type(),
                                         EVENT_SCHEMAS.get('generic', {})).get('gait_like')
             if is_gait:
@@ -6283,7 +6292,7 @@ class Analyse:
         # yaml_bool, not bool(): PyYAML gives a bool for bare `false` but a
         # STRING for `"false"`, and bool("false") is True -- which would run
         # the calibration the session asked to skip, silently.
-        from bioscout.utils.session import yaml_bool
+        from bioscout.session.session import yaml_bool
         return yaml_bool(_v)
 
     @property
@@ -6561,7 +6570,7 @@ class Analyse:
         The mode decides how many solves happen and what the result IS -- one
         curve, a curve plus a sensitivity band, a range with a median, or a
         weighting taken from an L-curve knee. See
-        ``bioscout.utils.ceinms.modes`` for the definitions and
+        ``bioscout.simulate.ceinms.modes`` for the definitions and
         ``ceinms.mode`` in session.yaml for how to pick one.
 
         This is a dispatcher only. `single` (the default, and what every
@@ -6571,7 +6580,7 @@ class Analyse:
         there is exactly one code path that actually runs CEINMS.
         """
         try:
-            from bioscout.utils.ceinms import modes as _modes
+            from bioscout.simulate.ceinms import modes as _modes
         except ImportError:                                  # pragma: no cover
             return self.run_ceinms_exe_single()
         mode = str(getattr(self, "ceinms_mode", None)
@@ -7008,9 +7017,9 @@ class Analyse:
 
 # --- subject video/anthropometry profile (defined in subject_profile.py) ------
 # Co-located with Subject so every subject-side model is reachable straight from
-# the analysis module, e.g. `from bioscout.utils.analysis import SubjectProfile`.
+# the analysis module, e.g. `from bioscout.core.analysis import SubjectProfile`.
 # (Distinct data model from Subject: anthropometry, segment fractions, pose
 # calibration and per-task detection settings for the video pipeline.)
-from .subject_profile import (  # noqa: E402,F401
+from bioscout.utils.subject_profile import (  # noqa: E402,F401
     SubjectProfile, SubjectStore, ProjectSubjectStore, DEFAULT_SEGMENT_FRACTIONS,
 )

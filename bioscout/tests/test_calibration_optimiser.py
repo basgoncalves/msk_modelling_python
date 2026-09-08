@@ -16,7 +16,7 @@ import xml.etree.ElementTree as ET
 import pytest
 
 from bioscout.utils import session as S
-from bioscout.utils.ceinms.configs import (
+from bioscout.simulate.ceinms.configs import (
     calibration_optimiser_settings, calibration_param_ranges, is_optimiser_key,
 )
 
@@ -172,7 +172,7 @@ def test_a_real_typo_still_warns(tmp_path, capsys):
 # end to end: does it reach the XML, and in the right element
 # --------------------------------------------------------------------------
 def _xml(tmp_path, override):
-    from bioscout.utils.ceinms import configs
+    from bioscout.simulate.ceinms import configs
     out = tmp_path / "calibrationCfg.xml"
     configs.create_calibrationCfg(osimModelPath="m.osim",
                                   inputPaths=["Walking_03/inputData.xml"],

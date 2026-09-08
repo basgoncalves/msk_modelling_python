@@ -36,7 +36,7 @@ except Exception:
 The file now lands beside the registration `.mot`, i.e. in
 `models/personalised/<Athlete>/` (or `work_dir`).
 
-Also `bioscout/utils/analysis.py` — `Analyse.calculate_mean_marker_error()`
+Also `bioscout/core/analysis.py` — `Analyse.calculate_mean_marker_error()`
 read the hard-coded relative `'.\\_ik_marker_errors.sto'`, which only worked
 because of an earlier `os.chdir`. Now reads
 `os.path.join(self.path, '_ik_marker_errors.sto')`.

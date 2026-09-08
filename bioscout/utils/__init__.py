@@ -181,7 +181,7 @@ def _dir_from_settings(name):
     if val is not None:
         return str(val)
     # Last resort: <PROJECT_DIR>/<default>. This matters because of a circular
-    # import. A project settings.py imports bioscout.utils.analysis near its top;
+    # import. A project settings.py imports bioscout.core.analysis near its top;
     # this module imports `settings` right back. A script that imports settings
     # BEFORE bioscout therefore hands us a half-built settings module whose
     # *_DIR globals (defined further down the file) do not exist yet -- and these
@@ -318,29 +318,26 @@ from .stats import (
 
 # Deferred imports to break circular dependency
 # (these modules import utils, so they must load AFTER utils is fully defined)
+# The old simulate/opensim.py was split across bioscout.model and
+# bioscout.simulate (docs/RESTRUCTURE_PLAN.md, stage 6). `utils.openSim` now
+# means the SIMULATION half -- the pipeline stages and their input prep, which
+# is what every caller of this name wanted. Model creation/editing is NOT
+# reachable here on purpose: import bioscout.model.{opensim_base,scale.osim_scale,
+# edit.osim_ops,muscle_optimize} for those.
 try:
-    from . import openSim as _openSim_mod
+    from bioscout.simulate import opensim as _openSim_mod
     openSim = _openSim_mod
-except (ImportError, ValueError):
-    try:
-        import importlib.util as _ilu
-        _op_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'openSim.py')
-        _op_spec = _ilu.spec_from_file_location('openSim', _op_path)
-        _op_mod = _ilu.module_from_spec(_op_spec)
-        sys.modules['openSim'] = _op_mod
-        _op_spec.loader.exec_module(_op_mod)
-        openSim = _op_mod
-    except Exception as _e:
-        openSim = None
-        _openSim_import_error = _e
+except Exception as _e:                 # noqa: BLE001 - absent or mid-cycle
+    openSim = None
+    _openSim_import_error = _e
 
 
 def get_openSim():
     """Return the openSim helper module, resolving it late if init could not.
 
-    ``openSim.py`` does a bare ``import utils`` (the legacy top-level copy of
-    this package), so ``from . import openSim`` at the bottom of this file runs
-    straight into a circular import and lands in the ``except`` above with
+    The module is ``bioscout.simulate.opensim`` (the simulation half of the old
+    ``simulate/opensim.py``). Importing it at the bottom of this file can still
+    land in the ``except`` above when the import graph is mid-cycle, leaving
     ``openSim = None``. Callers that then did ``from bioscout.utils import
     openSim as _os`` got None -- and ``None.scale_model(...)`` is an
     AttributeError that names neither the module nor the real cause.
@@ -358,13 +355,13 @@ def get_openSim():
         return openSim
     import importlib as _il
     # "openSim" bare: the importlib fallback above registers it under that name.
-    for _name in ("bioscout.utils.openSim", "utils.openSim", "openSim"):
+    for _name in ("bioscout.simulate.opensim",):
         m = sys.modules.get(_name)
         if m is not None:
             openSim = m
             return m
     _last = globals().get("_openSim_import_error")
-    for _name in ("bioscout.utils.openSim", "utils.openSim"):
+    for _name in ("bioscout.simulate.opensim",):
         try:
             openSim = _il.import_module(_name)
             return openSim
@@ -378,7 +375,7 @@ def get_openSim():
 # CEINMS helpers are bound at the BOTTOM of this file (after analysis/emg/plot
 # are loaded). Loading them here, mid-init, hit an import cycle (ceinms.py ->
 # import utils/settings -> back into this module before it is complete) and
-# silently failed, leaving utils.ceinms = None. Placeholder until then:
+# silently failed, leaving simulate.ceinms = None. Placeholder until then:
 ceinms = None
 HAS_CEINMS = False
 
@@ -394,14 +391,14 @@ except ImportError:
 # after Analyse is defined, because Trial subclasses Analyse. These are the
 # typed entry points re-exported by the top-level `bioscout` package.
 try:
-    from .analysis import (
+    from bioscout.core.analysis import (
         Subject, Session, Iteration, Project,
         build_model_config, discover_subjects, init_project,
         check_settings_version, migrate_settings, ensure_editor_paths,
         select_subjects, subjects_in_simulations, resolve_subject_selection,
         sessions_from_subjects, subjects_from_subjects,
     )
-    from . import analysis
+    from bioscout.core import analysis
 except Exception as _e:
     print(f"[bioscout.utils] analysis model not loaded: {_e}")
 
@@ -411,7 +408,7 @@ except Exception as _e:
 # thin object here so legacy `utils.Inputs().id` / `.ceinms_exe_setup` etc. keep
 # working (a few call sites in ceinms.py / summary.py still use it).
 try:
-    from .analysis import _default_layout_paths as _default_layout_paths
+    from bioscout.core.analysis import _default_layout_paths as _default_layout_paths
 
     class Inputs:
         """Attribute view over the canonical trial layout (back-compat shim)."""
@@ -428,27 +425,21 @@ except Exception:
 
 # EMG processing consolidated into utils/emg.py — re-exported here so
 # utils.filter_emg / utils.normalise_emg_across_session etc. keep working.
-from .emg import (
+from bioscout.emg.emg import (
     filter_emg, filter_emg_df, filter_emg_file, amplitude_normalise_emg,
     emg_processing_file, normalise_emg_across_session, plot_emg_results,
     emg_amplitude_normalise,
 )
 
 # Analyse now lives in utils/analysis.py (with Project/Subject/Session).
-from .analysis import Analyse
+from bioscout.core.analysis import Analyse
 
 # ---------------------------------------------------------------------------
 # CEINMS helpers — bound LAST, on purpose.
 #
-# utils/ceinms.py holds the Python helpers (create_input_data, create_ceinms_cfg,
-# create_ceinms_model, calibrate, …); the sibling binary package utils/ceinms/
-# shadows it on import. The package __init__ re-exports the .py helpers, so the
-# `ceinms` is an ordinary sub-package now (utils/ceinms/ with
-# shared/configs/commands/modes/plot and the binaries under bin/),
-# so there is nothing to shim: it imports like anything else and
-# raises like anything else if OpenSim is missing.
-#
-# It is still bound lazily rather than here, because ceinms.configs
-# imports `utils`, and importing it mid-init would re-enter this
-# module before it is complete. analysis._force_load_helper binds it
-# at first use.
+# `ceinms` moved to bioscout/simulate/ceinms/ in the stage-6 restructure
+# (shared/configs/commands/modes/plot plus the binaries under bin/). The
+# `utils.ceinms` NAME is kept because call sites use it; it is bound lazily
+# rather than here, because ceinms.configs imports `utils` and importing it
+# mid-init would re-enter this module before it is complete.
+# analysis._force_load_helper binds it at first use.

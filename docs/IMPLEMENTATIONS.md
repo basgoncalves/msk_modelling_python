@@ -725,7 +725,7 @@ registered model rather than an ad-hoc file, the plots are free.
   crossing zero is a muscle reversing its action, and `|MA|` hides exactly that.
   **Not yet run against real models.**
 
-- **`utils/emg_channels.py`** — `python -m bioscout.utils.emg_channels TRIAL.c3d
+- **`utils/emg_channels.py`** — `python -m bioscout.emg.channels TRIAL.c3d
   [--yaml]`. Lists every analog channel with sample count, min, max and RMS,
   split into TAGGED / UNTAGGED / OTHER, and emits an `emg_map` stub keyed on the
   verbatim tagged names. Closes the §1 gap from the *other* side: §1 validates a

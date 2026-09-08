@@ -261,7 +261,7 @@ class ProjectSubjectStore:
     """`SubjectStore`-compatible facade over a project's subjects.json."""
 
     def __init__(self, project_root: Optional[Path] = None):
-        from utils.subject_registry import SubjectRegistry
+        from bioscout.core.subject_registry import SubjectRegistry
         self.project_root = Path(project_root) if project_root else Path.cwd()
         self._registry = SubjectRegistry(self.project_root)
 

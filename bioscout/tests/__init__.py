@@ -44,7 +44,7 @@ class TestPackageWiring(unittest.TestCase):
 
     def test_subject_import(self):
         # canonical home of the Subject / Session model
-        from bioscout.utils.analysis import Subject, Session, build_model_config  # noqa: F401
+        from bioscout.core.analysis import Subject, Session, build_model_config  # noqa: F401
 
     def test_subjects_in_simulations_safe(self):
         from bioscout import utils

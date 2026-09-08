@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from bioscout.utils.emg_analysis import (
+from bioscout.emg.analysis import (
     envelope, frequency_report, median_frequency, power_spectrum,
     synergies, synergy_report, vaf_curve,
 )

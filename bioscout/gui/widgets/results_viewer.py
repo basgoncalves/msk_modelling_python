@@ -211,7 +211,7 @@ def _time_normalise(df: "pd.DataFrame") -> "pd.DataFrame":
 # The Results tab has to answer "what trials does this session have?" without
 # assuming where they live: a session is either the numbered layout
 # (1_c3dfiles / 2_experimental / 3_iterations/<iteration>/<trial>) or the older
-# flat one (<session>/<iteration>/<trial>). bioscout.utils.session_layout knows
+# flat one (<session>/<iteration>/<trial>). bioscout.session.layout knows
 # the difference, so ask it rather than globbing directories and hoping.
 
 def _layout():

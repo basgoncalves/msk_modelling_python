@@ -4,7 +4,7 @@ gap_fill.py — fill missing frames in a pose landmark dict using cubic-spline
 
 Usage
 -----
-    from movement_detector import fill_pose_gaps
+    from bioscout.session.movement_detector import fill_pose_gaps
     filled = fill_pose_gaps(poses, max_gap=10, method="cubic")
 """
 

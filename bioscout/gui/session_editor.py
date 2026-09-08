@@ -15,7 +15,7 @@ trial, calibration set and normalisation set are all *choices about the same
 trials*, and splitting them across three panes makes the one question you
 actually ask — "what is this trial for?" — need three lookups.
 
-Saving goes through :class:`bioscout.utils.session_form.SessionForm`, which
+Saving goes through :class:`bioscout.session.form.SessionForm`, which
 patches character spans. It never re-dumps the YAML, so the comment block
 explaining the study survives, and so does every line you did not touch.
 
@@ -70,7 +70,7 @@ def _widgets():
 
 def open_session_editor(session_dir=None) -> int:                 # noqa: C901 — a form
     """Show the editor. Returns a process exit code."""
-    from bioscout.utils.session_form import (EMG_FILTER_FIELDS, ITERATION_FIELDS,
+    from bioscout.session.form import (EMG_FILTER_FIELDS, ITERATION_FIELDS,
                                              SCALAR_FIELDS, TRIAL_TYPES, SessionForm)
 
     tk, filedialog, messagebox, ctk = _widgets()

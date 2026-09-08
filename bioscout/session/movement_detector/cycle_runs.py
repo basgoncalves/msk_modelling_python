@@ -8,7 +8,7 @@ plate-to-body mapping. It therefore cannot run on the capture. It can run on a
 cycle.
 
 This module is the seam between the two. It reads the cycles
-:func:`bioscout.movement_detector.gait_cycles` found and writes, per cycle::
+:func:`bioscout.session.movement_detector.gait_cycles` found and writes, per cycle::
 
     3_iterations/<iteration>/<trial>_r7/
         grf.mot     the capture's force, trimmed to this cycle
@@ -29,7 +29,7 @@ one per foot, each carrying the plate's force only over the frames that
 foot was on it and zero elsewhere. The mapping is then one plate-column to one
 body, which is what OpenSim can express, and nothing is invented: the split
 comes from the per-frame centre-of-pressure assignment
-:func:`bioscout.movement_detector.contact_feet` already makes.
+:func:`bioscout.session.movement_detector.contact_feet` already makes.
 """
 from __future__ import annotations
 

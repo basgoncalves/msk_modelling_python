@@ -331,7 +331,7 @@ guess, is in [docs/SESSION_LAYOUT.md](docs/SESSION_LAYOUT.md).
 Two layouts are supported. The numbered one above is current; the older flat one
 (`c3dfiles/`, `experimental/`, iterations directly under the session) still works,
 and existing sessions are never renamed behind your back. The resolvers in
-`bioscout.utils.session_layout` answer from **what is on disk**, preferring the
+`bioscout.session.layout` answer from **what is on disk**, preferring the
 numbered names only when creating something new:
 
 | call | returns |
@@ -349,7 +349,7 @@ is half-migrated — the mistake to watch for.
 ### Trial layout & attribute names
 
 As of 2.0 there is no `Inputs` class — the canonical folder layout is owned by
-`Analyse` itself (`bioscout.utils.analysis._default_layout_paths`). A project only
+`Analyse` itself (`bioscout.core.analysis._default_layout_paths`). A project only
 needs its own `Inputs` class in `settings.py` if it wants to *override* the
 default paths (`Analyse` picks it up automatically when present). On an
 `Analyse`/trial object the terse layout fields have readable aliases (read/write
@@ -769,7 +769,7 @@ several hours later having used the wrong electrode set, with nothing in the
 output to show it.
 
 ```python
-from bioscout.utils.session import emg_maps, resolve_emg_map
+from bioscout.session.session import emg_maps, resolve_emg_map
 emg_maps(cfg)                        # {'narrow': {...}, 'triceps': {...}, ...}
 resolve_emg_map(cfg, "cateli_wide")  # the flat {channel: [muscles]} it runs with
 ```
@@ -805,7 +805,7 @@ did nothing. Only `c1` and `c2` were ever live. Both spellings are canonicalised
 now, in `settings.py` and in `calibration:` alike.
 
 ```python
-from bioscout.utils.session import calibration_configs, resolve_calibration
+from bioscout.session.session import calibration_configs, resolve_calibration
 resolve_calibration(cfg, "cateli__tight")   # {'optimalFiberLength': '0.75 1.25', ...}
 ```
 

@@ -32,7 +32,7 @@ each have their own. A session-level folder claims one calibration covers all
 of them, which is false.
 
 **Never join these names by hand.** Call the resolvers in
-`bioscout.utils.session_layout`:
+`bioscout.session.layout`:
 
 | call | gives |
 |---|---|

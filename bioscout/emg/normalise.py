@@ -7,17 +7,9 @@ import math
 
 # Handle both package and standalone imports
 try:
-    from . import openSim
-except (ImportError, ValueError):
-    try:
-        import openSim
-    except ImportError:
-        import sys
-        from pathlib import Path
-        parent_dir = str(Path(__file__).parent)
-        if parent_dir not in sys.path:
-            sys.path.insert(0, parent_dir)
-        import openSim
+    from bioscout.simulate import opensim as openSim
+except Exception:                       # noqa: BLE001 - absent or mid-cycle
+    openSim = None
 
 
 '''

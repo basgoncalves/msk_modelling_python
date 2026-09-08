@@ -34,7 +34,7 @@ from pathlib import Path
 # (utils.analysis is not assigned yet). A real project's own settings.py —
 # loaded after bioscout is ready — takes the real imports.
 try:
-    from bioscout.utils.analysis import (
+    from bioscout.core.analysis import (
         Subject, build_model_config, select_subjects, sessions_from_subjects,
         discover_sessions)
     from bioscout.utils.shared import trial_type as _trial_type
@@ -648,7 +648,7 @@ def run_deadlifts_export_to_ceinms_jrf():
     from bioscout import Session
 
     SESSION_DIR = os.path.join("simulations", "Athlete_03", "25_03_31")
-    from bioscout.utils.session_layout import c3d_root
+    from bioscout.session.layout import c3d_root
     C3D_SRC     = c3d_root(SESSION_DIR)
     TRIALS      = ["Walking_10", "Walking_05", "Walking_06", "Walking_07", "Walking_08", "Walking_09"]
     TRIALS      = ["Deadlift_35kg_01"]
@@ -723,7 +723,7 @@ if __name__ == "__main__":
     if RUN_CHECK_SCALING or RUN_RESCALE_ALL:
         import time as _time
         from bioscout.model.scale import measurements as _sm
-        from bioscout.utils.session import experimental_dir as _expdir
+        from bioscout.session.session import experimental_dir as _expdir
 
         def _session_path(sess):
             hits = glob.glob(os.path.join(str(SIMULATIONS_DIR), "*", sess, "session.yaml"))
@@ -733,7 +733,7 @@ if __name__ == "__main__":
             return os.path.dirname(hits[0])
 
         if RUN_CHECK_SCALING:
-            from bioscout.utils import get_openSim as _get_os; _os = _get_os()
+            from bioscout.model.scale import osim_scale as _os
             _scratch = os.path.join(str(LOG_DIR), "_scale_check")
             for sess, names, _ in RESCALE_PLAN:
                 sp = _session_path(sess)
@@ -928,7 +928,7 @@ if __name__ == "__main__":
     print(s, "-> iterations on disk:", s.iterations)
 
     if DO_EXPORT:
-        from bioscout.utils.session_layout import c3d_root
+        from bioscout.session.layout import c3d_root
         _src = EXPORT_SRC or os.path.abspath(c3d_root(SESSION_PATH))
         EXPORT_TRIALS = ([STATIC_TRIAL] if STATIC_TRIAL not in TRIALS else []) + TRIALS
         print(f"[settings] export {len(EXPORT_TRIALS)} trials "
@@ -938,7 +938,7 @@ if __name__ == "__main__":
     if DO_DETECT:
         # Same code path as `bioscout --classifier <session>`, so the pipeline
         # and the command line can never disagree about what a trial is.
-        from bioscout.movement_detector import classify_session
+        from bioscout.session.movement_detector import classify_session
         classify_session(SESSION_PATH, settings=BatchSettings,
                          write_session_yaml=DETECT_WRITE_YAML)
 

@@ -12,6 +12,60 @@ All notable changes to BioScout are documented here.
 > and a note here.
 
 
+## [3.0.2] — 2026-09-08
+
+Restructure stages 5-8 (docs/RESTRUCTURE_PLAN.md): `utils/` stops being the
+place everything lives. **Import paths moved** — no shims at the old ones.
+
+- **`emg/`** (new, stage 5): `utils/emg.py` -> `emg/emg.py`,
+  `emg_analysis` -> `emg/analysis`, `emg_channels` -> `emg/channels`,
+  `emg_filter` -> `emg/filter`, `emg_normalise` -> `emg/normalise`.
+- **`openSim.py` split** (stage 6): the 233 KB, 62-function module is gone,
+  its functions redistributed by what they DO — verified function-by-function
+  as AST-identical to the original, not retyped:
+  - `model/opensim_base.py` — `load_model`, the OpenSim logger plumbing
+    (`_quiet_model`, `_quiet_osim`, `_osim_quiet_ctx`, `_quiet_console`,
+    `terminal_warnings`, `_assembly_accuracy`). `simulate/` imports from here;
+    nothing here imports back.
+  - `model/edit/osim_ops.py` — the 17 .osim-editing functions
+    `model/edit/ops/*.py` already declared as their `delegates_to=` targets.
+  - `model/muscle_optimize.py` — the Modenese-2015 optimiser cluster.
+  - `model/scale/osim_scale.py` — `scale_model`, `place_markers_via_ik`,
+    `scale_model_from_xml`, `_sanitize_markerset_xml`.
+  - `simulate/opensim.py` — the pipeline stages (IK/ID/MA/SO/JRA/CMC/RRA/IAA/
+    energetics/body-kinematics, `run_emg_normalise`) and their trc/mot/grf/xml
+    input prep.
+  - `utils/ceinms/` -> `simulate/ceinms/`; `utils/gapfill.py` ->
+    `simulate/gapfill.py`.
+  - `utils.openSim` and `get_openSim()` now resolve to
+    `bioscout.simulate.opensim` — the simulation half only. Model-side names
+    are deliberately NOT reachable through them; the ~12 call sites that used
+    them were repointed at the modules above.
+  - The module's legacy `sys.path` manipulation and bare `import utils` /
+    `import settings` / `import exportC3D` are gone: the new modules import
+    `bioscout.utils` and `bioscout.settings` explicitly, which is what the
+    `get_openSim()` circular-import workaround existed to paper over.
+- **`session/`** (stage 7): `utils/session.py` -> `session/session.py`,
+  `session_form` -> `session/form`, `session_layout` -> `session/layout`,
+  `session_paths` -> `session/paths`, `utils/exportC3D.py` ->
+  `session/exportC3D.py`, `utils/motion_detect.py` ->
+  `session/motion_detect.py`, `movement_detector/` ->
+  `session/movement_detector/`. `from bioscout.session import Session` works
+  (lazily, so the package import stays light).
+- **`core/`** (stage 8): `utils/analysis.py` -> `core/analysis.py`,
+  `utils/subject_registry.py` -> `core/subject_registry.py`,
+  `utils/jcf_contributions.py` -> `core/jcf_contributions.py`.
+
+Fixes a bug from 3.0.1: `core/analysis.py`'s `from ..muscle_inspect import ...`
+was left pointing at the pre-move path (the 3.0.1 rewrite only covered
+absolute imports, not relative ones). Every relative import in the package is
+now resolved and checked.
+
+Side effect worth knowing: several test modules that previously failed at
+import in a partial environment (`test_emg_filter`, `test_gapfill`,
+`test_session_paths`) now import and run, because reaching them no longer
+drags in `utils/__init__`'s full scientific stack.
+
 ## [3.0.1] — 2026-09-08
 
 Restructure stages 1-4 (docs/RESTRUCTURE_PLAN.md): the package tree starts

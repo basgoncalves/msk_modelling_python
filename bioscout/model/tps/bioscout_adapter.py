@@ -189,7 +189,7 @@ def _resolve_generic(session, it, iteration):
     )
     if not generic:
         raise ValueError(f"iteration '{iteration}' declares no `generic` model")
-    from bioscout.utils.session import Iteration, resolve_generic
+    from bioscout.session.session import Iteration, resolve_generic
 
     # Iteration._resolve_model_file already searches every base bioscout uses
     # and knows the project root; `Session` itself exposes neither.

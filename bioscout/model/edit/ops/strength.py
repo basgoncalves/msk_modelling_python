@@ -13,7 +13,7 @@ __all__ = []
 @op("mvic",
     verb="strength",
     summary="Multiply max isometric force on every (or listed) muscle",
-    delegates_to="bioscout.utils.openSim.increase_isometric_force",
+    delegates_to="bioscout.model.edit.osim_ops.increase_isometric_force",
     suffix="_mvicx{factor:.2f}",
     notes=("The SO strength model. Pairs with the CEINMS model it came from: "
            "the two must be identical in every wrap and path point and differ "
@@ -26,8 +26,7 @@ __all__ = []
               help="Restrict to these muscles (default: all)"),
     ])
 def mvic(model, out, *, factor=3.0, muscles=None, **_):
-    from bioscout.utils import get_openSim
-    _os = get_openSim()
+    from bioscout.model.edit import osim_ops as _os
 
     # increase_isometric_force derives its own '_increased_<f>.osim' name and
     # ignores any out path, so run it on a copy and rename the byproduct.
@@ -102,7 +101,7 @@ def _verify_mvic_pair(before, after, factor):
 @op("muscle_opt",
     verb="strength",
     summary="Optimise optimal fibre length and tendon slack length (Modenese 2015)",
-    delegates_to="bioscout.utils.openSim.muscle_optimimizer_Modenese2015",
+    delegates_to="bioscout.model.muscle_optimize.muscle_optimimizer_Modenese2015",
     suffix="_opt_N{n_eval}",
     notes=("SLOW — hours, and on the GPK model it has taken over a day at "
            "n_eval=10. It re-fits the muscle-tendon operating range against a "
@@ -120,8 +119,7 @@ def _verify_mvic_pair(before, after, factor):
               help="Where the optimisation log goes (default: beside out)"),
     ])
 def muscle_opt(model, out, *, n_eval=10, reference=None, log_dir=None, **_):
-    from bioscout.utils import get_openSim
-    _os = get_openSim()
+    from bioscout.model import muscle_optimize as _os
 
     written = _os.muscle_optimimizer_Modenese2015(
         osim_model_path=str(model), save_path=str(out),

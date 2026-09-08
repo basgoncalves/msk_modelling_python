@@ -67,7 +67,7 @@ ITERATION_FIELDS = (
     ("group", "group", "text", ""),
 )
 
-#: EMG filter block. Defaults mirror bioscout.utils.emg_filter.DEFAULTS, which
+#: EMG filter block. Defaults mirror bioscout.emg.filter.DEFAULTS, which
 #: are exactly the values the code used before the block existed.
 EMG_FILTER_FIELDS = (
     ("bandpass_low", "band-pass low (Hz)", 20.0),
@@ -147,7 +147,7 @@ class SessionForm:
         happens to spell.
         """
         try:
-            from bioscout.utils.session import _trial_role
+            from bioscout.session.session import _trial_role
             return _trial_role(self.data, role)
         except Exception:                                      # noqa: BLE001
             legacy = {"calibration": "calibration_trials",
@@ -423,7 +423,7 @@ class SessionForm:
     # -- emg filter ---------------------------------------------------------- #
     def emg_filter(self) -> Dict[str, Any]:
         """The effective settings, defaults included, for display."""
-        from bioscout.utils.emg_filter import settings_for
+        from bioscout.emg.filter import settings_for
         return settings_for(self.data)
 
     def set_emg_filter(self, **params) -> None:
@@ -433,7 +433,7 @@ class SessionForm:
         keeps the defaults keeps a clean file rather than gaining five lines
         that say what the code already does.
         """
-        from bioscout.utils.emg_filter import DEFAULTS
+        from bioscout.emg.filter import DEFAULTS
         wanted = {k: v for k, v in params.items()
                   if v not in (None, "") and float(v) != float(DEFAULTS[k])}
         if not wanted and not isinstance(self.data.get("emg_filter"), dict):
@@ -498,7 +498,7 @@ class SessionForm:
     # -- creation ----------------------------------------------------------- #
     def scaffold(self, template=None, body_mass=None) -> Optional[Path]:
         """Write a first ``session.yaml`` from the c3d files, then load it."""
-        from bioscout.utils.session import scaffold_session_yaml
+        from bioscout.session.session import scaffold_session_yaml
         written = scaffold_session_yaml(str(self.dir), template=template,
                                         body_mass=body_mass)
         if written:

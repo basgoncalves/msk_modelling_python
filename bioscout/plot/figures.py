@@ -2,7 +2,7 @@
 
 Every figure that lives in the powerlifting scripts (``results.py``,
 ``calibration_figures.py``, ``manuscript.py``) and in bioscout itself
-(``utils.ceinms.plot``, ``muscle_inspect``) is registered here ONCE, with the
+(``simulate.ceinms.plot``, ``muscle_inspect``) is registered here ONCE, with the
 inputs it needs. Nothing is re-implemented: this module only knows how to find
 the builder, ask for its inputs and call it.
 
@@ -492,18 +492,18 @@ _CEINMS = [
 for _k, _t, _fn, _p in _CEINMS:
     def _mk(fn=_fn):
         def call(**kw):
-            from bioscout.utils.ceinms import plot as CP
+            from bioscout.simulate.ceinms import plot as CP
             return getattr(CP, fn)(**kw)
         return call
     _reg(_k, "ceinms", _t, _mk(), [_p])
 
 _reg("c_compare", "ceinms", "CEINMS model parameters: uncalibrated vs calibrated",
-     lambda uncalibratedModelPath, calibratedModelPath: _mod("bioscout.utils.ceinms.plot").plot_compare_ceinms_models(
+     lambda uncalibratedModelPath, calibratedModelPath: _mod("bioscout.simulate.ceinms.plot").plot_compare_ceinms_models(
          uncalibratedModelPath, calibratedModelPath),
      [P("uncalibratedModelPath", "uncalibrated subject .xml", None, kind="path"),
       P("calibratedModelPath", "calibrated subject .xml", None, kind="path")])
 _reg("c_emg", "ceinms", "experimental EMG vs CEINMS excitations",
-     lambda emgFile: _mod("bioscout.utils.ceinms.plot").plot_experimental_vs_ceinms(emgFile),
+     lambda emgFile: _mod("bioscout.simulate.ceinms.plot").plot_experimental_vs_ceinms(emgFile),
      [P("emgFile", "EMG .sto/.mot", None, kind="path")])
 
 # ---- 5g. bioscout: muscle_inspect ------------------------------------------

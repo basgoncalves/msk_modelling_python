@@ -19,16 +19,13 @@ marker_weights = BatchSettings.marker_weights
 
 
 def _opensim_utils():
-    """bioscout.utils.openSim, however this process happens to be importing.
+    """bioscout.simulate.opensim, however this process happens to be importing.
 
     The GUI runs both as `python -m bioscout` (package importable) and with the
     package directory itself on sys.path (see the insert above), so neither
     import form works everywhere.
     """
-    try:
-        from bioscout.utils import openSim as _m
-    except ImportError:
-        from utils import openSim as _m           # type: ignore[no-redef]
+    from bioscout.model.scale import osim_scale as _m
     return _m
 
 

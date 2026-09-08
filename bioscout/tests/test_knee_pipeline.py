@@ -117,7 +117,7 @@ def _ghost_iter():
     disk (it supports the old flat layout too), so it must be asked AFTER
     setUpModule has built the skeleton, not at import time.
     """
-    from bioscout.utils.session_layout import iteration_path
+    from bioscout.session.layout import iteration_path
     return iteration_path(GHOST_SESSION, ITERATION_NAME)
 
 
@@ -215,10 +215,10 @@ def build_ghost_session():
        own bundled template — a real project's powerlifting EMG map, which
        names muscles this 4-muscle knee does not have.
     """
-    from bioscout.utils.session_layout import (
+    from bioscout.session.layout import (
         c3d_root, experimental_root, iterations_root, iteration_path,
         is_numbered_layout)
-    from bioscout.utils.session import (
+    from bioscout.session.session import (
         scaffold_session_yaml, read_session_yaml, write_session_yaml)
 
     _wipe(SIM_ROOT)
@@ -469,7 +469,7 @@ def _resolve_ceinms():
     cand = getattr(utils, "ceinms", None)
     if cand is not None and hasattr(cand, "create_excitation_generator"):
         return cand
-    for name in ("bioscout.utils.ceinms", "ceinms"):
+    for name in ("bioscout.simulate.ceinms", "ceinms"):
         try:
             m = importlib.import_module(name)
             if hasattr(m, "create_excitation_generator"):
@@ -560,7 +560,7 @@ class TestGhostSessionLayout(unittest.TestCase):
     skip on a machine without OpenSim, and used to take this with them.
     """
     def test_numbered_layout(self):
-        from bioscout.utils.session_layout import (
+        from bioscout.session.layout import (
             is_numbered_layout, c3d_root, experimental_root, iterations_root)
         self.assertTrue(is_numbered_layout(GHOST_SESSION))
         self.assertEqual(os.path.basename(c3d_root(GHOST_SESSION)), "1_c3dfiles")
@@ -578,7 +578,7 @@ class TestGhostSessionLayout(unittest.TestCase):
             "the iteration must live under 3_iterations/, not at the session root")
 
     def test_session_yaml_round_trips(self):
-        from bioscout.utils.session import read_session_yaml
+        from bioscout.session.session import read_session_yaml
         spec = read_session_yaml(os.path.join(GHOST_SESSION, "session.yaml"))
         self.assertEqual(spec.subject, SUBJECT_NAME)
         self.assertEqual(spec.session, SESSION_NAME)

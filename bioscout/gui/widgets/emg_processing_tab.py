@@ -89,7 +89,7 @@ def write_table(df, path) -> None:
         df.to_csv(path, index=False)
         return
     try:
-        from bioscout.utils.emg_normalise import write_sto_file
+        from bioscout.emg.normalise import write_sto_file
         write_sto_file(df, str(path))
         return
     except Exception:
