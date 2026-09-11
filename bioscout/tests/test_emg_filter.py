@@ -37,7 +37,7 @@ class TestDefaults(unittest.TestCase):
     def test_filter_kwargs_map_onto_the_real_signature(self):
         kw = to_filter_kwargs(settings_for())
         self.assertEqual(kw, {"lowcut_bp": 20.0, "highcut_bp": 95.0, "order_bp": 4,
-                              "lowcut_lp": 6.0, "order_lp": 4})
+                              "lowcut_lp": 6.0, "order_lp": 4, "pre_enveloped": False})
 
     def test_empty_session_config_changes_nothing(self):
         self.assertEqual(settings_for({}), dict(DEFAULTS))
@@ -78,7 +78,7 @@ class TestPrecedence(unittest.TestCase):
                                          "order_bp": 2, "lowcut_lp": 8, "order_lp": 3}})
         self.assertEqual(to_filter_kwargs(s),
                          {"lowcut_bp": 25.0, "highcut_bp": 400.0, "order_bp": 2,
-                          "lowcut_lp": 8.0, "order_lp": 3})
+                          "lowcut_lp": 8.0, "order_lp": 3, "pre_enveloped": False})
 
     def test_orders_are_integers(self):
         s = settings_for({"emg_filter": {"bandpass_order": "2", "envelope_order": 3.0}})

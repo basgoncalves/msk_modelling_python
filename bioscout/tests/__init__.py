@@ -160,7 +160,7 @@ def suite():
     try:
         from . import test_session_layout_modules as _slm
         for _cls in (_slm.TestLegacyRemoved, _slm.TestAddIteration, _slm.TestProjectWide,
-                     _slm.TestIterationKeys):
+                     _slm.TestIterationKeys, _slm.TestIterationPathCase):
             s.addTests(loader.loadTestsFromTestCase(_cls))
     except Exception as _e:  # pragma: no cover
         print(f"[tests] session layout tests unavailable: {_e}")

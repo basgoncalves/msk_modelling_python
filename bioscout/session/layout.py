@@ -134,12 +134,26 @@ def iteration_path(session_dir: str, iteration: str) -> str:
     Looks under ``3_iterations/`` first, then directly under the session, so a
     half-migrated session still resolves. Falls back to the layout's canonical
     location when neither exists yet (i.e. for a folder about to be created).
+
+    The session-level fallback takes only a folder whose name matches EXACTLY
+    and is not one of the shared folders. Windows compares names without case,
+    so ``isdir(<session>/gpk)`` is True for a ``GPK/`` folder of generic-model
+    files, and that folder became iteration ``gpk``: every iteration-relative
+    path (model_scaled, markerset, ...) resolved one level too high, and new
+    outputs would have gone into the model folder (found 2026-09-11, the
+    TestIterationKeys fixture on Windows; Linux never saw it).
     """
-    for base in (iterations_root(session_dir), session_dir):
-        p = os.path.join(base, iteration)
-        if os.path.isdir(p):
-            return p
-    return os.path.join(iterations_root(session_dir), iteration)
+    p = os.path.join(iterations_root(session_dir), iteration)
+    if os.path.isdir(p):
+        return p
+    if iteration.lower() not in {n.lower() for n in NON_ITERATION_DIRS}:
+        try:
+            names = os.listdir(session_dir)
+        except OSError:
+            names = []
+        if iteration in names and os.path.isdir(os.path.join(session_dir, iteration)):
+            return os.path.join(session_dir, iteration)
+    return p
 
 
 # =========================================================================

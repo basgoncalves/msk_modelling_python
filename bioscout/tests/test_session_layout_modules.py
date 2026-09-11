@@ -342,5 +342,55 @@ class TestIterationKeys(unittest.TestCase):
         self.assertEqual(s2.iteration("old").model_scaled, self.p("old_x.osim"))
 
 
+class TestIterationPathCase(unittest.TestCase):
+    """layout.iteration_path on a case-INsensitive filesystem (Windows).
+
+    A session holding a ``GPK/`` folder of model files made ``isdir(<session>/gpk)``
+    True on Windows, so iteration ``gpk`` resolved to the model folder and every
+    iteration-relative path was one level off (TestIterationKeys failed on
+    Windows only, 2026-09-11). os.path.isdir is patched case-insensitive so
+    this runs the Windows behaviour on any OS."""
+
+    def setUp(self):
+        from unittest import mock
+        from bioscout.session import layout
+        self.layout = layout
+        self.dir = tempfile.mkdtemp(prefix="bs_itcase_")
+        real_isdir = os.path.isdir
+
+        def isdir_nocase(p):
+            p = os.path.normpath(p)
+            parent, name = os.path.split(p)
+            try:
+                return any(n.lower() == name.lower() and real_isdir(os.path.join(parent, n))
+                           for n in os.listdir(parent))
+            except OSError:
+                return False
+        patcher = mock.patch.object(layout.os.path, "isdir", isdir_nocase)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_other_case_folder_is_not_the_iteration(self):
+        os.makedirs(os.path.join(self.dir, "GPK"))
+        self.assertEqual(self.layout.iteration_path(self.dir, "gpk"),
+                         os.path.join(self.dir, "3_iterations", "gpk"))
+
+    def test_exact_flat_iteration_still_found(self):
+        os.makedirs(os.path.join(self.dir, "gpk"))
+        self.assertEqual(self.layout.iteration_path(self.dir, "gpk"),
+                         os.path.join(self.dir, "gpk"))
+
+    def test_shared_folder_is_never_an_iteration(self):
+        os.makedirs(os.path.join(self.dir, "models"))
+        self.assertEqual(self.layout.iteration_path(self.dir, "models"),
+                         os.path.join(self.dir, "3_iterations", "models"))
+
+    def test_numbered_layout_wins(self):
+        os.makedirs(os.path.join(self.dir, "3_iterations", "gpk"))
+        os.makedirs(os.path.join(self.dir, "gpk"))
+        self.assertEqual(self.layout.iteration_path(self.dir, "gpk"),
+                         os.path.join(self.dir, "3_iterations", "gpk"))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
