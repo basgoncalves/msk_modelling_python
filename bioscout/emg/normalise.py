@@ -18,6 +18,19 @@ This module contains functions for normalising EMG data, including filtering, re
 CANONICAL_EMG_PREFIX = 'EMG_Channels_EMG'
 
 
+def _verbose():
+    """filter_emg's step-by-step progress lines: ``BIOSCOUT_VERBOSE=1``.
+    Warnings always print. It runs two or three times per trial in an export,
+    so eight progress lines per call were most of the log."""
+    return os.environ.get("BIOSCOUT_VERBOSE", "").strip().lower() in (
+        "1", "true", "yes", "on")
+
+
+def _progress(msg):
+    if _verbose():
+        print(msg)
+
+
 def emg_prefix_for(columns):
     """Prefix to hand ``filter_emg`` for these column names.
 
@@ -41,7 +54,7 @@ def emg_channel_columns(columns):
             and not c.endswith(('_rectified', '_bandpass', '_envelope'))]
 
 
-def filter_emg(data, highcut_bp=95, lowcut_bp=20, order_bp=4, lowcut_lp=6, order_lp=4, emg_prefix='EMG_Channels_EMG', sampling_freq=None):
+def filter_emg(data, highcut_bp=95, lowcut_bp=20, order_bp=4, lowcut_lp=6, order_lp=4, emg_prefix='EMG_Channels_EMG', sampling_freq=None, pre_enveloped=False):
     """
     Apply bandpass filter, rectify, and lowpass filter to EMG signals.
 
@@ -52,6 +65,12 @@ def filter_emg(data, highcut_bp=95, lowcut_bp=20, order_bp=4, lowcut_lp=6, order
     - order_bp: Order of the bandpass filter.
     - lowcut_lp: Low cutoff frequency for the lowpass filter.
     - order_lp: Order of the lowpass filter.
+    - pre_enveloped: the input is ALREADY a rectified, low-pass-filtered
+      envelope, so band-passing and rectifying it would destroy it. The two
+      stages are skipped and the signal is passed through to the `_envelope`
+      columns unchanged. Rectification would be a no-op on it anyway (an
+      envelope is non-negative); the band-pass is the destructive step, since
+      an envelope carries no energy in the 20 Hz+ band it keeps.
     """
     # Imported here, not at module level: bioscout.utils.filters lives under
     # the bioscout.utils PACKAGE, whose __init__ imports bioscout.emg.emg,
@@ -74,13 +93,23 @@ def filter_emg(data, highcut_bp=95, lowcut_bp=20, order_bp=4, lowcut_lp=6, order
                 sampling_freq = 1000
         else:
             sampling_freq = 1000
-    print(f"EMG Sampling Frequency: {sampling_freq:.1f} Hz")
+    _progress(f"EMG Sampling Frequency: {sampling_freq:.1f} Hz")
 
     # List of EMG signal columns (excluding 'time' and any previously rectified/filtered columns)
     emg_cols = [col for col in data.columns
                 if col.startswith(emg_prefix)
                 and col.lower() != 'time'
                 and not col.endswith(('_rectified', '_bandpass', '_envelope'))]
+
+    if pre_enveloped:
+        # Already an envelope: copy each channel straight into the `_envelope`
+        # column the caller reads, and skip stages 1 and 2 entirely.
+        _progress("\nEMG is already a linear envelope — skipping band-pass and "
+              "rectification, passing the signal through to normalisation.")
+        for col in emg_cols:
+            data[f"{col}_envelope"] = data[col].values
+        _progress("\nFiltered data processing complete.")
+        return data
 
     # --- 1. Bandpass Filter ---
     nyquist = 0.5 * sampling_freq
@@ -94,20 +123,20 @@ def filter_emg(data, highcut_bp=95, lowcut_bp=20, order_bp=4, lowcut_lp=6, order
         print("Warning: Bandpass filter cutoff frequency is at or above Nyquist frequency.")
         print("This might lead to unexpected filter behavior. Check sampling frequency and cutoff values.")
 
-    print(f"\nApplying bandpass filter ({lowcut_bp}-{highcut_bp} Hz, Order {order_bp})...")
+    _progress(f"\nApplying bandpass filter ({lowcut_bp}-{highcut_bp} Hz, Order {order_bp})...")
     for col in emg_cols:
         filtered_col_name = f"{col}_bandpass"
         data[filtered_col_name] = bandpass(data[col].values, sampling_freq,
                                            lowcut_bp, highcut_bp, order=order_bp)
-    print("Bandpass filtering complete.")
+    _progress("Bandpass filtering complete.")
 
     # --- 2. Rectify ---
-    print("\nRectifying bandpass-filtered signals...")
+    _progress("\nRectifying bandpass-filtered signals...")
     bandpass_emg_cols = [col for col in data.columns if col.endswith('_bandpass')]
     for col in bandpass_emg_cols:
         rectified_col_name = col.replace('_bandpass', '_rectified')
         data[rectified_col_name] = np.abs(data[col].values)
-    print("Rectification complete.")
+    _progress("Rectification complete.")
 
     # --- 3. Lowpass Filter (Envelope) ---
     nyquist = 0.5 * sampling_freq
@@ -117,15 +146,15 @@ def filter_emg(data, highcut_bp=95, lowcut_bp=20, order_bp=4, lowcut_lp=6, order
         print("Warning: Lowpass filter cutoff frequency is at or above Nyquist frequency.")
         print("This might lead to unexpected filter behavior. Check sampling frequency and cutoff values.")
 
-    print(f"\nApplying lowpass filter ({lowcut_lp} Hz, Order {order_lp}) for envelope detection...")
+    _progress(f"\nApplying lowpass filter ({lowcut_lp} Hz, Order {order_lp}) for envelope detection...")
     rectified_emg_cols = [col for col in data.columns if col.endswith('_rectified')]
     for col in rectified_emg_cols:
         envelope_col_name = col.replace('_rectified', '_envelope')
         data[envelope_col_name] = lowpass(data[col].values, sampling_freq,
                                           lowcut_lp, order=order_lp)
-    print("Lowpass filtering complete.")
+    _progress("Lowpass filtering complete.")
 
-    print("\nFiltered data processing complete.")
+    _progress("\nFiltered data processing complete.")
     return data
 
 def load_sto(path=None, output=0):
@@ -194,6 +223,29 @@ def write_sto_header(writer, dataFrame):
     writer.write("in_degrees=yes\n")
     writer.write("endheader\n")
 
+def _fast_float_table(f, df, float_format="%.6f", sep="\t"):
+    """``df.to_csv(f, sep=sep, index=False, float_format=float_format)`` for a
+    frame of plain float columns, byte for byte, via one numpy pass instead of
+    pandas' per-value formatter (2026-09-11: ~1 s per emg_filtered.mot).
+    Returns False -- and writes nothing -- for anything else (int/object
+    columns, names needing quotes), so the caller falls back to pandas."""
+    import numpy as _np
+    cols = [str(c) for c in df.columns]
+    if not all(d.kind == "f" for d in df.dtypes) or any(
+            any(ch in c for ch in (sep, '"', "\n", "\r")) for c in cols):
+        return False
+    vals = df.to_numpy(dtype=float)
+    nl = os.linesep                     # what pandas writes when newline=""
+    f.write(sep.join(cols) + nl)
+    nan = _np.isnan(vals)
+    if not nan.any():
+        _np.savetxt(f, vals, fmt=float_format, delimiter=sep, newline=nl)
+        return True
+    for row, isn in zip(vals, nan):      # pandas writes NaN as an empty field
+        f.write(sep.join("" if n else float_format % v for v, n in zip(row, isn)) + nl)
+    return True
+
+
 def write_sto_file(dataFrame, file_path):
     """
     Writes a pandas DataFrame to a .sto file with a specified header.
@@ -220,7 +272,8 @@ def write_sto_file(dataFrame, file_path):
         dataFrame = dataFrame[['time'] + [col for col in dataFrame.columns if col != 'time']]
 
         # Write the data without extra line spaces
-        dataFrame.to_csv(f, sep='\t', index=False, float_format='%.6f')
+        if not _fast_float_table(f, dataFrame):
+            dataFrame.to_csv(f, sep='\t', index=False, float_format='%.6f')
 
 def plot_emg_results(emg_data):
     time_col = emg_data.columns[0]

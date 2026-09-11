@@ -256,6 +256,7 @@ def _update():
 ## utils.updir / utils.print_to_log / utils.time_normalise_df and every bare-name
 ## internal reference keep working unchanged.
 from .shared import (updir, print_to_log, time_normalise_df, start_logging, trial_type,
+                     stop_logging, capture_output,
                      plot_style, side_color, fig_size, DEFAULT_PLOT_STYLE,
                      get_mean_across_trial_dfs)
 
@@ -379,13 +380,24 @@ def get_openSim():
 ceinms = None
 HAS_CEINMS = False
 
+# The module moved to bioscout/emg/normalise.py in the restructure; the bare
+# `import emg_normalise` below it kept resolving only against a stale
+# utils/__pycache__ copy, so on a clean checkout it raised, emg_normalise became
+# None, and Analyse.run_emg_normalise died with "'NoneType' object has no
+# attribute 'emg_channel_columns'" -- no emg_filtered_normalised.mot, which
+# CEINMS needs. Import the real module first, keep the bare name as fallback.
 try:
-    import emg_normalise as _emg_mod
+    from bioscout.emg import normalise as _emg_mod
     emg_normalise = _emg_mod
     HAS_EMG_NORMALISE = True
 except ImportError:
-    HAS_EMG_NORMALISE = False
-    emg_normalise = None
+    try:
+        import emg_normalise as _emg_mod          # pre-restructure layout
+        emg_normalise = _emg_mod
+        HAS_EMG_NORMALISE = True
+    except ImportError:
+        HAS_EMG_NORMALISE = False
+        emg_normalise = None
 
 # Analysis object model (Project -> Subject -> Session -> Trial). Loaded here,
 # after Analyse is defined, because Trial subclasses Analyse. These are the

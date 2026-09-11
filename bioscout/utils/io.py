@@ -146,6 +146,23 @@ def load_sto(path=None, output=0):
     # force-plate/analog channels — raise other pandas errors), so catch ANY read
     # error and advance; otherwise a perfectly valid file is wrongly rejected as None.
     # low_memory=False avoids mixed-type column inference on large multi-column files.
+    # Fast path (2026-09-11): go straight to the first line at/after i-3 whose
+    # tokens include 'time' and read ONCE. The loop below re-read the whole file
+    # with pandas for every wrong guess -- about five full parses per load.
+    # Verified by result: if that read has no 'time' column (e.g. blank lines
+    # shift pandas' header count), fall through to the original search.
+    try:
+        with open(path, 'r') as _fh:
+            _lines = [next(_fh, '') for _ in range(i + 105)]
+        _hdr = next((k for k in range(max(i - 3, 0), len(_lines))
+                     if 'time' in _lines[k].split()), None)
+        if _hdr is not None:
+            data = pd.read_csv(path, sep=r'\s+', header=_hdr, low_memory=False)
+            if 'time' in data.columns:
+                if output == 1: print(data.columns)
+                return data
+    except Exception:
+        pass
     try:
         columns = []
         offset = -3
@@ -506,6 +523,29 @@ def write_sto_header(writer, dataFrame):
     writer.write("in_degrees=yes\n")
     writer.write("endheader\n")
 
+def _fast_float_table(f, df, float_format="%.6f", sep="\t"):
+    """``df.to_csv(f, sep=sep, index=False, float_format=float_format)`` for a
+    frame of plain float columns, byte for byte, via one numpy pass instead of
+    pandas' per-value formatter (2026-09-11: ~1 s per emg_filtered.mot).
+    Returns False -- and writes nothing -- for anything else (int/object
+    columns, names needing quotes), so the caller falls back to pandas."""
+    import numpy as _np
+    cols = [str(c) for c in df.columns]
+    if not all(d.kind == "f" for d in df.dtypes) or any(
+            any(ch in c for ch in (sep, '"', "\n", "\r")) for c in cols):
+        return False
+    vals = df.to_numpy(dtype=float)
+    nl = os.linesep                     # what pandas writes when newline=""
+    f.write(sep.join(cols) + nl)
+    nan = _np.isnan(vals)
+    if not nan.any():
+        _np.savetxt(f, vals, fmt=float_format, delimiter=sep, newline=nl)
+        return True
+    for row, isn in zip(vals, nan):      # pandas writes NaN as an empty field
+        f.write(sep.join("" if n else float_format % v for v, n in zip(row, isn)) + nl)
+    return True
+
+
 def write_sto_file(dataFrame, file_path):
     """
     Writes a pandas DataFrame to a .sto file with a specified header.
@@ -532,7 +572,8 @@ def write_sto_file(dataFrame, file_path):
         dataFrame = dataFrame[['time'] + [col for col in dataFrame.columns if col != 'time']]
 
         # Write the data without extra line spaces
-        dataFrame.to_csv(f, sep='\t', index=False, float_format='%.6f')
+        if not _fast_float_table(f, dataFrame):
+            dataFrame.to_csv(f, sep='\t', index=False, float_format='%.6f')
 
 # XML handling
 def read_xml(path):

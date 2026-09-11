@@ -119,6 +119,31 @@ if sys.argv[1:]:
         if _kind == "exit":
             sys.exit(int(_value))
         sys.argv = [sys.argv[0]] + list(_value)
+    elif not sys.argv[1].startswith("-"):
+        # A bare word that is not a verb. The legacy parser has no positional
+        # arguments at all -- every legacy form starts with a flag -- so this is
+        # a mistyped verb, and letting it fall through dumps 90-odd flags and
+        # ends with "unrecognized arguments: sesssion". Say what is wrong.
+        import difflib as _dl
+        from bioscout.cli import NESTED as _NESTED
+        _word = sys.argv[1]
+        print(f"bioscout: unknown command '{_word}'", file=sys.stderr)
+        if _word in _NESTED:
+            # It IS a command, just one level down -- and usually one that used
+            # to be a top-level flag, which is why it was typed here.
+            print(f"          it lives under a verb: `bioscout "
+                  f"{_NESTED[_word]}`", file=sys.stderr)
+        else:
+            _near = (_dl.get_close_matches(_word, _VERBS, n=3, cutoff=0.6)
+                     or [f"{v} ({_NESTED[v]})" for v in
+                         _dl.get_close_matches(_word, list(_NESTED), n=2, cutoff=0.7)])
+            if _near:
+                print(f"          did you mean: {', '.join(_near)}?",
+                      file=sys.stderr)
+        print(f"\ncommands: {', '.join(_VERBS)}\n"
+              f"          `bioscout help` for what each one does, "
+              f"`bioscout help VERB` for one.", file=sys.stderr)
+        sys.exit(2)
     # (the legacy-flag hint is printed further up, above the --env block)
 
 # These pull in numpy/scipy/matplotlib and the rest of the scientific stack.
@@ -135,7 +160,7 @@ except ImportError as _dep_err:
         print(explain_missing(_dep_err), file=sys.stderr)
     except Exception:                                        # noqa: BLE001
         print(f"\nbioscout cannot start: {_dep_err}\n"
-              f"Try:  bioscout --env-create\n", file=sys.stderr)
+              f"Try:  bioscout utils env --create\n", file=sys.stderr)
     raise SystemExit(1)
 
 # One quiet line when the running env is not the expected one. Never a block —
@@ -302,6 +327,31 @@ parser.add_argument('--model', dest='model_check',
 parser.add_argument('--strict', dest='strict', action='store_true',
                     help="With --model: treat 'resolves, but not from the model's own "
                          "folder' as a failure rather than a warning.")
+parser.add_argument('--dry-run', action='store_true', dest='dry_run',
+                    help='decide everything, write nothing')
+parser.add_argument('-y', '--yes', action='store_true', dest='yes',
+                    help='do not prompt; fail rather than ask')
+parser.add_argument('--scale-session', default=None, dest='scale_session',
+                    metavar='SESSION_PATH',
+                    help="scale a session's model(s) from its session.yaml")
+parser.add_argument('--iteration', default=None, metavar='NAME')
+parser.add_argument('--scale-setup', dest='scale_setup', default=None,
+                    metavar='XML',
+                    help='run an existing ScaleTool setup XML as written '
+                         '(see `bioscout model scale --setup`)')
+parser.add_argument('--scale-model', action='store_true', dest='scale_model',
+                    help='interactive model scaling (see `bioscout scale`)')
+parser.add_argument('--scale-generic', dest='scale_generic', default=None,
+                    metavar='OSIM',
+                    help='generic model for `bioscout scale` (--model is\n                          already taken by the model checker)')
+parser.add_argument('--static', default=None, metavar='TRC')
+parser.add_argument('--markerset', default=None, metavar='XML')
+parser.add_argument('--mass', type=float, default=None, metavar='KG')
+parser.add_argument('--grf', default=None, metavar='MOT')
+parser.add_argument('--alias', action='append', default=None,
+                    metavar='EXPECTED=ACTUAL')
+parser.add_argument('--no-placer', action='store_true', dest='no_placer')
+parser.add_argument('--no-scaling', action='store_true', dest='no_scaling')
 parser.add_argument('--tps', nargs='?', const='', default=None, metavar='PROJECT_PATH',
                     help="Build a TPS/MRI-personalised model, interactively: asks which "
                          "session, which model to warp and which 3D Slicer landmark file, "
@@ -416,6 +466,9 @@ log_dir.mkdir(exist_ok=True)
 # per run — app_*.log for GUI, batch_*.log for batch (-b/--batch) — so we no
 # longer create an empty second log via helpers.setup_logging.
 from utils.logger import logger
+# The CLI/GUI owns this console, so it (and only it) copies print() output
+# into its log. Importing utils.logger no longer does this by itself.
+logger.capture_std_streams()
 
 # In batch mode redirect logs to the project's LOG_DIR (PROJECT_ROOT/logs)
 # so analysis logs don't accumulate inside the app install directory.
@@ -464,7 +517,7 @@ if getattr(args, 'pylance_fix', None) is not None:
 
 # --- --new-session : scaffold a session.yaml from the c3d files --------------
 if getattr(args, 'new_session', None):
-    from bioscout.session.session import scaffold_session_yaml
+    from bioscout.session.config import scaffold_session_yaml
     _p = scaffold_session_yaml(args.new_session,
                                template=getattr(args, 'from_session', None),
                                body_mass=getattr(args, 'body_mass', None))
@@ -483,7 +536,7 @@ if getattr(args, 'c3d_export', None):
         print(f"[c3d-export] no session.yaml in {_sp}\n"
               f"[c3d-export] make one first:  bioscout --new-session \"{_sp}\"")
         sys.exit(1)
-    _s = Session.open(_sp)
+    _s = Session(_sp)
     _trials = ([t.strip() for t in args.trial.split(',')] if getattr(args, 'trial', None)
                else None)
     _done = _s.export(trials=_trials, export_src=os.path.abspath(c3d_root(_sp)),
@@ -498,7 +551,7 @@ if getattr(args, 'c3d_export', None):
     _yp = os.path.join(_sp, "session.yaml")
     _c = _y.safe_load(open(_yp, encoding="utf-8")) or {}
     if _c.get("body_mass") in (None, "", 0):
-        from bioscout.session.session import body_mass_from_static
+        from bioscout.session.config import body_mass_from_static
         _m = body_mass_from_static(_sp, _c.get("static_trial"))
         if _m:
             # Put it with the other subject facts rather than appending it to
@@ -1310,16 +1363,23 @@ def run_init_mode(project_path: str) -> int:
 
     Actions
     -------
-    1. Create standard subdirectories (simulations/, Models/, setup_files/, logs/).
+    1. Create standard subdirectories (simulations/, models/, setup_files/,
+       logs/, results/).
     2. Copy bundled setup_files templates (XML) into <project>/setup_files/ —
        skips files that already exist so re-running is safe.
-    3. Copy the package settings.py template to <project_path>/settings.py,
-       updating PROJECT_ROOT to the given path (skipped if already exists).
-    4. If simulations/ already contains participant sub-folders, compare them
-       against SUBJECTS in the existing settings.py and warn about mismatches.
+    3. Write a starter project.yaml (skipped if one already exists). A new
+       project needs no settings.py: it runs on bioscout's bundled defaults
+       until project.yaml declares a lab fact that differs
+       (docs/IMPLEMENTATIONS.md §2.9, step 4 — this used to copy the old
+       all-in-one settings.py template in here instead; that copy is retired
+       for new projects). Migrating an EXISTING project off its own
+       settings.py is still `bioscout init --from-settings`, which extracts a
+       project.yaml FROM it.
+    4. If simulations/ already contains participant sub-folders, list them —
+       bioscout discovers subjects from simulations/ automatically, no
+       SUBJECTS list to maintain.
     """
     import shutil
-    import re as _re
 
     project = Path(project_path).resolve()
     print(f"\n{'='*60}")
@@ -1329,7 +1389,7 @@ def run_init_mode(project_path: str) -> int:
     # ---------------------------------------------------------------------- #
     # 1. Create standard folder structure
     # ---------------------------------------------------------------------- #
-    standard_dirs = ['simulations', 'Models', 'setup_files', 'logs']
+    standard_dirs = ['simulations', 'models', 'setup_files', 'logs', 'results']
     for d in standard_dirs:
         target = project / d
         if not target.exists():
@@ -1362,7 +1422,7 @@ def run_init_mode(project_path: str) -> int:
 
     for tmpl_name, dst_name, exts in [
         ('setup_files', 'setup_files', ('.xml', '.txt')),
-        ('models',      'Models',      ()),       # () = copy all (includes Geometry/ meshes)
+        ('models',      'models',      ()),       # () = copy all (includes Geometry/ meshes)
     ]:
         src_dir = Path(__file__).parent / tmpl_name
         dst_dir = project / dst_name
@@ -1376,86 +1436,52 @@ def run_init_mode(project_path: str) -> int:
             print(f"\n{label} No bundled templates found at {src_dir}")
 
     # ---------------------------------------------------------------------- #
-    # 3. Copy settings template
+    # 3. Write a starter project.yaml (replaces the old settings.py copy —
+    #    docs/IMPLEMENTATIONS.md §2.9, step 4)
     # ---------------------------------------------------------------------- #
-    settings_dest = project / 'settings.py'
-    settings_src  = Path(__file__).parent / 'settings.py'
+    yaml_dest = project / 'project.yaml'
 
-    if settings_dest.exists():
-        print(f"\n  [skip] settings.py already exists — not overwriting.")
-        print(f"         Edit it directly: {settings_dest}")
+    if yaml_dest.exists():
+        print(f"\n  [skip] project.yaml already exists — not overwriting.")
+        print(f"         Edit it directly: {yaml_dest}")
     else:
-        if settings_src.exists():
-            content = settings_src.read_text(encoding='utf-8')
-            # Replace PROJECT_ROOT with the actual project path (forward slashes
-            # work on all platforms; raw string keeps backslashes on Windows).
-            # Use a lambda replacement so re never interprets the path string
-            # as a regex escape sequence (e.g. \U on Windows would raise
-            # re.PatternError in Python 3.12+).
-            path_str = str(project).replace('\\', '/')
-            repl = f"PROJECT_ROOT    = Path(r'{path_str}')"
-            content = _re.sub(
-                r"PROJECT_ROOT\s*=\s*.*",
-                lambda _: repl,
-                content,
-                count=1,
-            )
-            settings_dest.write_text(content, encoding='utf-8')
-            print(f"\n  [created]  {settings_dest}")
-            print(f"  ⚠  Edit SUBJECTS and generic_model / markerset paths before running --batch.")
-        else:
-            print(f"\n  [warn] Package settings.py template not found at {settings_src}.")
+        yaml_dest.write_text(
+            "# project.yaml — lab facts that differ from bioscout's bundled\n"
+            "# defaults. No code, no run selection. Add `batch:` / `ceinms:`\n"
+            "# entries only for what actually differs — everything else is\n"
+            "# inherited (docs/IMPLEMENTATIONS.md §2.9). Migrating an\n"
+            "# existing project off its own settings.py? Use\n"
+            "# `bioscout init --from-settings` to extract one from it instead of\n"
+            "# hand-writing this.\n"
+            f"schema: 1\n"
+            f"name: {project.name}\n",
+            encoding='utf-8',
+        )
+        print(f"\n  [created]  {yaml_dest}")
+        print(f"  This project needs no settings.py — it runs on bioscout's "
+              f"bundled defaults until project.yaml says otherwise.")
 
     # ---------------------------------------------------------------------- #
-    # 3. Check existing simulations against SUBJECTS in settings.py
+    # 4. List existing simulation folders, if any
     # ---------------------------------------------------------------------- #
     sims_dir = project / 'simulations'
     if sims_dir.exists():
         sim_folders = sorted(
             d.name for d in sims_dir.iterdir() if d.is_dir()
         )
-
         if sim_folders:
-            # Try to load SUBJECTS from the settings file
-            subjects_in_settings: Optional[set] = None
-            try:
-                import importlib.util as _ilu
-                _spec = _ilu.spec_from_file_location('_init_settings', str(settings_dest))
-                _mod  = _ilu.module_from_spec(_spec)
-                _spec.loader.exec_module(_mod)
-                if hasattr(_mod, 'SUBJECTS'):
-                    subjects_in_settings = set(_mod.SUBJECTS.keys())
-            except Exception as _e:
-                print(f"\n  [warn] Could not parse SUBJECTS from settings.py: {_e}")
-
-            print(f"\n  Simulation folders found  : {sim_folders}")
-
-            if subjects_in_settings is not None:
-                print(f"  SUBJECTS in settings.py    : {sorted(subjects_in_settings)}")
-                missing_from_settings = set(sim_folders) - subjects_in_settings
-                missing_from_disk     = subjects_in_settings - set(sim_folders)
-
-                if missing_from_settings:
-                    print(f"\n  ⚠  WARNING: these folders exist in simulations/ but are NOT in SUBJECTS:")
-                    for m in sorted(missing_from_settings):
-                        print(f"       {m}")
-                if missing_from_disk:
-                    print(f"\n  ⚠  WARNING: these SUBJECTS entries have no folder in simulations/:")
-                    for m in sorted(missing_from_disk):
-                        print(f"       {m}")
-                if not missing_from_settings and not missing_from_disk:
-                    print(f"\n  ✓  simulations/ folders match SUBJECTS in settings.py.")
-            else:
-                print(f"\n  [info] Add these folder names to SUBJECTS in settings.py:")
-                for f in sim_folders:
-                    print(f"           '{f}': SubjectConfig(group=''),")
+            print(f"\n  Simulation folders found: {sim_folders}")
+            print(f"  bioscout discovers subjects from simulations/ "
+                  f"automatically — no SUBJECTS list to maintain.")
 
     print(f"\n{'='*60}")
     print(f"Project ready. Next steps:")
-    print(f"  1. Edit {settings_dest}")
-    print(f"     — set SUBJECTS, generic_model, markerset")
-    print(f"  2. cd {project}")
-    print(f"  3. python -m bioscout -b settings.py")
+    print(f"  1. Drop captures into simulations/<subject>/... and set up each session.yaml")
+    print(f"     (session.yaml is the source of truth for that session).")
+    print(f"  2. Edit {yaml_dest} only for lab facts that differ from bioscout's defaults")
+    print(f"     (marker conventions, GRF axes, EMG rig, sampling rate, ...).")
+    print(f"  3. cd {project}")
+    print(f"  4. python -m bioscout   (or your project's own pipeline entry point)")
     print(f"{'='*60}\n")
     return 0
 
@@ -1606,7 +1632,7 @@ def run_tps_mode(project_path=None) -> int:
     print()
 
     # --- iteration -----------------------------------------------------
-    from bioscout.session.session import load_session_yaml
+    from bioscout.session.config import load_session_yaml
     cfg = load_session_yaml(os.path.join(session_dir, "session.yaml"))
     iterations = sorted(cfg.get("iterations") or {})
     # A "*_mri" iteration NAMES the file this step produces; the model to warp
@@ -1716,7 +1742,7 @@ def main() -> int:
     if args.shots:
         from bioscout.lab.load_tracking.shot_analysis import analyze_video
         _model = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                              'models', 'kinematics_only_model.pkl')
+                              'models', 'fais_force_model.pkl')
         _hoop = None
         if args.hoop:
             try:
@@ -1766,10 +1792,15 @@ def main() -> int:
     if args.joint_centres:
         from bioscout.model.scale import measurements as _sm
         _in = os.path.abspath(args.joint_centres)
+        _al = {}
+        for _a in (args.alias or []):
+            if "=" in _a:
+                _k, _v = _a.split("=", 1)
+                _al[_k.strip()] = _v.strip()
         if not os.path.isfile(_in):
             print(f"[bioscout] TRC not found: {_in}")
             return 1
-        _out = _sm.augment_static_trc(_in, args.out, verbose=True)
+        _out = _sm.augment_static_trc(_in, args.out, verbose=True, aliases=_al or None)
         if os.path.abspath(_out) == _in:
             # Same path back means nothing was added — say so rather than let
             # "done" imply joint centres are now in the file.
@@ -1783,6 +1814,60 @@ def main() -> int:
         _out = md_to_pdf_many(args.md2pdf, outdir=args.outdir, toc=args.toc,
                               bibliography=args.bib, keep_docx=args.keep_docx)
         return 0 if len(_out) == len(args.md2pdf) else 1
+    if getattr(args, "scale_session", None):
+        from bioscout import Session
+        _p = os.path.abspath(args.scale_session)
+        if not os.path.isfile(os.path.join(_p, "session.yaml")):
+            print(f"[scale] no session.yaml in {_p}")
+            return 1
+        _s = Session(_p)
+        _its = [args.iteration] if args.iteration else list(_s.iterations)
+        if args.iteration and args.iteration not in _s.iterations:
+            print(f"[scale] no iteration {args.iteration!r} in this session — "
+                  f"has {', '.join(_s.iterations) or 'none'}")
+            return 1
+        if not _its:
+            print(f"[scale] this session declares no iterations")
+            return 1
+        _made = []
+        for _n in _its:
+            print(f"\n=== {os.path.basename(_p)} [{_n}] ===")
+            try:
+                _m = _s.iteration(_n).scale_model(
+                    replace=getattr(args, "replace", False))
+            except Exception as _e:                            # noqa: BLE001
+                print(f"[scale] {_n}: {type(_e).__name__}: {_e}")
+                continue
+            if _m and os.path.isfile(str(_m)):
+                _made.append(str(_m))
+                print(f"[scale] wrote {_m}")
+            else:
+                print(f"[scale] {_n}: no model produced — read the ScaleTool "
+                      f"messages above")
+        print(f"\n[scale] {len(_made)} of {len(_its)} iteration(s) scaled")
+        return 0 if _made else 1
+
+    if getattr(args, "scale_setup", None):
+        from bioscout.model.scale.osim_scale import run_scale_setup
+        return run_scale_setup(args.scale_setup, mass=args.mass)
+
+    if getattr(args, "scale_model", False):
+        from bioscout.scale_interactive import run as _run_scale
+        _al = {}
+        for _a in (args.alias or []):
+            if "=" not in _a:
+                print(f"[scale] --alias wants EXPECTED=ACTUAL, got {_a!r}")
+                return 1
+            _k, _v = _a.split("=", 1)
+            _al[_k.strip()] = _v.strip()
+        return _run_scale(model=args.scale_generic, static=args.static,
+                          markerset=args.markerset, mass=args.mass,
+                          out=getattr(args, "out", None), aliases=_al or None,
+                          dry_run=getattr(args, "dry_run", False),
+                          yes=getattr(args, "yes", False),
+                          linear=not args.no_scaling,
+                          placer=not args.no_placer,
+                          grf=args.grf)
     if args.tps is not None:
         return run_tps_mode(args.tps or args.project or os.getcwd())
     if args.collings is not None:

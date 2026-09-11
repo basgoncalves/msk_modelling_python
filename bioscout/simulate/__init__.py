@@ -6,6 +6,10 @@
     ceinms/      CEINMS calibration and execution (binaries under bin/)
     mrs/         the KU Leuven Muscle Redundancy Solver (`simulate mrs`)
     gapfill.py   marker gap filling, run before IK needs complete markers
+    mew/         muscle extrapolation web -- Python CEINMS/SO: muscle forces
+                 from a model + kinematics, raised by ID/EMG/calibration
+                 (`it.run(do_mew=True)`, `bioscout simulate mew`,
+                 `python -m bioscout.simulate.mew`)
 
 Model creation and editing live in ``bioscout.model``, not here: that package
 holds ``opensim_base`` (load_model and the OpenSim logger plumbing, which this

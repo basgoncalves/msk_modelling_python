@@ -44,7 +44,7 @@ DEFAULT_TEMPLATE = Path(__file__).with_name("data") / "markers_and_bone_markers_
 
 #: The model the shipped template's frames were authored in. Used as the
 #: reference for the compatibility check — see model_compat.py.
-DEFAULT_TEMPLATE_SOURCE = "GPK/GPK_generic_modWO.osim"
+DEFAULT_TEMPLATE_SOURCE = "GPK_v4/GPK_v4_016.osim"
 
 
 def default_template() -> Path:
@@ -97,7 +97,7 @@ def personalise_iteration(
     from bioscout import Session  # imported at call time — BioScout optional
 
     session_dir = Path(session_dir).resolve()
-    session = Session.open(str(session_dir))
+    session = Session(str(session_dir))
     spec = getattr(session, "spec", None)
 
     it = _iteration_spec(session, spec, iteration)
@@ -178,23 +178,21 @@ def _iteration_spec(session, spec, iteration):
 
 
 def _resolve_generic(session, it, iteration):
-    """Absolute path of the iteration's `generic` model.
+    """Absolute path of the iteration's `model_generic`.
 
-    Accepts either a `Model` (attribute `generic_model`) or a raw YAML dict
-    (key `generic`), and resolves it the same way bioscout does: models dir,
-    then `<project>/generic models/`, then the project root.
+    Accepts either a `Model` (attribute `model_generic`) or a YAML dict (key
+    `model_generic`); resolved the way bioscout does -- relative to the
+    iteration folder (old bare names are still searched, with a warning).
     """
-    generic = getattr(it, "generic_model", None) or (
-        it.get("generic") if isinstance(it, dict) else None
+    generic = getattr(it, "model_generic", None) or (
+        (it.get("model_generic") or it.get("generic")) if isinstance(it, dict) else None
     )
     if not generic:
-        raise ValueError(f"iteration '{iteration}' declares no `generic` model")
-    from bioscout.session.session import Iteration, resolve_generic
+        raise ValueError(f"iteration '{iteration}' declares no `model_generic`")
+    from bioscout.session.iteration import Iteration
+    from bioscout.session.layout import resolve_generic
 
-    # Iteration._resolve_model_file already searches every base bioscout uses
-    # and knows the project root; `Session` itself exposes neither.
-    resolved = Iteration(str(session.session_dir),
-                         iteration)._resolve_model_file(generic, "generic")
+    resolved = Iteration(str(session.session_dir), iteration).model_generic
     if resolved and os.path.exists(resolved):
         return resolved
     project_dir = os.path.abspath(

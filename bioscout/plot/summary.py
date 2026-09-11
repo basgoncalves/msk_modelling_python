@@ -158,7 +158,7 @@ def _session_emg_mapping(td):
         sy = _yaml_in(parent)
         if sy:
             try:
-                from bioscout.session import session as _sess
+                from bioscout.session import config as _sess
                 cfg = _sess.load_session_yaml(sy)
                 names = set(cfg.get("iterations") or cfg.get("models") or {})
                 # `seen` is trial-first; the iteration is the deepest folder

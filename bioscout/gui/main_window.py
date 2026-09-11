@@ -169,15 +169,46 @@ def _find_project_settings(project_root):
     return None
 
 
+def _find_project_yaml(start):
+    """Nearest project.yaml at or above ``start``, or None.
+
+    Delegates to :func:`bioscout.init.project_config.find_project_yaml` (the
+    same lookup the CLI's settings overlay uses, so the GUI and the
+    "[project.yaml] ... fact(s) applied" line always agree on the project).
+    """
+    try:
+        from bioscout.init.project_config import find_project_yaml as _fpy
+    except Exception:                                              # noqa: BLE001
+        try:
+            from init.project_config import find_project_yaml as _fpy
+        except Exception:                                          # noqa: BLE001
+            _fpy = None
+    if _fpy is not None:
+        try:
+            return _fpy(start)
+        except Exception:                                          # noqa: BLE001
+            pass
+    import os as _os
+    p = _os.path.join(_os.path.abspath(start), "project.yaml")
+    return p if _os.path.isfile(p) else None
+
+
 def _guess_project_dir() -> str:
     """The current directory, if it looks like a bioscout project.
 
-    "Looks like" = it has a settings.py naming bioscout, or the folder pair a
-    project always has. Deliberately conservative: a wrong path pre-filled is
-    worse than an empty box, because Load would then act on it.
+    "Looks like" = a project.yaml at or above it (the project root is the
+    folder holding it), a legacy settings.py naming bioscout, or the folder
+    pair a project always has. Deliberately conservative: a wrong path
+    pre-filled is worse than an empty box, because Load would then act on it.
     """
     import os as _os
     cwd = _os.path.abspath(_os.getcwd())
+    # project.yaml is THE project marker since settings.py was retired
+    # (IMPLEMENTATIONS.md §2.9). Checking only for settings.py meant a
+    # migrated project launched from its own root opened with an empty box.
+    _y = _find_project_yaml(cwd)
+    if _y:
+        return _os.path.dirname(_os.path.abspath(_y))
     for cand in (cwd, _os.path.dirname(cwd)):
         st = _find_project_settings(cand)
         if st is not None:
@@ -189,7 +220,8 @@ def _guess_project_dir() -> str:
                 return cand
         if any(_os.path.isdir(_os.path.join(cand, d))
                for d in ("simulations", "simulations_test")) and \
-           _os.path.isdir(_os.path.join(cand, "setupFiles")):
+           any(_os.path.isdir(_os.path.join(cand, d))
+               for d in ("setup_files", "setupFiles")):
             return cand
     return ""
 
@@ -726,7 +758,7 @@ class MainWindow(ctk.CTk):
             else:
                 logger.critical("No tab could be loaded — the window will be empty. "
                                 "This is almost always missing dependencies: run "
-                                "`bioscout --env` and then pip install what it names.")
+                                "`bioscout utils env` and then pip install what it names.")
 
         if default_tab in self.tabs:
             logger.debug(f"{default_tab} tab created, grid state: {self.tabs[default_tab].winfo_manager()}")
@@ -991,7 +1023,8 @@ class MainWindow(ctk.CTk):
         self.broadcast_project_dir(proj)
 
     def _load_project(self, project_dir: str) -> None:
-        """Validate project settings.py version and broadcast to tabs."""
+        """Validate the project's project.yaml / legacy settings.py and
+        broadcast to tabs."""
         if not project_dir:
             return
         p = Path(project_dir)
@@ -1001,13 +1034,30 @@ class MainWindow(ctk.CTk):
         #    fail if the project's settings.py references names like SubjectConfig
         #    that are no longer in the template's global scope) ────────────────
         settings_file = _find_project_settings(p)
+        project_yaml = p / "project.yaml"
+        project_yaml = project_yaml if project_yaml.is_file() else None
         ok = False
         needs_update = False
         tooltip = ""
-        if settings_file is None:
-            tooltip = ("⚠  No settings.py in this folder (looked in "
+        if settings_file is None and project_yaml is not None:
+            # Migrated project: lab facts live in project.yaml, settings.py
+            # is gone on purpose. That is the healthy state, not a warning.
+            ok = True
+            tooltip = "✓  project.yaml"
+            try:
+                import yaml as _yaml
+                _d = _yaml.safe_load(project_yaml.read_text(encoding="utf-8")) or {}
+                _nm = _d.get("name") if isinstance(_d, dict) else None
+                if _nm:
+                    tooltip = f"✓  project.yaml ({_nm})"
+            except Exception as e:                                 # noqa: BLE001
+                ok = False
+                tooltip = f"⚠  Could not read project.yaml: {e}"
+        elif settings_file is None:
+            tooltip = ("⚠  No project.yaml or settings.py in this folder "
+                       "(looked in project.yaml, "
                        + ", ".join(_SETTINGS_LOCATIONS)
-                       + ") — run: python -m bioscout --init")
+                       + ") — run: bioscout init")
         else:
             try:
                 import ast as _ast
@@ -1051,6 +1101,7 @@ class MainWindow(ctk.CTk):
 
         self._proj_status_msg = (
             f"{tooltip}\n\nProject: {p}\n"
+            f"project.yaml: {project_yaml if project_yaml else '(not found)'}\n"
             f"settings.py: {settings_file if settings_file else '(not found)'}")
         self.update_status(tooltip, "success" if ok else "warning")
 

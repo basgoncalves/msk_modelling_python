@@ -195,6 +195,14 @@ def decompose(model_path, ik_file, grf_xml, forces_file, out_dir, jra_columns,
         os.path.abspath(x) for x in (model_path, ik_file, grf_xml, forces_file, out_dir))
     if setup_template:
         setup_template = os.path.abspath(setup_template)
+    # Every JointReaction below reads a copy of this template. A missing one
+    # used to be skipped in silence, and OpenSim then failed on each of the
+    # 50+ runs with "Cannot open file ... setup_JRA_contrib.xml" -- naming the
+    # copy, not the template that was never found.
+    if not setup_template or not os.path.exists(setup_template):
+        raise FileNotFoundError(
+            f"JRA setup template not found: {setup_template} (the trial's "
+            f"setup_dir has no setup_JRA.xml)")
     os.makedirs(out_dir, exist_ok=True)
     csv_path = os.path.join(out_dir, "contributions.csv")
     if os.path.exists(csv_path) and not replace:

@@ -1,0 +1,20 @@
+{
+  "base": "GPK_v4_015.osim",
+  "op": "glute_wrap_and_path_transfer",
+  "source": "GPK_v4_015_osCreator.osim (hand-edited, right leg)",
+  "note": "glmax1_r-P3/P4 moved; Gmax1_at_pelvis_r radius 0.0494->0.0344 and translation moved; Gmax2/Gmax3_at_pelvis_r translations moved. Mirrored to the left by z -> -z, the rule the existing pairs use. Rotations deliberately NOT copied: osCreator rewrote them as float noise (0 -> 5.8e-31) for the same angle.",
+  "edits": [
+    "glmax1_r-P3            location    -0.044400000000000002 -0.032599999 -> -0.037018930767817634 -0.040932919",
+    "glmax1_l-P3            location    -0.044400000000000002 -0.032599999 -> -0.037018930767817634 -0.040932919",
+    "glmax1_r-P4            location    -0.027699999999999999 -0.056599999 -> -0.028923309117122428 -0.060218267",
+    "glmax1_l-P4            location    -0.027699999999999999 -0.056599999 -> -0.028923309117122428 -0.060218267",
+    "Gmax1_at_pelvis_r      radius      0.049375000000000002 -> 0.034375026822090149",
+    "Gmax1_at_pelvis_l      radius      0.049375000000000002 -> 0.034375026822090149",
+    "Gmax1_at_pelvis_r      translation -0.076999999999999999 -0.099000000 -> -0.10209511234711699 -0.1033882727",
+    "Gmax1_at_pelvis_l      translation -0.076999999999999999 -0.099000000 -> -0.10209511234711699 -0.1033882727",
+    "Gmax2_at_pelvis_r      translation -0.080000000000000002 -0.083000000 -> -0.075768070330086576 -0.078752632",
+    "Gmax2_at_pelvis_l      translation -0.080000000000000002 -0.083000000 -> -0.075768070330086576 -0.078752632",
+    "Gmax3_at_pelvis_r      translation -0.083000000000000004 -0.087999999 -> -0.085661913651536289 -0.073550582",
+    "Gmax3_at_pelvis_l      translation -0.083000000000000004 -0.087999999 -> -0.085661913651536289 -0.073550582"
+  ]
+}

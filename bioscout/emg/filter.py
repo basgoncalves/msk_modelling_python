@@ -44,6 +44,14 @@ DEFAULTS: Dict[str, Any] = {
     "envelope_lowpass": 6.0,    # Hz, low-pass applied after rectification
     "envelope_order": 4,        # Butterworth order
     "sampling_freq": None,      # None = take it from the file's time column
+    # Some labs export an EMG channel that has ALREADY been rectified and
+    # low-pass filtered -- a linear envelope, not raw EMG (the Charite
+    # `*_emg_smooth.csv` export, for one). Band-passing such a signal at 20 Hz
+    # and up removes everything it contains, because an envelope holds no
+    # energy above a few Hz: the chain returns silence and the session ends up
+    # with no excitations at all. Set this True and the band-pass and the
+    # rectification are skipped; the signal goes to normalisation as it is.
+    "pre_enveloped": False,
 }
 
 KEYS = tuple(DEFAULTS)
@@ -58,6 +66,8 @@ _ALIASES = {
     "envelope_lowpass": ("envelope_lowpass", "lowcut_lp", "envelope", "lowpass"),
     "envelope_order": ("envelope_order", "order_lp"),
     "sampling_freq": ("sampling_freq", "fs", "sampling_rate"),
+    "pre_enveloped": ("pre_enveloped", "already_enveloped", "is_envelope",
+                      "skip_filter"),
 }
 
 #: BatchSettings attributes that already existed, kept working.
@@ -67,9 +77,19 @@ _BATCH = {
 }
 
 
+#: Keys whose value is a flag, not a frequency. Without this they go through
+#: float() and a YAML `true` comes back as 1.0 -- truthy, so the behaviour is
+#: right, but the value written back to a session file or a log is wrong.
+_BOOL_KEYS = ("pre_enveloped",)
+
+
 def _coerce(key: str, value):
     if value is None:
         return None
+    if key in _BOOL_KEYS:
+        if isinstance(value, str):
+            return value.strip().lower() in ("1", "true", "yes", "on")
+        return bool(value)
     if key.endswith("_order"):
         return int(value)
     return float(value)
@@ -143,12 +163,17 @@ def to_filter_kwargs(settings: Dict[str, Any]) -> Dict[str, Any]:
         "order_bp": settings["bandpass_order"],
         "lowcut_lp": settings["envelope_lowpass"],
         "order_lp": settings["envelope_order"],
+        "pre_enveloped": bool(settings.get("pre_enveloped", False)),
     }
 
 
 def describe(settings: Dict[str, Any]) -> str:
     """One line naming every value used — for the log and for provenance."""
     fs = settings.get("sampling_freq")
+    if settings.get("pre_enveloped"):
+        return ("signal is ALREADY a linear envelope: no band-pass, no "
+                "rectification, straight to normalisation"
+                + (f" (fs {float(fs):g} Hz)" if fs else ""))
     return (f"band-pass {settings['bandpass_low']:g}-{settings['bandpass_high']:g} Hz "
             f"(order {settings['bandpass_order']}) -> rectify -> envelope "
             f"{settings['envelope_lowpass']:g} Hz (order {settings['envelope_order']})"

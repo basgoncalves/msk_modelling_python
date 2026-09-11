@@ -218,7 +218,7 @@ def build_ghost_session():
     from bioscout.session.layout import (
         c3d_root, experimental_root, iterations_root, iteration_path,
         is_numbered_layout)
-    from bioscout.session.session import (
+    from bioscout.session.config import (
         scaffold_session_yaml, read_session_yaml, write_session_yaml)
 
     _wipe(SIM_ROOT)
@@ -578,7 +578,7 @@ class TestGhostSessionLayout(unittest.TestCase):
             "the iteration must live under 3_iterations/, not at the session root")
 
     def test_session_yaml_round_trips(self):
-        from bioscout.session.session import read_session_yaml
+        from bioscout.session.config import read_session_yaml
         spec = read_session_yaml(os.path.join(GHOST_SESSION, "session.yaml"))
         self.assertEqual(spec.subject, SUBJECT_NAME)
         self.assertEqual(spec.session, SESSION_NAME)
@@ -592,7 +592,7 @@ class TestGhostSessionLayout(unittest.TestCase):
 
     def test_session_opens_and_sees_the_iteration(self):
         from bioscout import Session
-        s = Session.open(GHOST_SESSION)
+        s = Session(GHOST_SESSION)
         self.assertIn(ITERATION_NAME, list(s.iterations))
 
 

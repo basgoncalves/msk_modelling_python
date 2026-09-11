@@ -1,7 +1,10 @@
 """Is bioscout running in the environment it expects, and if not, build it.
 
-    bioscout --env            # report
-    bioscout --env-create     # create bioscoutv<version> and install into it
+    bioscout utils env            # report
+    bioscout utils env --create   # create bioscoutv<version> and install into it
+
+(``--env`` / ``--env-create`` still work and print a one-line pointer to the
+verb form. Verbs are the interface; the flags are the compatibility layer.)
     python -m bioscout.devtools.envcheck
 
 One environment per bioscout version, named ``bioscoutv<version>`` -- so
@@ -419,7 +422,7 @@ def report(log=print) -> Dict[str, object]:
         log(f"[env]     {s['activate']}")
     else:
         log(f"[env] {s['expected_env']} does not exist yet. Create and populate it:")
-        log(f"[env]     bioscout --env-create")
+        log(f"[env]     bioscout utils env --create")
         log(f"[env] then:")
         log(f"[env]     {s['activate']}")
     return s
@@ -476,7 +479,7 @@ def explain_missing(exc: BaseException) -> str:
         "",
         "  Build the environment (installs uv, then everything else with it):",
         "",
-        "      bioscout --env-create",
+        "      bioscout utils env --create",
         "",
         f"  Or install into the environment you are in right now:",
         "",
@@ -524,7 +527,7 @@ def startup_warning(log=None) -> None:
         if not s["match"]:
             where = s["current_env"] or "base/system python"
             w(f"[env] running in '{where}', expected '{s['expected_env']}'. "
-              f"`bioscout --env` for details, {_OPT_OUT}=1 to silence.")
+              f"`bioscout utils env` for details, {_OPT_OUT}=1 to silence.")
     except Exception:                                        # noqa: BLE001
         pass
 

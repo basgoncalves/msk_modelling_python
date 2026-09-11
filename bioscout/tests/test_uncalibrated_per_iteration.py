@@ -12,7 +12,8 @@ import textwrap
 
 import pytest
 
-from bioscout.session import session as S
+from bioscout.session import config as S
+from bioscout.session.iteration import Iteration
 
 
 def write(tmp_path, text):
@@ -35,14 +36,14 @@ MIXED = """\
 def test_absent_flag_changes_nothing(tmp_path):
     write(tmp_path, MIXED.replace(", calibrated: false", ""))
     for it in ("cateli__cal", "cateli__uncal"):
-        cfg = S.Iteration(str(tmp_path), it).trial_config("T")
+        cfg = Iteration(str(tmp_path), it).trial_config("T")
         assert "ceinms_calibrated" not in cfg
 
 
 def test_one_session_can_hold_both(tmp_path):
     write(tmp_path, MIXED)
-    cal = S.Iteration(str(tmp_path), "cateli__cal").trial_config("T")
-    unc = S.Iteration(str(tmp_path), "cateli__uncal").trial_config("T")
+    cal = Iteration(str(tmp_path), "cateli__cal").trial_config("T")
+    unc = Iteration(str(tmp_path), "cateli__uncal").trial_config("T")
     assert "ceinms_calibrated" not in cal      # session says nothing -> default
     assert unc["ceinms_calibrated"] is False
     # the rest of the ceinms block still reaches both
@@ -55,9 +56,9 @@ def test_iteration_overrides_the_session_default(tmp_path):
         "ceinms: {alpha: 1, beta: 1, gamma: 30, calibrated: false}").replace(
         "cateli__cal:   {generic: C.osim}",
         "cateli__cal:   {generic: C.osim, calibrated: true}"))
-    assert S.Iteration(str(tmp_path), "cateli__cal"
+    assert Iteration(str(tmp_path), "cateli__cal"
                        ).trial_config("T")["ceinms_calibrated"] is True
-    assert S.Iteration(str(tmp_path), "cateli__uncal"
+    assert Iteration(str(tmp_path), "cateli__uncal"
                        ).trial_config("T")["ceinms_calibrated"] is False
 
 
@@ -66,7 +67,7 @@ def test_session_level_still_applies_to_every_iteration(tmp_path):
         "ceinms: {alpha: 1, beta: 1, gamma: 30}",
         "ceinms: {alpha: 1, beta: 1, gamma: 30, calibrated: false}"))
     for it in ("cateli__cal", "cateli__uncal"):
-        assert S.Iteration(str(tmp_path), it
+        assert Iteration(str(tmp_path), it
                            ).trial_config("T")["ceinms_calibrated"] is False
 
 
@@ -77,7 +78,7 @@ def test_session_level_still_applies_to_every_iteration(tmp_path):
 def test_quoted_strings_are_not_all_true(tmp_path, value, expected):
     """`bool("false")` is True — the trap `yaml_bool` exists for."""
     write(tmp_path, MIXED.replace("calibrated: false", "calibrated: %s" % value))
-    cfg = S.Iteration(str(tmp_path), "cateli__uncal").trial_config("T")
+    cfg = Iteration(str(tmp_path), "cateli__uncal").trial_config("T")
     assert cfg["ceinms_calibrated"] is expected
 
 
@@ -88,9 +89,9 @@ def test_the_flag_travels_with_iterations_as_a_list(tmp_path):
           - {name: cal,   generic: C.osim}
           - {name: uncal, generic: C.osim, calibrated: false}
     """)
-    assert S.Iteration(str(tmp_path), "uncal"
+    assert Iteration(str(tmp_path), "uncal"
                        ).trial_config("T")["ceinms_calibrated"] is False
-    assert "ceinms_calibrated" not in S.Iteration(
+    assert "ceinms_calibrated" not in Iteration(
         str(tmp_path), "cal").trial_config("T")
 
 
@@ -123,9 +124,9 @@ def test_a_CALIBRATED_iteration_still_must_choose(tmp_path):
 
 def test_trial_config_omits_the_bounds_for_an_uncalibrated_arm(tmp_path):
     write(tmp_path, BOUNDS)
-    cal = S.Iteration(str(tmp_path), "cateli__tight").trial_config("T")
+    cal = Iteration(str(tmp_path), "cateli__tight").trial_config("T")
     assert cal["calibration_params"]["optimalFiberLength"] == "0.75 1.25"
-    unc = S.Iteration(str(tmp_path), "cateli__uncal").trial_config("T")
+    unc = Iteration(str(tmp_path), "cateli__uncal").trial_config("T")
     assert "calibration_params" not in unc
     assert "calibration_name" not in unc
     assert unc["ceinms_calibrated"] is False

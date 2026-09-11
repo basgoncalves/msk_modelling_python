@@ -56,6 +56,9 @@ BASES: Dict[str, Tuple[str, ...]] = {
     "so_model": ("iteration", "models", "generic_models", "project"),
     "ceinms_model": ("iteration", "models", "generic_models", "project"),
     "generic": ("generic_models", "models", "project", "iteration"),
+    # the current iteration keys: relative to the iteration folder, nothing else
+    "model_generic": ("iteration",),
+    "model_scaled": ("iteration",),
 }
 
 #: Anything not listed above: shared asset, project first.
@@ -166,20 +169,26 @@ def resolve_all(cfg: dict, session_dir=None, project_dir=None,
         if cfg.get(key):
             out.append(resolve(key, cfg[key], session_dir, project_dir, iteration_dir))
 
+    try:                                       # current key names, one model
+        from .config import normalise_iterations
+        cfg = normalise_iterations(cfg, warn=lambda m: None)
+    except Exception:                                    # noqa: BLE001
+        pass
     blocks = cfg.get("iterations") or cfg.get("models") or {}
     for name, block in blocks.items():
         if iteration and name != iteration:
             continue
         if not isinstance(block, dict):
             continue
-        for key in ("generic", "so_model", "ceinms_model", "markerset"):
+        for key in ("model_generic", "model_scaled", "markerset"):
             if block.get(key):
-                r = resolve(key, block[key], session_dir, project_dir,
+                r = resolve("model_scaled" if key == "markerset" else key,
+                            block[key], session_dir, project_dir,
                             iteration_dir or (Path(session_dir) / "3_iterations" / name
                                               if session_dir else None))
                 r.key = f"iterations.{name}.{key}"
                 # keep the base order of the underlying key for .preferred
-                BASES.setdefault(r.key, base_order(key))
+                BASES.setdefault(r.key, ("iteration",))
                 out.append(r)
     return out
 

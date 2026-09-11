@@ -46,6 +46,24 @@
       "file": "Pandy2021SJMSS.mat",
       "n_series": 24,
       "n_rows": 2424
+    },
+    "Athlete03_GPK_squat": {
+      "citation": "Goncalves, powerlifting model project \u2014 Athlete 03, GPK model, 2025-03-31 session (unpublished)",
+      "variable": "joint_angle, joint_moment, joint_contact_force, muscle_force",
+      "y_unit": "deg / N.m / xBW / N",
+      "notes": "Squat reference from this project's own OpenSim IK+ID and CEINMS runs, time-normalised to 0-100% of the trial. ONE athlete, two trials per condition (bodyweight and 35 kg), so 'lower'/'upper' are mean -+1 SD across trials, NOT a population range. Angles and moments are in the GPK model's own sign convention (knee flexion NEGATIVE) and are not flipped to any plotting convention. Built by bioscout-web/tools/squat_reference_from_sims.py.",
+      "file": "squat_curves.csv",
+      "n_series": 166,
+      "n_rows": 16766
+    },
+    "Richards2018": {
+      "citation": "Richards et al. 2018 (knee contact force, normal walking) \u2014 CITATION TO CONFIRM",
+      "variable": "knee_contact_force",
+      "y_unit": "xBW",
+      "notes": "Added to the manifest after being found in literature_curves.csv with no entry. Total, medial and lateral tibiofemoral contact force over the gait cycle, mean with a +-1 SD band. The citation line needs checking against the original before it is quoted.",
+      "file": "(unknown \u2014 rows were already in literature_curves.csv)",
+      "n_series": 9,
+      "n_rows": 165
     }
   },
   "skipped": {

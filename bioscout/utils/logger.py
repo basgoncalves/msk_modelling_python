@@ -102,22 +102,53 @@ class AppLogger:
         self.logger.info(f"===== msk_modelling_python — {_mode} run — "
                          f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} =====")
 
-        # Console handler with UTF-8 encoding and error handling
+        # Console handler. Its stream is NOT reconfigured here: that changed
+        # the encoding of the process's stderr as a side effect of importing
+        # this module. capture_std_streams() does it, for the app only.
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.INFO)
         console_handler.setFormatter(simple_formatter)
-        if hasattr(console_handler.stream, 'reconfigure'):
-            try:
-                console_handler.stream.reconfigure(encoding='utf-8', errors='replace')
-            except Exception:
-                pass
         self.logger.addHandler(console_handler)
 
-        # Tee stdout/stderr so print() calls also appear in the log file
-        if self.file_handler is not None:
-            import sys as _sys
-            _sys.stdout = _TeeStream(_sys.stdout, self.file_handler.stream)
-            _sys.stderr = _TeeStream(_sys.stderr, self.file_handler.stream)
+        # stdout/stderr are left alone. This module is imported by library
+        # code too (xml_utils, analysis_runner, plot.summary), and the tee that
+        # used to be installed right here replaced sys.stdout for whoever
+        # imported it -- a notebook's print() calls then went to this log
+        # instead of the cell. The CLI/GUI opt in via capture_std_streams().
+        self._captured = None
+
+    def capture_std_streams(self) -> None:
+        """Tee sys.stdout/stderr into this log so print() output is kept too.
+
+        For bioscout's OWN entry points (the CLI and the GUI, both through
+        ``__main__``), which own the console. Library code must never call it.
+        Idempotent. Also switches a real console to UTF-8 so the unicode in
+        progress messages cannot raise UnicodeEncodeError on a cp1252 console.
+        """
+        if self._captured is not None or self.file_handler is None:
+            return
+        import sys as _sys
+        for _s in (_sys.stdout, _sys.stderr):
+            if hasattr(_s, 'reconfigure'):
+                try:
+                    _s.reconfigure(encoding='utf-8', errors='replace')
+                except Exception:
+                    pass
+        self._captured = (_sys.stdout, _sys.stderr)
+        _sys.stdout = _TeeStream(_sys.stdout, self.file_handler.stream)
+        _sys.stderr = _TeeStream(_sys.stderr, self.file_handler.stream)
+
+    def release_std_streams(self) -> None:
+        """Undo :meth:`capture_std_streams` (if our tee is still on top)."""
+        if self._captured is None:
+            return
+        import sys as _sys
+        out, err = self._captured
+        self._captured = None
+        if isinstance(_sys.stdout, _TeeStream) and _sys.stdout._orig is out:
+            _sys.stdout = out
+        if isinstance(_sys.stderr, _TeeStream) and _sys.stderr._orig is err:
+            _sys.stderr = err
 
     # ------------------------------------------------------------------
     # Level methods.
@@ -239,9 +270,11 @@ class AppLogger:
         self.log_dir = project_log_dir
         self.current_log_file = str(new_log_file)
 
-        # Redirect the tee streams to the new file
+        # Redirect the tee streams (if capture_std_streams() installed them).
+        # isinstance against THIS module's class: the old
+        # `from utils.logger import _TeeStream` could load a second copy of the
+        # module under another name, whose class never matched.
         import sys as _sys
-        from utils.logger import _TeeStream
         if isinstance(_sys.stdout, _TeeStream):
             _sys.stdout._log = new_handler.stream
         if isinstance(_sys.stderr, _TeeStream):

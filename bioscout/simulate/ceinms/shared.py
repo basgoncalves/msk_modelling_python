@@ -21,16 +21,35 @@ import pandas as pd
 import scipy
 import zipfile
 
-_utils_dir = str(Path(__file__).parent)
-_app_dir = str(Path(__file__).parent.parent)
+# The bare `import utils` below resolves through the bioscout PACKAGE folder
+# (bioscout/utils/), so that folder is what goes on sys.path.
+#
+# This block used to insert this file's own folder and its parent: right when
+# the module lived at bioscout/ceinms.py, wrong since it moved to
+# bioscout/simulate/ceinms/ -- it put bioscout/simulate on sys.path, which
+# makes bioscout/simulate/opensim.py importable as a top-level `opensim`. The
+# process that did it never noticed (the real OpenSim was already imported),
+# but child processes inherit sys.path, so every ProcessPoolExecutor worker's
+# first `import opensim` got bioscout's module instead: "module 'opensim' has
+# no attribute 'Model'", and parallel JCF contributions never ran on Windows
+# (found by the overnight bench, 2026-09-11). Never put a folder that holds an
+# opensim.py on sys.path.
+_app_dir = str(Path(__file__).resolve().parents[2])        # .../bioscout (the package)
 if _app_dir not in sys.path:
     sys.path.insert(0, _app_dir)
-if _utils_dir in sys.path:
-    sys.path.remove(_utils_dir)
-sys.path.insert(0, _utils_dir)
+for _stale in (str(Path(__file__).parent), str(Path(__file__).parent.parent)):
+    while _stale in sys.path:           # left by an older copy of this module
+        sys.path.remove(_stale)
 
 import utils
-import openSim
+# `openSim` is bioscout.simulate.opensim. The bare name resolves only through
+# the sys.modules alias core.analysis._force_load_helper registers -- it used
+# to fall through to bioscout/simulate on sys.path, the entry removed above.
+try:
+    import openSim
+except ImportError:
+    from bioscout.simulate import opensim as openSim
+    sys.modules.setdefault("openSim", openSim)
 
 # `settings` is resolved LIVE from sys.modules at attribute-access time rather
 # than bound once at import time. Project() loads the project's settings.py and

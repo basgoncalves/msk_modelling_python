@@ -22,6 +22,11 @@ from bioscout.model.edit.osim_ops import (MAX_EVAL_POINTS, MUSCLE_OPT_MA_TOL,
                                           MUSCLE_OPT_SKIP_COORDS,
                                           sampleMuscleQuantities)
 
+#: This optimiser's own logger. Its records go to the per-run muscle log only
+#: (propagate=False), exactly as before -- see optimMuscleParams.
+_log = logging.getLogger("bioscout.model.muscle_optimize")
+_log.propagate = False
+
 
 def mean_squared_error(y_true, y_pred, squared=True):
     """Local RMSE/MSE helper (avoids sklearn version differences over the
@@ -163,7 +168,19 @@ def optimMuscleParams(osimModel_ref_filepath, osimModel_targ_filepath, N_eval, l
                     processed_muscles.add(muscle_name)
         print(f'Found {len(processed_muscles)} already processed muscles in log file')
     
-    logging.basicConfig(filename=str(log_file_path), filemode='a', format='%(levelname)s:%(message)s', level=logging.INFO)
+    # A handler on this module's logger, NOT logging.basicConfig(). basicConfig
+    # configured the ROOT logger -- the application's -- so every other
+    # library's records in the process were written into this muscle log, and,
+    # being once-per-process, it silently ignored the log path of every later
+    # call (a second model's records went to the first model's log, which the
+    # resume check above then read). Handlers from a previous call are dropped.
+    for _h in list(_log.handlers):
+        _log.removeHandler(_h)
+        _h.close()
+    _fh = logging.FileHandler(str(log_file_path), mode='a', encoding='utf-8')
+    _fh.setFormatter(logging.Formatter('%(levelname)s:%(message)s'))
+    _log.addHandler(_fh)
+    _log.setLevel(logging.INFO)
         
     # get muscles
     muscles = osimModel_ref.getMuscles()
@@ -223,7 +240,7 @@ def optimMuscleParams(osimModel_ref_filepath, osimModel_targ_filepath, N_eval, l
         if len(okList) < 2:
             LmOptLts_opt[n_mus] = [curr_mus_scaled.getOptimalFiberLength(),
                                    curr_mus_scaled.getTendonSlackLength()]
-            logging.warning('Only %d valid sample(s) for %s; kept scaled '
+            _log.warning('Only %d valid sample(s) for %s; kept scaled '
                             'parameters (not optimised).'
                             % (len(okList), curr_mus_name))
             continue
@@ -258,7 +275,7 @@ def optimMuscleParams(osimModel_ref_filepath, osimModel_targ_filepath, N_eval, l
             x, *_ = np.linalg.lstsq(A, b, rcond=None)
             if np.min(x) <= 0:
                 x = optimize.nnls(np.dot(A.T , A), np.dot(A.T , b))[0]
-            logging.warning('Singular system for %s; used least-squares fallback.'
+            _log.warning('Singular system for %s; used least-squares fallback.'
                             % curr_mus_name)
         LmOptLts_opt[n_mus] = x
         
@@ -277,7 +294,7 @@ def optimMuscleParams(osimModel_ref_filepath, osimModel_targ_filepath, N_eval, l
             LmOptLts_opt[n_mus] = x
             line5 = 'Opt params (optimize.nnls): ' + str(LmOptLts_opt[n_mus])
             
-            logging.info(line0 + line1 + line2 + line3 + line4 + line5 + '\n')
+            _log.info(line0 + line1 + line2 + line3 + line4 + line5 + '\n')
             # In our tests, if something goes wrong is generally tendon slack 
             # length becoming negative or zero because tendon length doesn't change
             # throughout the range of motion, so lowering the rank of A.
@@ -286,7 +303,7 @@ def optimMuscleParams(osimModel_ref_filepath, osimModel_targ_filepath, N_eval, l
                 Lten_ref = [musc_param_iter[2] for musc_param_iter in Mus_ref]
                 Lten_ref = np.array([Lten_ref[index] for index in okList])
                 if (np.max(Lten_ref) - np.min(Lten_ref)) < 0.0001:
-                    logging.warning(' Tendon length not changing throughout range of motion')
+                    _log.warning(' Tendon length not changing throughout range of motion')
                 
                 # calculating proportion of tendon and fiber
                 Lten_fraction = Lten_ref/MTL_ref
@@ -328,7 +345,7 @@ def optimMuscleParams(osimModel_ref_filepath, osimModel_targ_filepath, N_eval, l
         line6 = 'fval                 : ' + str(fval) + '\n'
         line7 = 'var from template [%]: ' + str(100*(np.abs(LmOptLts - LmOptLts_opt[n_mus])) / LmOptLts) + '%' + '\n'
         
-        logging.info(line0 + line1 + line2 + line3 + line4 + line5 + line6 + line7 + '\n')
+        _log.info(line0 + line1 + line2 + line3 + line4 + line5 + line6 + line7 + '\n')
               
         # SIMULATION INFO AND RESULTS
         

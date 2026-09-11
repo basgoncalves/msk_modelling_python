@@ -30,6 +30,10 @@ the extractor's round-trip exact::
       MUSCLE_GROUPS: {...}
     ceinms:                        # -> attributes set on CEINMSSettings
       calibration_trial_names: [SquatA1]
+    plot:                          # -> attributes set on PlottingSettings
+      dpi: 300
+    summary:                       # -> attributes set on SummarySettings
+      npts: 101
 
 Deliberately NOT written by the extractor (they are not lab facts):
 run selection (``SUBJECTS``, ``sessions``, ``trial_list``, ``RUN_*``/``DO_*``
@@ -131,7 +135,9 @@ def apply(base, data, source="project.yaml"):
     Returns the number of attributes applied."""
     n = 0
     for section, cls_name in (("batch", "BatchSettings"),
-                              ("ceinms", "CEINMSSettings")):
+                              ("ceinms", "CEINMSSettings"),
+                              ("plot", "PlottingSettings"),
+                              ("summary", "SummarySettings")):
         mapping = data.get(section)
         if not mapping:
             continue
@@ -263,7 +269,9 @@ def extract(settings_module, baseline=None):
         baseline = _bundled_settings()
     data = {"schema": 1}
     for section, cls_name in (("batch", "BatchSettings"),
-                              ("ceinms", "CEINMSSettings")):
+                              ("ceinms", "CEINMSSettings"),
+                              ("plot", "PlottingSettings"),
+                              ("summary", "SummarySettings")):
         cls = getattr(settings_module, cls_name, None)
         if cls is None:
             continue

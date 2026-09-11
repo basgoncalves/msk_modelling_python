@@ -42,6 +42,114 @@ import sys as _sys
 from pathlib import Path as _Path
 
 
+# ---------------------------------------------------------------------------
+# Export speed + log volume (2026-09-11)
+# ---------------------------------------------------------------------------
+#: One OpenSim C3D parse per file per main() call. time range, markers and GRF
+#: each used to call C3DFileAdapter.read() on the same file -- three full
+#: parses of a 5-8 MB capture per trial. Only active INSIDE main(): the markers
+#: table is rotated in place, so a cache that outlived the call would hand a
+#: second standalone export_markers() an already-rotated table.
+_C3D_TASKS = None
+
+
+def _c3d_task(c3d_filepath):
+    """(adapter, task) for ``c3d_filepath`` -- parsed once while main() runs."""
+    key = os.path.abspath(c3d_filepath)
+    if _C3D_TASKS is not None and key in _C3D_TASKS:
+        return _C3D_TASKS[key]
+    adapter = opensim.C3DFileAdapter()
+    adapter.setLocationForForceExpression(
+        opensim.C3DFileAdapter.ForceLocation_CenterOfPressure)
+    hit = (adapter, adapter.read(c3d_filepath))
+    if _C3D_TASKS is not None:
+        _C3D_TASKS[key] = hit
+    return hit
+
+
+def _verbose():
+    """Full per-step export output instead of one line per trial:
+    ``BIOSCOUT_VERBOSE=1``."""
+    return os.environ.get("BIOSCOUT_VERBOSE", "").strip().lower() in (
+        "1", "true", "yes", "on")
+
+
+#: Lines from the export steps that are kept in quiet mode: anything that can
+#: mean a problem. The rest ("Successfully exported ...", "Cleaning NaN rows",
+#: the 16-line EMG channel listing) is folded into the one-line summary.
+_KEEP_RE = re.compile(r"warn|error|fail|traceback|exception|missing|dropped|"
+                      r"not exported|skipp|could not|unable|removed \d|"
+                      r"cropped \d|invalid", re.IGNORECASE)
+#: Notes identical for every trial of a session (e.g. the FAIS bare-channel
+#: notice) are printed the first time only.
+_SEEN_NOTES = set()
+
+
+def quiet_call(fn, *args, **kwargs):
+    """Call ``fn`` with its stdout folded away, keeping only lines that can
+    mean a problem (same rule as main()). For chatty helpers run once per trial
+    -- create_grf_xml prints ~12 lines per trial. BIOSCOUT_VERBOSE=1 shows all."""
+    if _verbose():
+        return fn(*args, **kwargs)
+    import contextlib as _cl
+    import io as _io
+    buf = _io.StringIO()
+    try:
+        with _cl.redirect_stdout(buf):
+            return fn(*args, **kwargs)
+    finally:
+        for ln in buf.getvalue().splitlines():
+            if _KEEP_RE.search(ln) and ln not in _SEEN_NOTES:
+                _SEEN_NOTES.add(ln)
+                print(ln)
+
+
+def _write_csv_repr(df, path):
+    """``df.to_csv(path, index=False)`` for an all-float frame, byte for byte,
+    at a fraction of the cost: pandas writes each float as repr(), which is
+    what this does too -- just without pandas' per-value formatter machinery.
+    Anything that is not plain float columns goes through pandas as before."""
+    import csv as _csv
+    cols = [str(c) for c in df.columns]
+    if not all(k == "f" for k in df.dtypes.map(lambda d: d.kind)) or any(
+            any(ch in c for ch in ',"\n\r') for c in cols):
+        df.to_csv(path, index=False)
+        return
+    vals = df.to_numpy(dtype=float)
+    nl = os.linesep
+    nan = np.isnan(vals)
+    # utf-8 like pandas (not the Windows locale codec), written in blocks of
+    # rows rather than one write() -- and one codec call -- per row.
+    with open(path, "w", newline="", encoding="utf-8") as fh:
+        fh.write(",".join(cols) + nl)
+        block = []
+        for row, isn in zip(vals.tolist(), nan):
+            block.append(",".join("" if n else repr(v) for v, n in zip(row, isn))
+                         if isn.any() else ",".join(map(repr, row)))
+            if len(block) >= 4000:
+                fh.write(nl.join(block) + nl); block = []
+        if block:
+            fh.write(nl.join(block) + nl)
+
+
+def _export_summary(trial, text, seconds):
+    """One line for a trial's c3d export, built from what the steps reported."""
+    def grab(pat, fmt):
+        m = re.search(pat, text)
+        return fmt(*m.groups()) if m else None
+    parts = [
+        grab(r"\[markers\] (\d+) labels", lambda n: f"markers {n}"),
+        "GRF" if re.search(r"exported \S*grf\.mot", text) else "no GRF",
+        grab(r"\[EMG\] (\d+) analog channel", lambda n: f"analog {n} ch"),
+        grab(r"effective (\d+) Hz \| \d+ samples -> ([\d.]+) s",
+             lambda hz, sec: f"{hz} Hz {sec} s"),
+        grab(r"\[EMG\] channel source: (\d+) of (\d+)",
+             lambda a, b: f"EMG {a}/{b}"),
+    ]
+    return (f"  [c3d] {trial}: " + " | ".join(p for p in parts if p)
+            + f" | {seconds:.1f} s")
+
+
 def _resolve_utils():
     """Return the initialized utils module, whether it was loaded as a package
     submodule (bioscout.utils) or as a top-level module (utils)."""
@@ -73,6 +181,18 @@ def _create_opensim_storage(time, data, column_names):
         labels.append(element)
     sto = opensim.Storage()
     sto.setColumnLabels(labels)
+    # Whole rows at a time (2026-09-11). The element-by-element ArrayDouble
+    # loop was 1.1 M Python->C++ calls per trial -- the single slowest thing in
+    # the export. Same values in, same Storage out (NaN -> 0 as before).
+    try:
+        arr = np.nan_to_num(np.array(data.to_numpy(), dtype=float), nan=0.0)
+        make = opensim.Vector.createFromMat
+        for i in range(arr.shape[0]):
+            sto.append(float(time[i]), make(np.ascontiguousarray(arr[i])))
+        return sto
+    except Exception:                  # older OpenSim without to_numpy/createFromMat
+        sto = opensim.Storage()
+        sto.setColumnLabels(labels)
     for i in range(data.nrow()):
         row = opensim.ArrayDouble()
         for j in range(data.ncol()):
@@ -447,10 +567,11 @@ def write_mot(analog_df, labels, mot_file):
         # Column labels (tab-separated)
         writer.write("\t".join(labels) + "\n")
     
-        # Data rows (right-aligned with 8 decimal places, tab-separated)
-        for i, row in analog_df.iterrows():
-            values_str = "\t".join([f"{val:16.8f}" for val in row.values])
-            writer.write(values_str + "\n")
+        # Data rows (right-aligned with 8 decimal places, tab-separated).
+        # np.savetxt applies the same "%16.8f" per value; iterrows() built a
+        # pandas Series for each of ~15 000 rows (2026-09-11: 1.6 s/trial).
+        np.savetxt(writer, analog_df.to_numpy(dtype=float), fmt="%16.8f",
+                   delimiter="\t", newline="\n")
 
 def rotate_data_table(table, axis, deg):
     """Rotate OpenSim::TimeSeriesTableVec3 entries using an axis and angle.
@@ -527,7 +648,11 @@ def export_emg(c3d_filepath, emg_strings_list=['emg'], reset_time=True,
     output_dir = output_dir or os.path.dirname(c3d_filepath)
     print(f"Reading C3D file: {c3d_filepath}")
     try:
-        reader = c3d.Reader(open(c3d_filepath, "rb"))
+        _c3d_fh = open(c3d_filepath, "rb")
+        with warnings.catch_warnings():     # MVIC captures have no markers
+            warnings.filterwarnings('ignore', message='No point data found',
+                                    category=UserWarning)
+            reader = c3d.Reader(_c3d_fh)
     except Exception as e:
         print(f"Error: Could not open or read the C3D file. {e}")
         return 1
@@ -557,16 +682,26 @@ def export_emg(c3d_filepath, emg_strings_list=['emg'], reset_time=True,
 
     # Collect ALL analog sub-frames (analog is sampled faster than markers). The
     # old code took only sub-frame [0], downsampling EMG to the marker rate.
-    rows = []
+    # Vectorised: each frame's analog block is (channels, sub-frames); stacking
+    # the blocks and transposing gives exactly the rows the old per-sample
+    # Python loop built (sub-frame s of a frame = a[:, s]), without 14 000 x 57
+    # list appends per trial.
+    blocks = []
     apf = None
-    with warnings.catch_warnings():
-        warnings.filterwarnings('ignore', message='No point data found', category=UserWarning)
-        for frame_no, points, analog in reader.read_frames():
-            a = np.asarray(analog)
-            if apf is None:
-                apf = a.shape[1] if a.ndim == 2 else 1
-            for s in range(apf):
-                rows.append([(a[i][s] if a.ndim == 2 else a[i]) for i in range(len(analog_labels))])
+    try:
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', message='No point data found', category=UserWarning)
+            for frame_no, points, analog in reader.read_frames():
+                a = np.asarray(analog)
+                if a.ndim == 1:
+                    a = a[:, None]
+                if apf is None:
+                    apf = a.shape[1]
+                blocks.append(a)
+    finally:
+        _c3d_fh.close()
+    rows = (np.concatenate(blocks, axis=1).T if blocks
+            else np.empty((0, len(analog_labels))))
 
     apf = apf or 1
     # Effective sample rate of the collected rows = point_rate * rows-per-frame.
@@ -612,7 +747,7 @@ def export_emg(c3d_filepath, emg_strings_list=['emg'], reset_time=True,
 
     # Save analog to csv
     analog_path = os.path.join(output_dir, "analog.csv")
-    analog_df.to_csv(analog_path, index=False)
+    _write_csv_repr(analog_df, analog_path)
     print(f"Successfully exported {analog_path}")
 
     # Write EMG MOT
@@ -645,28 +780,13 @@ def export_emg(c3d_filepath, emg_strings_list=['emg'], reset_time=True,
         write_mot(analog_df, emg_labels, emg_mot_path)
         print(f"Successfully exported {emg_mot_path}")
 
-        # Filter emg mot only if it was created. Keep the raw emg.mot even if
-        # filtering fails (e.g. non-physiological 'Voltage_*' channels), and
-        # report the real reason instead of silently failing.
-        try:
-            fs = float(analog_rate)   # true C3D analog rate (not assumed/derived)
-            # EMG envelope filter params (configurable via settings.BatchSettings).
-            # Lower envelope low-pass -> smoother linear envelope (4 Hz suits
-            # locomotion; raise for fast/ballistic tasks).
-            try:
-                import settings as _sm; _bs = _sm.BatchSettings
-            except Exception:
-                _bs = None
-            _lp   = float(getattr(_bs, 'emg_envelope_lowpass_hz', 4.0))
-            _lo   = float(getattr(_bs, 'emg_bandpass_low_hz', 20.0))
-            _obp  = int(getattr(_bs, 'emg_bandpass_order', 4))
-            _olp  = int(getattr(_bs, 'emg_envelope_order', 4))
-            _hi   = getattr(_bs, 'emg_bandpass_high_hz', None)
-            highcut_bp = float(_hi) if _hi else fs/2 * 0.9
-            filter_emg(emg_path=emg_mot_path, highcut_bp=highcut_bp, lowcut_bp=_lo,
-                       lowcut_lp=_lp, order_bp=_obp, order_lp=_olp)
-        except Exception as _fe:
-            print(f"Warning: EMG filtering skipped ({type(_fe).__name__}: {_fe}); raw emg.mot kept.")
+        # No EMG filtering here any more (2026-09-11). This used to call
+        # filter_emg_file(), which only filters columns whose name starts with
+        # "emg" -- so on "Voltage_*" / "EMG_Channels_*" labels it filtered NOTHING,
+        # yet still wrote a raw copy as emg_filtered.mot, with BatchSettings'
+        # band-pass instead of session.yaml's. Analyse.run_emg_filter() writes
+        # the real emg_filtered.mot (emg/filter.py settings) straight after the
+        # export, and the session normalise re-filters the RAW emg.mot itself.
     else:
         print("Warning: No EMG channels found among available analog channels.")
         print(f"[DEBUG] Searched for {len(emg_strings_list)} patterns in {len(analog_labels)} available channels")
@@ -674,14 +794,11 @@ def export_emg(c3d_filepath, emg_strings_list=['emg'], reset_time=True,
 def export_markers(c3d_filepath, strings_to_remove=[], output_dir=None):
     print(f"Exporting markers for {c3d_filepath}")
 
-    # OpenSim data adapters
-    adapter = opensim.C3DFileAdapter()
-    adapter.setLocationForForceExpression(
-        opensim.C3DFileAdapter.ForceLocation_CenterOfPressure)
+    # OpenSim data adapters (the c3d parse is shared within main())
+    adapter, task = _c3d_task(c3d_filepath)
     trc_adapter = opensim.TRCFileAdapter()
 
     # get markers
-    task = adapter.read(c3d_filepath)
     markers_task = adapter.getMarkersTable(task)
     output_dir = output_dir or os.path.dirname(c3d_filepath)
 
@@ -838,10 +955,7 @@ def export_grf(c3d_filepath, output_dir=None):
         return transformed
 
     print(f"Exporting ground reaction forces for {c3d_filepath}")
-    adapter = opensim.C3DFileAdapter()
-    adapter.setLocationForForceExpression(opensim.C3DFileAdapter.ForceLocation_CenterOfPressure)
-
-    c3d_data = adapter.read(c3d_filepath)
+    adapter, c3d_data = _c3d_task(c3d_filepath)    # parse shared within main()
     forces_table = adapter.getForcesTable(c3d_data)
     # NOTE: do NOT rotate here. The previous `rotate_data_table([1,0,0],180)`
     # negated Y and Z, which flipped the vertical force sign and left the data
@@ -911,8 +1025,7 @@ def get_time_range_from_c3d(c3d_filepath):
     then falls back to the markers table.  Returns None if both fail.
     """
     try:
-        adapter = opensim.C3DFileAdapter()
-        task = adapter.read(c3d_filepath)
+        adapter, task = _c3d_task(c3d_filepath)
         # Forces table uses analog rate — always available when GRF channels exist
         for getter in (adapter.getForcesTable, adapter.getMarkersTable):
             try:
@@ -952,6 +1065,35 @@ def main(c3d_filepath, emg_string_list=['emg'], create_folder=False,
         if create_folder:
             output_dir = os.path.join(output_dir, os.path.basename(c3d_filepath).replace('.c3d', ''))
     os.makedirs(output_dir, exist_ok=True)
+    global _C3D_TASKS
+    import contextlib as _cl
+    import io as _io
+    import time as _time
+    _t0 = _time.time()
+    _C3D_TASKS = {}                      # one OpenSim parse for all three steps
+    _buf = _io.StringIO()
+    _quiet = not _verbose()
+    try:
+        with (_cl.redirect_stdout(_buf) if _quiet else _cl.nullcontext()):
+            time_range = _main_steps(c3d_filepath, emg_string_list, output_dir,
+                                     emg_channels)
+    finally:
+        _C3D_TASKS = None
+    if _quiet:
+        _text = _buf.getvalue()
+        for _ln in _text.splitlines():
+            if _KEEP_RE.search(_ln):
+                if _ln in _SEEN_NOTES:
+                    continue
+                _SEEN_NOTES.add(_ln)
+                print(_ln)
+        print(_export_summary(os.path.splitext(os.path.basename(c3d_filepath))[0],
+                              _text, _time.time() - _t0))
+    return time_range
+
+
+def _main_steps(c3d_filepath, emg_string_list, output_dir, emg_channels):
+    """The three exports main() runs (markers, GRF, analog/EMG)."""
     print(f"Exporting c3d -> {output_dir}")
 
     # Read time range before exports (C3D file intact, forces table is reliable)

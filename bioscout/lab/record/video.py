@@ -15,8 +15,11 @@ import mediapipe as mp
 from mediapipe.tasks import python as mp_python
 from mediapipe.tasks.python import vision as mp_vision
 
-# Fix stdout encoding on Windows to support Unicode characters
-if sys.platform == 'win32':
+# Fix stdout encoding on Windows to support Unicode characters -- only when
+# run as a script. Imported (GUI, notebook, a user's script) the streams are
+# the caller's; bioscout's own entry point switches the console to UTF-8 in
+# AppLogger.capture_std_streams().
+if sys.platform == 'win32' and __name__ == "__main__":
     # Reconfigure stdout/stderr for UTF-8, but only if they haven't already been
     # replaced by a logging tee or similar wrapper (replacing a tee would lose
     # log output and could corrupt the stream).
@@ -193,14 +196,14 @@ NECK_MODEL_CONFIG = MotModelConfig(
     include_ball=False,
 )
 
-# GPK_generic.osim — Lower body + lumbar spine (pelvis, hips, knees, ankles, lumbar)
+# GPK_v4_016.osim — Lower body + lumbar spine (pelvis, hips, knees, ankles, lumbar)
 #
 # "midpoint_hips" and "midpoint_shoulders" are synthetic landmarks computed
 # on-the-fly in write_opensim_mot() as the average of the left/right pair.
 # Pelvis translations are approximated from pixel position scaled to metres.
-GPK_GENERIC_CONFIG = MotModelConfig(
-    name='GPK_generic',
-    osim_path=os.path.join(MODELS_DIR, 'GPK_generic.osim'),
+GPK_V4_CONFIG = MotModelConfig(
+    name='GPK_v4_016',
+    osim_path=os.path.join(MODELS_DIR, 'GPK_v4_016.osim'),
     angle_columns=[
         # Pelvis orientation (3 DOF) — 2-D approximations from sagittal view
         # tilt  : forward tilt of trunk — shoulder-to-hip angle vs vertical
@@ -297,7 +300,7 @@ def discover_available_models():
     models['arm26_ball'] = ARM26_BALL_CONFIG
     models['full_body_with_ball'] = FULL_BODY_CONFIG
     models['Neck_model'] = NECK_MODEL_CONFIG
-    models['GPK_generic'] = GPK_GENERIC_CONFIG
+    models['GPK_v4_016'] = GPK_V4_CONFIG
 
     # Scan directory for .osim files
     try:
@@ -1101,7 +1104,7 @@ class MovementTracker:
             return
 
         # (panel_label, [(series_label, lm_a, lm_vertex, lm_b, color), ...])
-        # For GPK_generic: show right and left in same subplot for easier comparison
+        # For GPK_v4_016: show right and left in same subplot for easier comparison
         PANELS = [
             ('Hip Flexion', [
                 ('Right', 'right_hip',      'right_knee',     'right_ankle',      '#d94f1e'),
@@ -1478,7 +1481,7 @@ class MovementTracker:
                 angle_vals.append(val)
 
             # -------------------------------------------------------
-            # GPK_generic override: replace hip/knee/ankle with
+            # GPK_v4_016 override: replace hip/knee/ankle with
             # segment-angle-based values that are properly signed.
             #
             # Hip flexion  = angle of thigh relative to pelvis axis.
@@ -1486,7 +1489,7 @@ class MovementTracker:
             # Knee flexion = absolute bend (0 = straight, 150 = full flex).
             # Ankle        = foot vs shank angle (dorsi/plantar flex).
             # -------------------------------------------------------
-            if model_config.name == 'GPK_generic' and lm is not None:
+            if model_config.name == 'GPK_v4_016' and lm is not None:
                 col_idx = {c[0]: i for i, c in enumerate(model_config.angle_columns)}
 
                 # Determine facing direction from right foot:

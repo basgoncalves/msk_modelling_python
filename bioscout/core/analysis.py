@@ -87,6 +87,7 @@ LAYOUT_DIRS = {
     "static_optimisation": "static_optimisation",
     "ceinms": "ceinms",
     "joint_contact_forces": "joint_contact_forces",  # JRA
+    "mrs": "mrs",                        # Muscle Redundancy Solver (KU Leuven)
 }
 
 
@@ -99,6 +100,7 @@ def _default_layout_paths():
     I = LAYOUT_DIRS["inputs"]; E = LAYOUT_DIRS["extbio"]
     M = LAYOUT_DIRS["muscle_analysis"]; S = LAYOUT_DIRS["static_optimisation"]
     C = LAYOUT_DIRS["ceinms"]; JCF = LAYOUT_DIRS["joint_contact_forces"]
+    R = LAYOUT_DIRS["mrs"]
     C_CAL = j("..", "ceinms_calibration")   # session-level CEINMS calibration
     d = {
         # non-path defaults (kept for parity with the old Inputs.__init__)
@@ -137,6 +139,11 @@ def _default_layout_paths():
         "ceinms_calibration_setup": j(C_CAL, "calibrationSetup.xml"),
         "ceinms_excitation_generator": j(C_CAL, "excitationGenerator.xml"),
         "ceinms_calibration_dir": j(C_CAL, "output"),
+        # Muscle Redundancy Solver
+        "mrs_dir_out": R, "mrs_config": j(R, "mrs_config.json"),
+        "mrs_results": j(R, "MRS_Results.mat"),
+        "mrs_activations": j(R, "MRS_genericMRS_activation.sto"),
+        "mrs_forces": j(R, "MRS_genericMRS_force.sto"),
     }
     d["jra_forces"] = d["so_forces"]
     d["ceinms_excitations"] = d["emg_filtered_normalised"]
@@ -407,7 +414,8 @@ class Subject:
             names = sorted(d for d in os.listdir(base) if os.path.isdir(os.path.join(base, d)))
         else:
             names = []
-        from bioscout.session.session import Iteration as _S, find_session_dir as _fsd
+        from bioscout.session.iteration import Iteration as _S
+        from bioscout.session.recording import find_session_dir as _fsd
         _it = self._iteration()
         out = []
         for _n in names:
@@ -422,7 +430,8 @@ class Subject:
 
     def get_session(self, name):
         """Session by name, within THIS subject."""
-        from bioscout.session.session import Iteration as _S, find_session_dir as _fsd
+        from bioscout.session.iteration import Iteration as _S
+        from bioscout.session.recording import find_session_dir as _fsd
         return _S(_fsd(name, subject=self.name), self._iteration())
 
     def trials(self, session=None, force_type="SO"):
@@ -745,7 +754,7 @@ def _trial_class():
     return Analyse
 
 
-# NOTE: the Session class now lives in bioscout.session.session
+# NOTE: the Session class now lives in bioscout.session.recording
 
 _DEFAULT_PALETTE = ["green", "blue", "red", "purple", "orange",
                     "brown", "teal", "magenta", "olive", "cyan"]
@@ -816,6 +825,41 @@ def discover_subjects(models_dir=None, session=None, names=None,
 # ===========================================================================
 # Project bootstrap
 # ===========================================================================
+
+def _set_roster(batch_settings, subjects, simulations_dir=None):
+    """Replace a settings roster and everything the template derives from it
+    (SUBJECTS_BY_NAME, model_config, MODEL_FILES, ...), so no attribute keeps
+    pointing at a roster that is no longer the project's."""
+    subs = list(subjects or [])
+    bs = batch_settings
+    bs.ALL_SUBJECTS = subs
+    bs.SUBJECTS = subs
+    bs.SUBJECTS_BY_NAME = {s.name: s for s in subs}
+    bs.model_config = build_model_config(subs) if subs else {}
+    bs.MODEL_FILES = {s.name: s.model_ceinms for s in subs}
+    bs.SETUP_FOLDERS = {s.name: getattr(s, "setup_folder", None) for s in subs}
+    # {session_path: static_trial}. A subject with no fixed session gets every
+    # session folder it actually has on disk, not its bare subject folder.
+    sessions = {}
+    for s in subs:
+        if getattr(s, "session", None) or not simulations_dir:
+            try:
+                sessions.update(sessions_from_subjects([s], simulations_dir))
+            except Exception:                                  # noqa: BLE001
+                pass
+            continue
+        root = os.path.join(str(simulations_dir), s.name)
+        try:
+            names = sorted(d for d in os.listdir(root)
+                           if os.path.isdir(os.path.join(root, d))
+                           and not d.startswith((".", "_")))
+        except OSError:
+            names = []
+        for sess in names:
+            sessions[os.path.join(root, sess)] = (getattr(s, "static_trial", None)
+                                                   or "static1")
+    bs.sessions = sessions
+
 
 def _force_load_helper(utils, name):
     """Load a lazily-imported helper (openSim/ceinms) onto ``utils``.
@@ -984,16 +1028,22 @@ class Project:
     """A BioScout project bound to a folder.
 
     The folder is expected to hold ``models/``, ``simulations/``, ``results/``
-    and a project ``settings.py``. Construction wires the package to it.
+    and, optionally, a ``project.yaml`` (lab facts) or a legacy per-project
+    ``settings.py``. Construction wires the package to it. A folder with
+    neither runs on bioscout's bundled defaults — see
+    ``docs/IMPLEMENTATIONS.md`` §2.9.
 
     Attributes
     ----------
     dir : Path        the project root
     utils : module    bioscout.utils, with OpenSim/CEINMS loaded and dirs set
-    settings : module the project's settings.py
+    settings : module the resolved settings (project's settings.py, or
+                      bioscout's bundled template, with project.yaml
+                      overlaid on top either way)
     """
 
-    def __init__(self, project_dir=None, verbose=True, setup_editor=True):
+    def __init__(self, project_dir=None, verbose=True, setup_editor=True,
+                 scaffold_settings=False):
         self.dir = _find_project_root(project_dir)
         sys.path.insert(0, str(self.dir))
         os.chdir(self.dir)   # reset cwd (Analyse() chdir's into trial folders)
@@ -1012,7 +1062,7 @@ class Project:
         _force_load_helper(utils, "openSim")
         _force_load_helper(utils, "ceinms")
 
-        self.settings = self._load_settings(verbose)
+        self.settings = self._load_settings(verbose, scaffold=scaffold_settings)
         self._point_dirs()
         check_settings_version(self.settings, self.dir, verbose=verbose)
 
@@ -1029,26 +1079,43 @@ class Project:
         # were people. simulations/ is the authoritative list; models/ stays as
         # the fallback for projects that genuinely key models by participant and
         # have not exported anything yet.
+        #
+        # A project with no settings.py of its own runs on bioscout's BUNDLED
+        # template, and that template ships an example roster (the six
+        # Athlete_03_<model> rows of the powerlifting study, built from its
+        # SUBJECT_GROUP keys whether or not those folders exist). That roster
+        # used to fill SUBJECTS, so the discovery below never ran and every
+        # such project reported the template's example subjects instead of its
+        # own simulations/ folders (2026-09-10). Example data is not this
+        # project's data: with the bundled template the roster is ALWAYS
+        # rebuilt from this project's folders, and every value derived from
+        # the example roster is replaced with it.
         try:
             _bs = getattr(self.settings, "BatchSettings", None)
-            if _bs is not None and not getattr(_bs, "SUBJECTS", None):
+            _bundled = not (self.dir / "settings.py").exists()
+            if _bs is not None and (_bundled or not getattr(_bs, "SUBJECTS", None)):
                 subs, _src = [], "models/"
                 _sim = getattr(self.utils, "SIMULATIONS_DIR", None) or \
                        os.path.join(str(self.dir), "simulations")
                 _pids = [d for d in subjects_in_simulations(_sim)
                          if not d.startswith((".", "_"))]
                 if _pids:
-                    subs, _src = self.discover_subjects(names=_pids,
-                                                        models_dir=_sim), "simulations/"
+                    # bundled: no project SESSION to impose -- the template's
+                    # example session ("25_03_31") is not every participant's
+                    _sess = None if _bundled else getattr(self.settings, "SESSION", None)
+                    subs, _src = discover_subjects(_sim, session=_sess,
+                                                   names=_pids), "simulations/"
                 if not subs:
                     subs = self.discover_subjects()
-                if subs:
+                if _bundled:
+                    _set_roster(_bs, subs, _sim)
+                elif subs:
                     _bs.SUBJECTS = subs
                     if not getattr(_bs, "model_config", None):
                         _bs.model_config = build_model_config(subs)
-                    if verbose:
-                        print(f"[bioscout] discovered {len(subs)} subject(s) "
-                              f"from {_src}: {', '.join(s.name for s in subs)}")
+                if subs and verbose:
+                    print(f"[bioscout] discovered {len(subs)} subject(s) "
+                          f"from {_src}: {', '.join(s.name for s in subs)}")
         except Exception:
             pass
 
@@ -1063,11 +1130,17 @@ class Project:
                   f"settings.SESSION: {getattr(getattr(self.settings, 'BatchSettings', None), 'SESSION', None)}")
 
     # -- setup steps ---------------------------------------------------------
-    def _load_settings(self, verbose=True, scaffold=True):
+    def _load_settings(self, verbose=True, scaffold=False):
         sp = self.dir / "settings.py"
         if not sp.exists() and scaffold:
-            # Create a starter settings.py from the package template so the
-            # project has one to edit (mirrors `python -m bioscout --init`).
+            # Opt-in only (docs/IMPLEMENTATIONS.md §2.9, step 4): a project
+            # with no settings.py already runs fine on bioscout's bundled
+            # defaults (see the `else` branch below), overlaid with this
+            # project's project.yaml if it has one. Silently copying the old
+            # all-in-one template here on every construction is exactly the
+            # per-project-settings.py sprawl §2.9 retires, so it no longer
+            # happens by default — pass scaffold_settings=True to Project()/
+            # init_project() if you explicitly want a legacy copy to edit.
             try:
                 import bioscout.settings as _pkg
                 shutil.copy2(Path(_pkg.__file__), sp)
@@ -1091,7 +1164,11 @@ class Project:
                 print(f"[bioscout] subject loading failed: {e}")
             return mod
         if verbose:
-            print(f"[bioscout] no settings.py in {self.dir} — using package defaults")
+            print(f"[bioscout] no settings.py in {self.dir} — using bioscout's "
+                  f"bundled defaults (plus project.yaml, if present). Add a "
+                  f"project.yaml for any lab fact that differs, or run "
+                  f"`bioscout init --from-settings` if you're migrating off an "
+                  f"existing settings.py elsewhere.")
         return getattr(self.utils, "settings", None)
 
     def _point_dirs(self):
@@ -1141,6 +1218,88 @@ class Project:
                 return s
         return None
 
+    # ---- every recording session in the project --------------------------
+    def sessions(self, subjects=None, sessions=None):
+        """Every ``simulations/<subject>/<session>/`` holding a session.yaml, as
+        :class:`bioscout.Session`, sorted. ``subjects`` / ``sessions`` filter by
+        folder name (a name or a list; None = all)::
+
+            for s in proj.sessions(subjects="H1_orthoload"):
+                s.iteration("gpk").run(do_so=True)
+
+        Opened without a second bootstrap -- this Project already did it.
+        """
+        import glob as _glob
+        from bioscout.session.recording import Session
+        sim = str(getattr(self.utils, "SIMULATIONS_DIR", None) or self.dir / "simulations")
+
+        def _as_set(x):
+            return None if x is None else ({x} if isinstance(x, str) else set(x))
+        subj_f, sess_f = _as_set(subjects), _as_set(sessions)
+        out = []
+        for y in sorted(_glob.glob(os.path.join(sim, "*", "*", "session.yaml"))):
+            d = os.path.dirname(y)
+            if subj_f is not None and os.path.basename(os.path.dirname(d)) not in subj_f:
+                continue
+            if sess_f is not None and os.path.basename(d) not in sess_f:
+                continue
+            out.append(Session(d, project_dir=self.dir, bootstrap=False))
+        return out
+
+    def run(self, subjects=None, sessions=None, *, verbose=True, **run_kw):
+        """Run the pipeline over :meth:`sessions`. ``run_kw`` goes to
+        :meth:`bioscout.Session.run` -- ``iterations=``, ``trials=``, the stage
+        flags (``do_scale``, ``do_exbiomec``, ``do_muscle_analysis``, ``do_so``,
+        ``do_mew``, ``do_ceinms``, ``export``) and ``replace=``. Nothing runs
+        unless you ask for it. One failing session is logged and skipped.
+        Returns ``{subject: {session: <Session.run result>}}``."""
+        log = print if verbose else (lambda *a, **k: None)
+        out = {}
+        for s in self.sessions(subjects, sessions):
+            subj = os.path.basename(os.path.dirname(s.session_dir))
+            log(f"\n=== {subj}/{s.name} ===")
+            try:
+                res = s.run(**run_kw)
+            except Exception as e:
+                log(f"  [run ERROR] {subj}/{s.name}: {e}")
+                res = {"error": str(e)}
+            out.setdefault(subj, {})[s.name] = res
+        return out
+
+    def reset(self, subjects=None, sessions=None, *, trials=None, backup=True,
+              dry_run=False, verbose=True):
+        """Reset :meth:`sessions` back to inputs-only (see
+        :meth:`bioscout.Session.reset`); each session is backed up first.
+        Returns ``{subject: {session: <reset info>}}``."""
+        log = print if verbose else (lambda *a, **k: None)
+        out = {}
+        for s in self.sessions(subjects, sessions):
+            subj = os.path.basename(os.path.dirname(s.session_dir))
+            try:
+                res = s.reset(trials=trials, backup=backup, dry_run=dry_run, verbose=verbose)
+            except Exception as e:
+                log(f"  [reset ERROR] {subj}/{s.name}: {e}")
+                res = {"error": str(e)}
+            out.setdefault(subj, {})[s.name] = res
+        return out
+
+    def migrate(self, subjects=None, sessions=None, *, dry_run=True):
+        """Rewrite every session.yaml to the current schema (see
+        :meth:`bioscout.Session.migrate`): project_dir, model_generic /
+        model_scaled / markerset relative to the iteration folder. ``dry_run``
+        (default) only prints the diffs. Returns ``{subject: {session: ok}}``."""
+        out = {}
+        for s in self.sessions(subjects, sessions):
+            subj = os.path.basename(os.path.dirname(s.session_dir))
+            try:
+                s.migrate(dry_run=dry_run)
+                ok = True
+            except Exception as e:
+                print(f"  [migrate ERROR] {subj}/{s.name}: {e}")
+                ok = False
+            out.setdefault(subj, {})[s.name] = ok
+        return out
+
     def trial(self, subject, trial, session=None, force_type="SO"):
         """Configured Trial for a subject (name or Subject) / session / trial."""
         s = self.subject(subject) if isinstance(subject, str) else subject
@@ -1154,14 +1313,24 @@ class Project:
         return f"<bioscout.Project {self.dir.name!r} openSim={ok}>"
 
 
-def init_project(project_dir=None, verbose=True, setup_editor=True):
+def init_project(project_dir=None, verbose=True, setup_editor=True,
+                  scaffold_settings=False):
     """Bootstrap BioScout for a project folder. Returns ``(utils, settings)``.
 
     Thin wrapper around :class:`Project` for the common "just give me utils and
     settings" case. ``setup_editor`` (default True) drops a relative
     ``.vscode/settings.json`` so Pylance resolves the project's own modules.
+
+    A folder with no ``settings.py`` of its own just runs on bioscout's
+    bundled defaults (plus ``project.yaml``, if present) — nothing is written
+    to disk. Pass ``scaffold_settings=True`` to get the old behaviour back
+    (a starter ``settings.py`` copied in for you to edit); for a genuinely
+    new project, ``python -m bioscout --init <path>`` scaffolds the folder
+    layout and a starter ``project.yaml`` instead (docs/IMPLEMENTATIONS.md
+    §2.9).
     """
-    p = Project(project_dir, verbose=verbose, setup_editor=setup_editor)
+    p = Project(project_dir, verbose=verbose, setup_editor=setup_editor,
+                scaffold_settings=scaffold_settings)
     return p.utils, p.settings
 
 
@@ -1174,12 +1343,12 @@ def __getattr__(name):
     if name in _REEXPORT:
         from bioscout import utils
         return getattr(utils, name)
-    if name in ("Session", "Iteration", "open_session"):
+    if name in ("Session", "Iteration"):
         # Session (session-level) + Iteration (runnable) live in
-        # bioscout.session.session. Re-export lazily so legacy
+        # bioscout.session. Re-export lazily so legacy
         # `from bioscout.core.analysis import Session` keeps working, without a
         # module-load import cycle (session imports Analyse).
-        from bioscout.session import session as _s
+        from bioscout import session as _s
         return getattr(_s, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
@@ -1365,6 +1534,10 @@ def subject_session_for_trial(trial_path):
     return (subject or None), (session or None)
 
 
+#: model path + mtime -> total mass (kg); see Analyse.get_body_mass
+_BODY_MASS_CACHE = {}
+
+
 class Analyse:
     '''
     Contains paths from the user settings and functions to implement in the OpenSim/Ceinms analysis
@@ -1435,6 +1608,7 @@ class Analyse:
         'ceinms_input_data', 'ceinms_exe_cfg', 'ceinms_exe_setup', 'ceinms_optimise_setup',
         'ceinms_optimise_cfg', 'ceinms_exe_dir', 'ceinms_optimisation_dir',
         'setup_jra_ceinms', 'jra_ceinms',
+        'mrs_dir_out', 'mrs_config', 'mrs_results', 'mrs_activations', 'mrs_forces',
         'ceinms_uncalibrated_model', 'ceinms_calibrated_model', 'ceinms_calibration_cfg',
         'ceinms_calibration_setup', 'ceinms_excitation_generator', 'ceinms_calibration_dir',
     )
@@ -1967,8 +2141,7 @@ class Analyse:
             # 1_c3dfiles/<trial>.c3d. Leaving it pointing at
             # <iteration>/<trial>/inputs/c3dfile.c3d meant every export copied
             # a multi-megabyte file per model per trial into a folder nothing
-            # downstream reads — the same duplication prune_legacy_inputs was
-            # written to clean up after the fact. Point at the original.
+            # downstream reads. Point at the original.
             try:
                 from bioscout.session.layout import c3d_root as _c3d_root
                 _sd = os.path.dirname(os.path.dirname(os.path.normpath(exp)))
@@ -2524,7 +2697,14 @@ class Analyse:
         vyR, vyL = _sum('r'), _sum('l')
         ev = getattr(self, 'events_list', None) or self.detect_events_from_grf()
 
-        fig, ax = plt.subplots(figsize=(11, 5.2))
+        # Saving: a plain Figure (Agg), not pyplot. plt.subplots() built a Qt
+        # window + toolbar for every trial just to write a png, and nothing
+        # closed them, so a batch accumulated one live Qt figure per trial.
+        if save:
+            from matplotlib.figure import Figure as _Figure
+            fig = _Figure(figsize=(11, 5.2)); ax = fig.add_subplot(111)
+        else:
+            fig, ax = plt.subplots(figsize=(11, 5.2))
         ax.plot(t, vyR, color='tab:red', lw=1.8, label='Right foot Fy')
         ax.plot(t, vyL, color='tab:blue', lw=1.8, label='Left foot Fy')
         ax.axhline(threshold, color='0.6', ls=':', lw=1, label=f'{threshold:.0f} N')
@@ -2666,7 +2846,12 @@ class Analyse:
         if norm is not None:
             chans = [c for c in chans if c in norm.columns] or chans
         nrow = int(np.ceil(len(chans) / ncol))
-        fig, axg = plt.subplots(nrow, ncol, figsize=(4.6 * ncol, 2.4 * nrow), squeeze=False)
+        if save:            # windowless Agg figure -- see plot_grf_events
+            from matplotlib.figure import Figure as _Figure
+            fig = _Figure(figsize=(4.6 * ncol, 2.4 * nrow))
+            axg = fig.subplots(nrow, ncol, squeeze=False)
+        else:
+            fig, axg = plt.subplots(nrow, ncol, figsize=(4.6 * ncol, 2.4 * nrow), squeeze=False)
         for i, ch in enumerate(chans):
             a = axg[i // ncol][i % ncol]
             a.plot(tr, pd.to_numeric(raw[ch], errors='coerce'), color='0.6', lw=0.4)
@@ -2848,15 +3033,25 @@ class Analyse:
         self.load_settings(self.settingsXML)
         
         if not os.path.exists(self.model_dir):
-            print(f"Scaled model not found: {self.model_dir}")
+            _key = ("missing", os.path.abspath(str(self.model_dir)))
+            if _key not in _BODY_MASS_CACHE:          # say it once, not per trial
+                _BODY_MASS_CACHE[_key] = None
+                print(f"Scaled model not found: {self.model_dir}")
             return 'Unknown'
 
-        # Load the model
-        model = self.load_model()
-        state = model.initSystem()
-        
-        body_mass = model.getTotalMass(state)
-        print(f"Body mass from model: {body_mass:.2f} kg")
+        # Every trial of a session loads the SAME model just for this number
+        # (Analyse.__init__ calls it), and load + initSystem costs seconds on a
+        # full-body musculoskeletal model. Keyed on path + mtime, so a rebuilt
+        # model is re-read.
+        _mp = os.path.abspath(str(self.model_dir))
+        _key = (_mp, os.path.getmtime(_mp))
+        body_mass = _BODY_MASS_CACHE.get(_key)
+        if body_mass is None:
+            model = self.load_model()
+            state = model.initSystem()
+            body_mass = model.getTotalMass(state)
+            _BODY_MASS_CACHE[_key] = body_mass
+            print(f"Body mass from model: {body_mass:.2f} kg  ({os.path.basename(_mp)})")
 
         if body_mass != self.body_mass:
             self.body_mass = body_mass
@@ -2984,8 +3179,6 @@ class Analyse:
             _emg_channels = None
         from bioscout.session import exportC3D
 
-        print("Exporting C3D file...")
-
         # The trial's folder need not exist yet: export is what BUILDS a
         # trial, and for one never analysed before there is nothing on disk.
         # chdir into a missing folder raises WinError 2 here — before any of
@@ -3043,7 +3236,7 @@ class Analyse:
             elif _is_gait:
                 if not os.path.exists(self.setup_grf):
                     _os = self._get_openSim()
-                    _os.create_grf_xml(
+                    exportC3D.quiet_call(_os.create_grf_xml,
                         grf_mot_path=self.grf_mot, output_xml_path=self.setup_grf,
                         marker_trc_path=self.markers,
                         right_foot_markers=getattr(_u.settings.BatchSettings, 'right_foot_markers', None),
@@ -3078,15 +3271,15 @@ class Analyse:
         _ng = len([e for e in events if e['name'] not in ('Start', 'End')])
         try:
             if not os.path.exists(self.setup_grf) and os.path.exists(self.grf_mot):
-                self._get_openSim().create_grf_xml(
+                exportC3D.quiet_call(self._get_openSim().create_grf_xml,
                     grf_mot_path=self.grf_mot, output_xml_path=self.setup_grf,
                     marker_trc_path=self.markers,
                     right_foot_markers=getattr(_u.settings.BatchSettings, 'right_foot_markers', None),
                     left_foot_markers=getattr(_u.settings.BatchSettings, 'left_foot_markers', None),
                     right_foot_body='calcn_r', left_foot_body='calcn_l',
                     vert_force_threshold=10.0, filter_cutoff=6, datafile=None)
-            if _numeric_rows(self.grf_mot):
-                self.plot_grf_events()
+            if _numeric_rows(self.grf_mot) and os.environ.get("BIOSCOUT_QC_PLOTS", "1").strip().lower() not in ("0", "false", "off", "no"):
+                self.plot_grf_events()          # BIOSCOUT_QC_PLOTS=0 skips it
         except Exception as _e:
             self._log(f'[export] grf plot skipped: {_e}')
 
@@ -3357,7 +3550,39 @@ class Analyse:
         grf_abs        = os.path.join(self.path, self.setup_grf)
         setup_so_abs   = os.path.join(self.path, self.setup_so)
 
-        if not os.path.exists(actuators_abs):
+        # An iteration may name its actuator file outright, as an ABSOLUTE path
+        # in `so_actuators`. That source wins and is re-copied on EVERY run.
+        # The `if not os.path.exists` guard below is kept for the unset case,
+        # but it must not gate an explicit choice: it meant a changed actuator
+        # set silently never reached a trial that had already been solved, with
+        # --replace on, and the run then reported success using the old set.
+        _explicit = getattr(self, 'so_actuators', None)
+        if _explicit is False:
+            # so_actuators: false -- this model carries its own reserves and
+            # residuals, so SO must be given NO force-set file. Passing one as
+            # well creates every shared actuator twice (see
+            # reserve_actuator_plan), which halves the cost of using a reserve
+            # and warns about nothing. A stale copy from an earlier run counts
+            # as "passing one", so move it out of the way rather than trust it.
+            if os.path.exists(actuators_abs):
+                _aside = actuators_abs + '.unused'
+                try:
+                    shutil.move(actuators_abs, _aside)
+                    self._log(f'[SO] so_actuators=false -- moved {actuators_abs} '
+                              f'-> {_aside}; the model supplies the reserves',
+                              terminal=True)
+                except OSError:
+                    self._log(f'[SO] [Note] so_actuators=false but {actuators_abs} '
+                              f'could not be moved aside', terminal=True)
+        elif _explicit and os.path.isabs(_explicit) and os.path.exists(_explicit):
+            os.makedirs(os.path.dirname(actuators_abs), exist_ok=True)
+            shutil.copyfile(_explicit, actuators_abs)
+            self._log(f'[SO] actuators from so_actuators: {_explicit}', terminal=False)
+        elif _explicit:
+            self._log(f'[SO] [Note] so_actuators set but unusable (needs an '
+                      f'existing absolute path): {_explicit}', terminal=True)
+
+        if _explicit is not False and not os.path.exists(actuators_abs):
             # Copy template from the global setup folder
             template_dir = getattr(_u.settings.BatchSettings, 'setup_files_folder',
                                    os.path.join(_u.APP_DIR, 'config'))
@@ -3417,6 +3642,54 @@ class Analyse:
             self.plot_so_reserves()
         except Exception as e:
             self._log(f'[Warning] SO reserves plot failed: {e}')
+
+    def run_mrs(self, replace=None, dofs=None, muscles=None, calibrate=None,
+                emg=False, **kw):
+        """Muscle Redundancy Solver (KU Leuven) for this trial, via MATLAB.
+
+        dofs/muscles default to every coordinate in the ID file / MRS's own
+        muscle selection. `calibrate` is a list of muscles whose optimal fibre
+        length and tendon slack length are estimated. `emg=True` adds the
+        EMG-constrained term using this trial's normalised EMG.
+        Needs MATLAB and a MuscleRedundancySolver checkout: see docs/MRS.md.
+        """
+        from bioscout.simulate import mrs as _mrs
+        from bioscout.simulate.mrs.cli import config_for_trial
+
+        self._set_replace(replace)
+        os.makedirs(self.path, exist_ok=True); os.chdir(self.path)
+        out_dir = os.path.join(self.path, os.path.dirname(self.mrs_config) or "mrs")
+
+        bs = getattr(_u.settings, "BatchSettings", None)
+        cfg = config_for_trial(
+            self.path, dofs=dofs, muscles=muscles, out_dir=out_dir,
+            model=self.model_dir,
+            ik=os.path.join(self.path, self.ik),
+            id_file=os.path.join(self.path, self.id),
+            matlab_exe=getattr(bs, "matlab_exe", "matlab"),
+            mrs_dir=getattr(bs, "mrs_dir", ""), **kw)
+
+        if emg:
+            emg_file = os.path.join(self.path, self.emg_filtered_normalised)
+            if not os.path.isfile(emg_file):
+                raise FileNotFoundError(f"no normalised EMG at {emg_file}")
+            cfg.emg_constr = True
+            cfg.emg_files = [emg_file]
+            cfg.emg_bounds = [-0.1, 0.1]
+            cfg.bounds_scale_emg = [0.5, 2.0]
+        if calibrate:
+            cfg.estimate_optimal_fibre_length = list(calibrate)
+            cfg.estimate_tendon_slack_length = list(calibrate)
+            cfg.lb_lMo_scaling, cfg.ub_lMo_scaling = 0.7, 1.5
+            cfg.lb_lTs_scaling, cfg.ub_lTs_scaling = 0.7, 1.5
+
+        try:
+            files = _mrs.run(cfg, replace=self.replace)
+            self._log(f"[Success] MRS completed. Results in {out_dir}", terminal=True)
+            return files
+        except Exception as e:
+            self._log(f"[Error] during MRS: {e}", terminal=True)
+            raise
 
     def run_energetics(self):
         """Run Metabolic Cost (Energetics) analysis for this trial.
@@ -6292,7 +6565,7 @@ class Analyse:
         # yaml_bool, not bool(): PyYAML gives a bool for bare `false` but a
         # STRING for `"false"`, and bool("false") is True -- which would run
         # the calibration the session asked to skip, silently.
-        from bioscout.session.session import yaml_bool
+        from bioscout.session.config import yaml_bool
         return yaml_bool(_v)
 
     @property

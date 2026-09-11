@@ -16,6 +16,7 @@ import re
 import sys
 import time
 import datetime
+import contextlib as _contextlib
 
 import numpy as np
 import pandas as pd
@@ -149,6 +150,20 @@ class _Tee:
         # `codecs.lookup(stream.encoding)` get a TypeError instead of a name.
         return getattr(self.streams[0], "encoding", None) or "utf-8"
 
+    def __getattr__(self, name):
+        # Anything the tee does not define goes to the stream underneath —
+        # above all ipykernel's ``set_parent``. At every new cell ipykernel
+        # runs ``if hasattr(sys.stdout, "set_parent"): sys.stdout.set_parent(..)``
+        # to point output at THAT cell. A tee without this hid the method, so
+        # the real stream stayed bound to the cell that started logging and
+        # every later print() was addressed to a finished cell: the frontend
+        # dropped it, the log file kept it (reproduced on ipykernel 7.3,
+        # 2026-09-10). Only called for attributes normal lookup cannot find.
+        streams = self.__dict__.get("streams")
+        if not streams or name.startswith("__"):
+            raise AttributeError(name)
+        return getattr(streams[0], name)
+
     def _emit(self, text):
         for s in self.streams:
             try:
@@ -230,6 +245,8 @@ _LOG_START = None       # run start time (time.time()) for the completion banner
 _LOG_NAME = "run"
 _OSIM_SINK = None       # per-run OpenSim native-output sidecar, folded in at exit
 _LOG_FINISHED = False   # guard: _log_finish must run its body only once
+_LOG_PATH = None        # path of the open run log
+_SAVED_STREAMS = None   # (stdout, stderr) replaced by _capture_streams, else None
 
 
 def _strip_printbasicinfo(txt):
@@ -321,7 +338,10 @@ def ensure_logging(name="bioscout", log_dir=None):
     Called automatically whenever a Project or Analyse/Trial is created, so any
     bioscout run writes ``<project>/logs/bioscout_<timestamp>.log`` without the
     caller doing anything. No-op if logging was already started (e.g. an explicit
-    ``start_logging`` or the CLI). Returns the log handle, or None if already on."""
+    ``start_logging`` or the CLI). Returns the log handle, or None if already on.
+
+    Library use (notebook, script) opens the file but does NOT capture stdout —
+    see ``start_logging(capture=...)``."""
     if _LOG_STARTED:
         return _LOG_HANDLE
     try:
@@ -330,8 +350,70 @@ def ensure_logging(name="bioscout", log_dir=None):
         return None
 
 
-def start_logging(name="run", log_dir=None, filename=None, append=False):
-    """Tee stdout+stderr to a timestamped project log file, with a run heading.
+def _console_owned():
+    """True when bioscout's own CLI/GUI is the program running this process.
+
+    Only then may bioscout touch ``sys.stdout``/``sys.stderr`` on its own
+    initiative. ``__main__`` marks the process by setting
+    ``BIOSCOUT_LOG_FILTER=1``; imported as a library -- a notebook, a user's
+    script, ``python -c`` -- that is unset and the streams belong to the caller.
+    A notebook never counts as owned, even if the variable leaked into the
+    kernel's environment."""
+    return (os.environ.get("BIOSCOUT_LOG_FILTER") == "1"
+            and not in_notebook())
+
+
+def _open_log_viewer(path):
+    """Open the run log in the user's text editor as soon as it exists.
+
+    Which editor, in order:
+      1. ``BIOSCOUT_LOG_VIEWER`` -- a command; the log path is appended
+         (e.g. ``code -r``, ``notepad++``, ``notepad``).
+      2. VS Code, when its ``code`` command is on PATH -- opened as a tab in the
+         current window (``-r``). VS Code reloads a file that changes on disk,
+         so the tab follows the run as bioscout writes it.
+      3. The system default app for ``.log`` files.
+
+    Every ``Session(...)`` starts a new ``bioscout_<time>.log``, and each one
+    is opened, so a multi-session run gives one tab per session.
+    Off with ``BIOSCOUT_OPEN_LOG=0``. Never in a notebook, a test run or a
+    child process (multiprocessing workers start logs of their own).
+    """
+    try:
+        if os.environ.get("BIOSCOUT_OPEN_LOG", "1").strip().lower() in (
+                "0", "false", "off", "no"):
+            return
+        if in_notebook() or "pytest" in sys.modules:
+            return
+        import multiprocessing as _mp
+        if _mp.parent_process() is not None:
+            return
+        import shlex
+        import shutil
+        import subprocess
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)   # no flashing console
+        custom = os.environ.get("BIOSCOUT_LOG_VIEWER", "").strip()
+        if custom:
+            cmd = shlex.split(custom, posix=(os.name != "nt")) + [path]
+            exe = shutil.which(cmd[0]) or cmd[0]
+            subprocess.Popen([exe] + cmd[1:], creationflags=flags, close_fds=True)
+            return
+        code = shutil.which("code")
+        if code:
+            subprocess.Popen([code, "-r", path], creationflags=flags, close_fds=True)
+        elif os.name == "nt":
+            os.startfile(path)                                # noqa: S606
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", path], close_fds=True)
+        elif shutil.which("xdg-open"):
+            subprocess.Popen(["xdg-open", path], close_fds=True)
+    except Exception:
+        pass          # opening the log is a convenience; never fail a run over it
+
+
+def start_logging(name="run", log_dir=None, filename=None, append=False,
+                  capture=None):
+    """Open a timestamped project log file, with a run heading.
 
     Every run writes to ``<log_dir>/bioscout_<YYYYmmdd_HHMMSS>.log`` — one naming
     scheme (``bioscout_…``) for all runs, with the timestamp in the filename so
@@ -341,11 +423,27 @@ def start_logging(name="run", log_dir=None, filename=None, append=False):
         from bioscout import utils
         utils.start_logging("export Athlete_03_Cateli/25_03_31")
 
+    What goes into the file:
+
+    * always -- the heading, OpenSim's native C++ output and the completion
+      banner (both written when the process exits or :func:`stop_logging` runs);
+    * ``print()`` output, but only while stdout/stderr are *captured*.
+
+    ``capture`` decides whether ``sys.stdout``/``sys.stderr`` are teed into the
+    file. ``None`` (the default) captures ONLY when bioscout's own CLI/GUI owns
+    the process (see :func:`_console_owned`). Imported as a library -- a
+    notebook, your own script -- bioscout leaves the streams alone, as a Python
+    library should: replacing them silently changes where every other print in
+    the session goes. Pass ``capture=True`` to opt in explicitly, or use
+    :func:`capture_output` to capture just one block; :func:`stop_logging`
+    puts the original streams back.
+
     ``log_dir`` defaults to ``<project>/logs`` (``utils.PROJECT_DIR``). Pass an
-    explicit ``filename=`` to override, or ``append=True`` to append. Captures
-    Python-level output; OpenSim's C++ ``[info]`` lines are fd-level — pipe
-    ``... 2>&1 | tee`` to capture those too. Returns the open log file handle.
+    explicit ``filename=`` to override, or ``append=True`` to append. Returns
+    the open log file handle.
     """
+    global _LOG_STARTED, _LOG_HANDLE, _LOG_START, _LOG_NAME, _OSIM_SINK, _LOG_FINISHED
+    global _LOG_PATH
     # BIOSCOUT_LOG=0 disables file logging entirely — for runs whose parent
     # process already tees ALL output to its own log (e.g. a runner script);
     # without this, every run produced two near-identical log files.
@@ -370,36 +468,38 @@ def start_logging(name="run", log_dir=None, filename=None, append=False):
         # the file says what was run.
         filename = f"bioscout_{datetime.datetime.now():%Y%m%d_%H%M%S}.log"
     path = os.path.join(log_dir, filename)
+    # Two runs in the same second must not overwrite each other's log.
+    if not append and os.path.exists(path):
+        _stem, _ext = os.path.splitext(path)
+        _n = 2
+        while os.path.exists(f"{_stem}_{_n}{_ext}"):
+            _n += 1
+        path = f"{_stem}_{_n}{_ext}"
+    # A log already open (an earlier start_logging in this process) is
+    # finished and closed first, instead of leaking its handle.
+    if _LOG_STARTED and _LOG_HANDLE is not None:
+        _prev = _LOG_HANDLE
+        _log_finish()
+        try:
+            _prev.close()
+        except Exception:
+            pass
     f = open(path, "a" if append else "w", encoding="utf-8")
     f.write(f"\n{'=' * 72}\n"
             f"=== {name}   {datetime.datetime.now():%Y-%m-%d %H:%M:%S}\n"
             f"{LOG_DISCLAIMER}\n"
             f"{'=' * 72}\n")
     f.flush()
-    global _LOG_STARTED, _LOG_HANDLE, _LOG_START, _LOG_NAME, _OSIM_SINK, _LOG_FINISHED
     _LOG_STARTED, _LOG_HANDLE = True, f   # mark started so auto-logging won't re-open
     _LOG_FINISHED = False                 # fresh run — allow the finish hook to write
-    _LOG_START, _LOG_NAME = time.time(), name
-    # Tee onto the CURRENT streams, never sys.__stdout__.
-    #
-    # In a Jupyter kernel ipykernel has already replaced sys.stdout with the
-    # stream that routes output INTO the cell; sys.__stdout__ is still the
-    # kernel PROCESS's stdout — the terminal nobody is looking at. Teeing onto
-    # that sent every print after `bs.Project()` to that terminal, so a notebook
-    # cell ran, succeeded, and displayed nothing. In a normal console the two
-    # are the same object, so this changes nothing there.
-    #
-    # `raw` unless bioscout's own CLI is driving: the LOG_TYPE line filter is
-    # for batch logs. A user's own print() matches no whitelist entry, so under
-    # the default LOG_TYPE="minimal" it would be dropped — first seen in
-    # notebooks, then again in a plain `python -c "...; print('run ok:', ...)"`
-    # where the final print never reached the terminal. The rule is therefore
-    # about WHO owns the console: `bioscout run ...` (batch/CLI — __main__ sets
-    # BIOSCOUT_LOG_FILTER=1) filters; bioscout imported as a library (notebook,
-    # script, python -c) does not.
-    _raw = in_notebook() or os.environ.get("BIOSCOUT_LOG_FILTER") != "1"
-    sys.stdout = _Tee(sys.stdout or sys.__stdout__, f, raw=_raw)
-    sys.stderr = _Tee(sys.stderr or sys.__stderr__, f, raw=_raw)
+    _LOG_START, _LOG_NAME, _LOG_PATH = time.time(), name, path
+    _open_log_viewer(path)
+
+    if capture is None:
+        capture = _console_owned()
+    if capture or _SAVED_STREAMS is not None:   # (re-)point any live tee here
+        _capture_streams(f)
+
     # OpenSim's C++ [info]/[warning] lines are fd-level, so the Python tee above
     # misses them. Send them to a per-run sidecar in the TEMP dir (its own handle
     # — no conflict with this log's), folded into THIS log at exit. Keeping the
@@ -418,8 +518,120 @@ def start_logging(name="run", log_dir=None, filename=None, append=False):
         _OSIM_SINK = None
     import atexit as _atexit
     _atexit.register(_log_finish)
-    print(f"[bioscout] logging '{name}' -> {path}")
+    if capture or _SAVED_STREAMS is not None:
+        print(f"[bioscout] logging '{name}' -> {path}")
+    else:
+        print(f"[bioscout] logging '{name}' -> {path} "
+              f"(print output not captured; see bioscout.utils.capture_output)")
     return f
+
+
+def _capture_streams(f):
+    """Tee sys.stdout/sys.stderr into the open log ``f`` (idempotent).
+
+    Tees onto the CURRENT streams, never sys.__stdout__. In a Jupyter kernel
+    ipykernel has already replaced sys.stdout with the stream that routes output
+    INTO the cell; sys.__stdout__ is still the kernel PROCESS's stdout — the
+    terminal nobody is looking at. In a normal console the two are the same
+    object, so this changes nothing there.
+
+    ``raw`` unless bioscout's own CLI/GUI owns the console: the LOG_TYPE line
+    filter is for batch logs. A user's own print() matches no whitelist entry,
+    so under the default LOG_TYPE="minimal" it would be dropped."""
+    global _SAVED_STREAMS
+    if _SAVED_STREAMS is not None:           # already capturing: re-point only
+        for s in (sys.stdout, sys.stderr):
+            if isinstance(s, _Tee) and len(s.streams) > 1:
+                s.streams = (s.streams[0], f)
+        return
+    _raw = not _console_owned()
+    _SAVED_STREAMS = (sys.stdout, sys.stderr)
+    sys.stdout = _Tee(sys.stdout or sys.__stdout__, f, raw=_raw)
+    sys.stderr = _Tee(sys.stderr or sys.__stderr__, f, raw=_raw)
+
+
+def _release_streams():
+    """Undo :func:`_capture_streams`. If something else wrapped our tee after
+    us, it is left in place and our tee just stops copying to the file."""
+    global _SAVED_STREAMS
+    if _SAVED_STREAMS is None:
+        return
+    out, err = _SAVED_STREAMS
+    _SAVED_STREAMS = None
+    for attr, orig in (("stdout", out), ("stderr", err)):
+        cur = getattr(sys, attr)
+        if isinstance(cur, _Tee):
+            try:
+                cur.flush()
+            except Exception:
+                pass
+            if cur.streams and cur.streams[0] is orig:
+                setattr(sys, attr, orig)
+                continue
+        # someone wrapped on top of us -- make our tee a pass-through
+        for s in _iter_tees(cur):
+            s.streams = s.streams[:1]
+
+
+def _iter_tees(stream, _depth=0):
+    """Our _Tee objects reachable from ``stream`` (a few wrappers deep)."""
+    if _depth > 5 or stream is None:
+        return []
+    if isinstance(stream, _Tee):
+        return [stream]
+    inner = stream.__dict__.get("_orig") if hasattr(stream, "__dict__") else None
+    return _iter_tees(inner, _depth + 1)
+
+
+def stop_logging():
+    """Close the current run log and give stdout/stderr back.
+
+    Writes the completion banner (and OpenSim's native output) into the file
+    and restores the streams if they were captured. Safe to call when logging
+    never started. Afterwards the next ``Project``/``Session`` opens a fresh
+    log."""
+    global _LOG_STARTED, _LOG_HANDLE
+    _release_streams()
+    f = _LOG_HANDLE
+    _log_finish()
+    try:
+        if f:
+            f.close()
+    except Exception:
+        pass
+    _LOG_STARTED, _LOG_HANDLE = False, None
+
+
+@_contextlib.contextmanager
+def capture_output(name="block", log_dir=None):
+    """Copy ``print()`` output into the run log for the duration of a block.
+
+    For notebooks and scripts, where bioscout otherwise leaves stdout alone::
+
+        from bioscout.utils import capture_output
+        with capture_output():
+            session.run()          # prints show in the cell AND in the log
+
+    Opens a log first if none is running. The streams are restored on exit,
+    even on error, so the next cell behaves normally."""
+    started_here = not _LOG_STARTED
+    if started_here:
+        f = start_logging(name=name, log_dir=log_dir, capture=True)
+    else:
+        f = _LOG_HANDLE
+    if f is None:                          # logging disabled (BIOSCOUT_LOG=0)
+        yield None
+        return
+    # Someone (the CLI, or an explicit capture=True) is already capturing:
+    # leave their capture alone rather than ending it at the end of the block.
+    ours = started_here or _SAVED_STREAMS is None
+    if not started_here and ours:
+        _capture_streams(f)
+    try:
+        yield f
+    finally:
+        if ours:
+            _release_streams()
 
 
 def trial_type(trial_name, pattern=DEFAULT_TRIAL_TYPE_PATTERN):

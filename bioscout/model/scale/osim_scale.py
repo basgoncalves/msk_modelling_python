@@ -98,7 +98,7 @@ def _sanitize_markerset_xml(src_path, skip_names, out_dir):
     print(f"[scale] dropped unplaceable markers from marker set: {removed} -> {os.path.basename(out)}")
     return out
 
-def scale_model(generic_opensim_model_path, static_trc_path, scaled_model_path, scale_setup_output_dir=None, mass=None, time_range=None, marker_set_file=None, linear_scaling=True, marker_placer=False, ik_weights=None, setup_xml_path=None, run=True):
+def scale_model(generic_opensim_model_path, static_trc_path, scaled_model_path, scale_setup_output_dir=None, mass=None, time_range=None, marker_set_file=None, linear_scaling=True, marker_placer=False, ik_weights=None, setup_xml_path=None, run=True, marker_aliases=None):
     """
     Scale an OpenSim model using the ScaleTool based on static marker data from a TRC file.
 
@@ -123,6 +123,13 @@ def scale_model(generic_opensim_model_path, static_trc_path, scaled_model_path, 
             IK. A weight of 0 drops the marker from the pass entirely. Only
             used when ``marker_placer`` is on; ignored otherwise. Default None
             = every marker weighted 1.0, which is what this always did.
+        marker_aliases: ``{expected_name: name_this_lab_records}``. The default
+            measurement spec and the joint-centre construction name the
+            Vicon-CGM/powerlifting markers; a lab spelling them differently
+            (FAIS records LSACR/RSACR for LPSI/RPSI, RLFC/RMFC for RKNEL/RKNEM)
+            gets NO joint centre and almost no measurements without this, which
+            scales the pelvis and leaves the femurs generic — silently.
+            ``bioscout scale`` works this map out by asking.
         setup_xml_path: Where to write the ScaleTool setup. Defaults to
             ``<scale_setup_output_dir>/scale_setup.xml``. This file is the
             record of what was actually applied — the MeasurementSet, the
@@ -229,7 +236,8 @@ def scale_model(generic_opensim_model_path, static_trc_path, scaled_model_path, 
         try:
             trc_for_scaling = _sm.augment_static_trc(
                 static_trc_path,
-                os.path.join(_tmp, os.path.basename(static_trc_path).replace(".trc", "_jc.trc")))
+                os.path.join(_tmp, os.path.basename(static_trc_path).replace(".trc", "_jc.trc")),
+                aliases=marker_aliases)
         except Exception as e:
             print(f"[scale] [WARNING] could not add joint centres to the static TRC: {e}")
             trc_for_scaling = static_trc_path
@@ -270,6 +278,7 @@ def scale_model(generic_opensim_model_path, static_trc_path, scaled_model_path, 
         try:
             _mset, _rep, _skip_m = _sm.build_measurement_set(
                 model, trc_for_scaling,
+                spec=_sm.resolve_spec(_sm.DEFAULT_SPEC, marker_aliases),
                 model_markers=_sm.markerset_file_names(marker_set_for_scaling))
             if _mset.getSize() == 0:
                 print("[scale] [ERROR] MeasurementSet is EMPTY — ScaleTool would apply a "

@@ -66,7 +66,7 @@ def main(argv=None):
 
     # session-level verbs (normalise_emg / calibrate / prepare_ceinms / run ...)
     # live on Iteration (the runnable unit); get_session() returns one.
-    from bioscout.session.session import Iteration as Session
+    from bioscout.session.iteration import Iteration as Session
     t = Analyse(trial)
 
     # Lazily-built Session for the trial's parent folder, so session-scoped verbs

@@ -88,6 +88,7 @@ setup(
         # falls back or fails. Source checkouts hid it.
         'bioscout.model.inspect': ['validation/*.csv', 'validation/*.json'],
         'bioscout.utils': ['*.jpg', '*.png'],
+        'bioscout.simulate.mrs': ['*.m'],
         # *.zip is torch_cpu.zip; torch_cpu.dll is excluded below.
         'bioscout.simulate.ceinms.bin': ['*.exe', '*.dll', '*.txt', '*.zip'],
     },

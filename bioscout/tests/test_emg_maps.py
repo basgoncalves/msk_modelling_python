@@ -15,7 +15,8 @@ import textwrap
 
 import pytest
 
-from bioscout.session import session as S
+from bioscout.session import config as S
+from bioscout.session.iteration import Iteration
 
 
 # --------------------------------------------------------------------------
@@ -119,7 +120,7 @@ def test_each_iteration_gets_the_map_it_named(tmp_path):
 ])
 def test_trial_config_injects_the_selected_map(tmp_path, iteration, tail):
     write(tmp_path, NAMED)
-    cfg = S.Iteration(str(tmp_path), iteration).trial_config("Squat_BW_01")
+    cfg = Iteration(str(tmp_path), iteration).trial_config("Squat_BW_01")
     assert cfg["emg_map"]["EMG09_l"][-1] == tail
     assert cfg["emg_map_name"] == iteration.split("_")[-1]
 
@@ -157,7 +158,7 @@ def test_an_empty_named_map_means_no_channels_not_fall_back(tmp_path):
         iterations:
           bare: {emg_map: none}
     """)
-    cfg = S.Iteration(str(tmp_path), "bare").trial_config("T")
+    cfg = Iteration(str(tmp_path), "bare").trial_config("T")
     assert cfg["emg_map"] == {}
     assert cfg["emg_map_name"] == "none"
 
@@ -201,7 +202,7 @@ def test_bad_configs_fail_at_load(tmp_path, body, needle):
 def test_an_undeclared_iteration_folder_says_so(tmp_path):
     write(tmp_path, NAMED)
     with pytest.raises(ValueError, match="not declared in session.yaml"):
-        S.Iteration(str(tmp_path), "gpk_v2").trial_config("Squat_BW_01")
+        Iteration(str(tmp_path), "gpk_v2").trial_config("Squat_BW_01")
 
 
 # --- the lenient path never raises -----------------------------------------
@@ -224,11 +225,3 @@ def test_spec_emg_map_for(tmp_path):
     assert spec.emg_map_for() == spec.emg_muscle_mapping   # session default
     with pytest.raises(ValueError, match="does not select one"):
         spec.emg_map_for("nope")
-
-
-def test_xml_keeps_the_per_model_selector(tmp_path):
-    spec = S.read_session_yaml(write(tmp_path, NAMED))
-    xml = str(tmp_path / "session.xml")
-    S.write_session_xml(spec, xml)
-    assert [m.emg_map for m in S.read_session_xml(xml).models] == [
-        "narrow", "triceps", "wide"]

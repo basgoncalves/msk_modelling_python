@@ -62,12 +62,12 @@ class TestParser(unittest.TestCase):
         self.assertEqual(cm.exception.code, 0)
 
     def test_simulate_actions_parse(self):
-        """simulate is direct-dispatched (Session.open -> Iteration.run), not
+        """simulate is direct-dispatched (Session() -> Iteration.run), not
         translated to a legacy flag -- there is no flat-flag equivalent of a
         single stage. Pin the argparse shape instead of the (nonexistent)
         legacy argv."""
         p = cli.build_parser()
-        for action in ("exbiomec", "ma", "so", "ceinms"):
+        for action in ("exbiomec", "ma", "so", "mew", "ceinms"):
             ns = p.parse_args(["simulate", action, "some/session",
                                "--iteration", "gpk", "--trial", "Walk01,Walk02",
                                "--replace"])

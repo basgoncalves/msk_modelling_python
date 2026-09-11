@@ -58,19 +58,19 @@ STAGES_IO: Dict[str, tuple] = {
         [("markers (.trc)",          "exp",   "marker_experimental.trc"),
          ("ground reaction (.mot)",  "exp",   "grf.mot"),
          ("external loads (.xml)",   "exp",   "GRF.xml"),
-         ("model (.osim)",           "model", "so_model")],
+         ("model (.osim)",           "model", "model_scaled")],
         ["external_biomechanics/joint_angles.mot",
          "external_biomechanics/inverse_dynamics.sto"],
     ),
     "ma": (
         "Muscle Analysis", "do_muscle_analysis",
-        [("model (.osim)",           "model", "so_model"),
+        [("model (.osim)",           "model", "model_scaled"),
          ("joint angles (.mot)",     "iter",  "external_biomechanics/joint_angles.mot")],
         ["muscle_analysis/"],
     ),
     "so": (
         "Static Optimisation", "do_so",
-        [("model (.osim)",           "model", "so_model"),
+        [("model (.osim)",           "model", "model_scaled"),
          ("joint angles (.mot)",     "iter",  "external_biomechanics/joint_angles.mot"),
          ("ground reaction (.mot)",  "exp",   "grf.mot"),
          ("external loads (.xml)",   "exp",   "GRF.xml")],
@@ -78,7 +78,7 @@ STAGES_IO: Dict[str, tuple] = {
     ),
     "ceinms": (
         "CEINMS", "do_ceinms",
-        [("CEINMS model (.osim)",    "model", "ceinms_model"),
+        [("model (.osim)",           "model", "model_scaled"),
          ("normalised EMG (.mot)",   "exp",   "emg_filtered_normalised.mot"),
          ("muscle analysis",         "iter",  "muscle_analysis"),
          ("inverse dynamics (.sto)", "iter",  "external_biomechanics/inverse_dynamics.sto")],
@@ -106,8 +106,7 @@ AX_TOP, AX_BOTTOM = 0.92, 0.14
 
 #: A new iteration copied from nothing starts from this block.
 NEW_ITERATION_TEMPLATE = {
-    "generic": "", "ceinms_model": "scaled_opt_N10.osim",
-    "so_model": "scaled_opt_N10_mvicx3.00.osim",
+    "model_generic": "", "model_scaled": "", "markerset": "",
     "linear_scaling": True, "marker_placer": True,
     "opt_neval": 10, "mvic_factor": 3.0, "label": "", "color": "black",
     "group": "generic",
@@ -602,12 +601,14 @@ class TrialAnalysisTab(ctk.CTkFrame):
             return None
         try:
             import yaml
-            cfg = yaml.safe_load(f.read_text(encoding="utf-8")) or {}
+            from bioscout.session.config import normalise_iterations
+            cfg = normalise_iterations(yaml.safe_load(f.read_text(encoding="utf-8")) or {})
             blk = (cfg.get("iterations") or {}).get(it) or {}
-            rel = blk.get(key) or blk.get("so_model") or blk.get("model")
+            rel = blk.get(key) or blk.get("model_scaled")
             if not rel:
                 return None
-            return Path(_layout().iteration_path(str(d), it)) / str(rel)
+            # session.yaml paths are relative to the iteration folder
+            return (Path(_layout().iteration_path(str(d), it)) / str(rel)).resolve()
         except Exception:
             return None
 
@@ -1156,7 +1157,7 @@ class TrialAnalysisTab(ctk.CTkFrame):
                 # `default_emg_map` refuses to load the moment an iteration
                 # exists that picks none -- so a blank template has to pick.
                 try:
-                    from bioscout.session import session as _sess
+                    from bioscout.session import config as _sess
                     _cfg = _sess.load_session_yaml(str(f))
                     if _sess.is_named_emg_map(_cfg) and not _cfg.get(
                             _sess.DEFAULT_EMG_MAP_KEY):
@@ -1264,7 +1265,7 @@ class TrialAnalysisTab(ctk.CTkFrame):
             err = None
             try:
                 from bioscout import Session
-                s = Session.open(str(d))
+                s = Session(str(d))
                 s.iteration(it_name).run(trials=[trial], **kwargs)
             except Exception:      # surfaced in the panel, never raised
                 import traceback

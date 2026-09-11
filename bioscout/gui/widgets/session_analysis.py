@@ -20,7 +20,7 @@ all even though :class:`bioscout.Session` has the API for it:
 Two deliberate choices about cost:
 
 * Overview and Coverage read **session.yaml and the filesystem only**. No
-  ``Session.open``, so no Project bootstrap and no OpenSim import — the panel
+  ``Session()``, so no Project bootstrap and no OpenSim import — the panel
   fills instantly and works on a machine where bioscout cannot solve at all.
   ``run_check`` is standard-library by design, which is what makes the
   coverage grid free.
@@ -118,8 +118,8 @@ def _read_yaml(path: Path) -> dict:
     only READING a file still fills on a machine where the package cannot.
     """
     try:
-        from bioscout.session.session import load_session_yaml
-        return load_session_yaml(str(path)) or {}
+        from bioscout.session.config import load_session_yaml, normalise_iterations
+        return normalise_iterations(load_session_yaml(str(path)) or {}, str(path))
     except Exception:                                          # noqa: BLE001
         pass
     try:
@@ -142,7 +142,7 @@ def _is_all(v) -> bool:
 
 
 def _as_list(v) -> List[str]:
-    """Mirror of ``bioscout.session.session._as_list``: 'a b c' / ['a','b'] /
+    """Mirror of ``bioscout.session.config._as_list``: 'a b c' / ['a','b'] /
     None -> list[str], with 'all' and None both meaning "every trial" ([]).
 
     Kept faithful deliberately — a panel that parses session.yaml differently
@@ -388,10 +388,10 @@ class SessionAnalysisTab(ctk.CTkFrame):
     #: left out: they only affect how a figure names this arm, and belong with
     #: the plotting code rather than in a panel about what will be solved.
     ED_GROUPS = (
-        ("models", (("generic", "generic model", "text"),
-                    ("so_model", "SO model", "text"),
-                    ("ceinms_model", "CEINMS model", "text"))),
-        ("scaling", (("prescaled", "prescaled", "bool"),
+        ("models", (("model_generic", "generic model", "text"),
+                    ("model_scaled", "scaled model", "text"),
+                    ("markerset", "markerset", "text"))),
+        ("scaling", (("muscle_opt", "muscle opt", "bool"),
                      ("linear_scaling", "linear scaling", "bool"),
                      ("marker_placer", "marker placer", "bool"),
                      ("opt_neval", "opt_neval", "number"),
@@ -450,7 +450,7 @@ class SessionAnalysisTab(ctk.CTkFrame):
                                  font=("Consolas", 11)).grid(
                         row=row, column=1, sticky="ew", pady=3)
                     mark = None
-                    if key in ("generic", "so_model", "ceinms_model"):
+                    if key in ("model_generic", "model_scaled", "markerset"):
                         mark = ctk.CTkLabel(self._ed_body, text="",
                                             font=("Segoe UI", 12, "bold"),
                                             width=22)
@@ -926,8 +926,7 @@ class SessionAnalysisTab(ctk.CTkFrame):
         iters_cfg = cfg.get("iterations") or {}
         for name in its:
             block = iters_cfg.get(name) or {}
-            models = [str(block[k]) for k in ("so_model", "ceinms_model")
-                      if block.get(k)]
+            models = [str(block[k]) for k in ("model_scaled",) if block.get(k)]
             folder = None
             try:
                 folder = Path(_layout().iteration_path(str(d), name))
@@ -1179,23 +1178,18 @@ class SessionAnalysisTab(ctk.CTkFrame):
                 out.append(("WARN", f"iteration '{it}' is on disk but not in "
                                     f"session.yaml — it names no model"))
                 continue
-            if "scale" in stages and not block.get("generic"):
-                out.append(("BLOCK", f"{it}: no 'generic' model, so scaling "
-                                     f"has nothing to scale"))
-            if "scale" in stages and block.get("generic"):
-                if self._resolve_model_for(it, "generic",
-                                           str(block["generic"])) is None:
-                    out.append(("BLOCK", f"{it}: generic model "
-                                         f"'{block['generic']}' resolves "
-                                         f"nowhere"))
+            if "scale" in stages and not block.get("model_generic"):
+                out.append(("WARN", f"{it}: no 'model_generic', so scaling "
+                                    f"uses model_scaled as given"))
+            if "scale" in stages and block.get("model_generic"):
+                if self._resolve_model_for(it, "model_generic",
+                                           str(block["model_generic"])) is None:
+                    out.append(("BLOCK", f"{it}: model_generic "
+                                         f"'{block['model_generic']}' does not "
+                                         f"exist (relative to the iteration folder)"))
             if not needs_model:
                 continue
-            for key in ("so_model", "ceinms_model"):
-                if key == "ceinms_model" and "ceinms" not in stages:
-                    continue
-                if key == "so_model" and not any(
-                        s in stages for s in ("exbiomec", "muscle_analysis", "so")):
-                    continue
+            for key in ("model_scaled",):
                 val = block.get(key)
                 if not val:
                     out.append(("BLOCK", f"{it}: no '{key}' named"))
@@ -1272,7 +1266,7 @@ class SessionAnalysisTab(ctk.CTkFrame):
                 if importlib.util.find_spec("opensim") is None:
                     out.append(("BLOCK", "opensim is not importable — no "
                                          "solving stage can run in this "
-                                         "environment (`bioscout --env`)"))
+                                         "environment (`bioscout utils env`)"))
             except Exception:                                  # noqa: BLE001
                 pass
         return out
@@ -1288,7 +1282,15 @@ class SessionAnalysisTab(ctk.CTkFrame):
         p = Path(value)
         if p.is_absolute():
             return p if p.exists() else None
-        if key == "generic":
+        # session.yaml rule: relative to the ITERATION folder
+        try:
+            cand = Path(_layout().iteration_path(str(d), it)) / value
+            if cand.exists():
+                return cand.resolve()
+        except Exception:                                      # noqa: BLE001
+            pass
+        # old-style bare names (before 2026-09-10): the old search
+        if key in ("generic", "model_generic"):
             root = self._project_root
             if not root:
                 return None
@@ -1417,7 +1419,7 @@ class SessionAnalysisTab(ctk.CTkFrame):
             err = None
             try:
                 from bioscout import Session
-                s = Session.open(str(d))
+                s = Session(str(d))
                 if want_export:
                     s.export(trials=trials, replace=self._replace_var.get())
                 if per_iter and iters:

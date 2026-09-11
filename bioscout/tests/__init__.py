@@ -138,13 +138,51 @@ def suite():
             s.addTests(loader.loadTestsFromTestCase(_cls))
     except Exception as _e:  # pragma: no cover
         print(f"[tests] file_edit tests unavailable: {_e}")
-    # logging: the stdout tee and the two ways it ate notebook output.
+    # logging: the stdout tee, the ways it ate notebook output, and the rule
+    # that fixes the class of bug (a library leaves sys.stdout alone).
     try:
         from . import test_logging as _tlog
-        for _cls in (_tlog.TestTee, _tlog.TestStartLogging):
+        for _cls in (_tlog.TestTee, _tlog.TestStartLogging,
+                     _tlog.TestReachableFromThePackage,
+                     _tlog.TestImportLeavesStreamsAlone):
             s.addTests(loader.loadTestsFromTestCase(_cls))
     except Exception as _e:  # pragma: no cover
         print(f"[tests] logging tests unavailable: {_e}")
+    # roster: a project's subjects are ITS simulations/ folders, never the
+    # bundled template's example roster.
+    try:
+        from . import test_project_roster as _roster
+        s.addTests(loader.loadTestsFromTestCase(_roster.TestBundledProjectRoster))
+    except Exception as _e:  # pragma: no cover
+        print(f"[tests] roster tests unavailable: {_e}")
+    # session package (2026-09-10): legacy removed, add_iteration, iteration
+    # keys as attributes, project-wide ops on Project. Temp session.yaml only, no OpenSim.
+    try:
+        from . import test_session_layout_modules as _slm
+        for _cls in (_slm.TestLegacyRemoved, _slm.TestAddIteration, _slm.TestProjectWide,
+                     _slm.TestIterationKeys):
+            s.addTests(loader.loadTestsFromTestCase(_cls))
+    except Exception as _e:  # pragma: no cover
+        print(f"[tests] session layout tests unavailable: {_e}")
+    # mew: the Python CEINMS/SO solver (bioscout.simulate.mew).
+    # numpy/scipy only; the OrthoLoad cases skip without
+    # example_data/ (gitignored).
+    try:
+        from . import test_mew as _mew
+        for _cls in (_mew.TestSynthetic, _mew.TestIterationAdapter,
+                     _mew.TestPipelineWiring, _mew.TestOrtholoadWalking):
+            s.addTests(loader.loadTestsFromTestCase(_cls))
+    except Exception as _e:  # pragma: no cover
+        print(f"[tests] mew tests unavailable: {_e}")
+    # sys.path + setup templates: a spawned worker must import the real
+    # OpenSim, and a project without settings.py must still find setup_JRA.xml
+    # (both found by the overnight bench, 2026-09-11).
+    try:
+        from . import test_path_fixes as _pf
+        for _cls in (_pf.TestNoOpensimShadow, _pf.TestSetupDir):
+            s.addTests(loader.loadTestsFromTestCase(_cls))
+    except Exception as _e:  # pragma: no cover
+        print(f"[tests] path-fix tests unavailable: {_e}")
     # run_check: the anti-silent-failure toolbox (stage-output verification,
     # emg_map validation, duplicate-YAML-key scan, MAX_PATH preflight). Pure
     # stdlib and imported by file path, so it runs EVERYWHERE — these pin the
@@ -183,7 +221,7 @@ def suite():
     #
     # TestGhostSessionLayout is FIRST and is NOT skipped: it checks that the
     # ghost session the others run inside was created correctly (numbered
-    # layout, iteration under 3_iterations/, a session.yaml that Session.open
+    # layout, iteration under 3_iterations/, a session.yaml that Session()
     # accepts). That is session-creation coverage, needs no OpenSim, and would
     # otherwise be skipped away on exactly the machines most likely to have a
     # layout problem.
@@ -230,6 +268,9 @@ def run(verbosity=2):
     logger, not Python stdout).
     """
     import os
+
+    # no live log window per test that starts a log (shared._open_log_viewer)
+    os.environ.setdefault("BIOSCOUT_OPEN_LOG", "0")
 
     results_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_results")
     os.makedirs(results_root, exist_ok=True)

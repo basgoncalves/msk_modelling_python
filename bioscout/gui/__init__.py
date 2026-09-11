@@ -75,11 +75,12 @@ def scaling_defaults(session_dir, iteration=None):
     than guessed, so a missing piece shows as an empty field instead of a
     plausible wrong path.
 
-        template_model   iterations.<it>.generic, resolved against
-                         models/generic/ (then the legacy "generic models/")
-        markerset        session.yaml markerset, falling back to models/utils/
+        template_model   iterations.<it>.model_generic (relative to the
+                         iteration folder; old bare names are still searched)
+        markerset        iterations.<it>.markerset, same rule
         trc              2_experimental/<static_trial>/marker_experimental.trc
-        output           models/personalised/<subject>/<session>/<generic>_scaled.osim
+        output           iterations.<it>.model_scaled, else
+                         models/personalised/<subject>/<session>/<generic>_scaled.osim
         static_trial     the session's static trial name
         iterations       every iteration the session declares
     """
@@ -95,7 +96,9 @@ def scaling_defaults(session_dir, iteration=None):
         return out
     try:
         import yaml
-        cfg = yaml.safe_load(io.open(ypath, encoding="utf-8")) or {}
+        from bioscout.session.config import normalise_iterations
+        with io.open(ypath, encoding="utf-8") as _fh:
+            cfg = normalise_iterations(yaml.safe_load(_fh) or {}, ypath)
     except Exception as e:
         out["errors"].append(f"session.yaml unreadable: {e}")
         return out
@@ -106,11 +109,29 @@ def scaling_defaults(session_dir, iteration=None):
         iteration = out["iterations"][0] if out["iterations"] else None
     it = (its.get(iteration) or {}) if iteration else {}
 
-    # project root = two levels above the session (<sims>/<subject>/<session>)
-    proj = _os.path.dirname(_os.path.dirname(_os.path.dirname(session_dir)))
+    # project root: session.yaml's project_dir, else <sims>/<subject>/<session>
+    proj = (_os.path.abspath(_os.path.join(session_dir, str(cfg["project_dir"])))
+            if cfg.get("project_dir")
+            else _os.path.dirname(_os.path.dirname(_os.path.dirname(session_dir))))
+    itdir = ""
+    if iteration:
+        try:
+            from bioscout.session.layout import iteration_path
+            itdir = iteration_path(session_dir, iteration)
+        except Exception:
+            itdir = _os.path.join(session_dir, "3_iterations", iteration)
 
-    gen = it.get("generic") or ""
-    if gen:
+    def _in_iteration(rel):
+        """session.yaml rule: relative to the iteration folder."""
+        if not rel or not itdir:
+            return ""
+        c = _os.path.normpath(_os.path.join(itdir, rel))
+        return c if _os.path.isfile(c) else ""
+
+    gen = it.get("model_generic") or ""
+    if gen and _in_iteration(gen):
+        out["template_model"] = _in_iteration(gen)
+    elif gen:
         for base in (_os.path.join(proj, "models", "generic"),
                      _os.path.join(proj, "generic models"),
                      _os.path.join(proj, "models"), proj, session_dir):
@@ -119,12 +140,14 @@ def scaling_defaults(session_dir, iteration=None):
                 out["template_model"] = _os.path.normpath(cand)
                 break
         if not out["template_model"]:
-            out["errors"].append(f"generic model not found: {gen}")
+            out["errors"].append(f"model_generic not found: {gen}")
     elif iteration:
-        out["errors"].append(f"iteration {iteration!r} has no 'generic' model")
+        out["errors"].append(f"iteration {iteration!r} has no 'model_generic'")
 
-    ms = cfg.get("markerset") or ""
-    if ms:
+    ms = it.get("markerset") or cfg.get("markerset") or ""
+    if ms and _in_iteration(ms):
+        out["markerset"] = _in_iteration(ms)
+    elif ms:
         # A Windows absolute path ("C:\\...") is not isabs() on POSIX, so a
         # naive join glues it onto the project root and produces a path that
         # exists nowhere. Treat a drive letter as absolute on every platform.
@@ -165,6 +188,9 @@ def scaling_defaults(session_dir, iteration=None):
         subject = _os.path.basename(_os.path.dirname(session_dir))
         sess = _os.path.basename(_os.path.abspath(session_dir))
         stem = _os.path.splitext(_os.path.basename(gen))[0] if gen else "model"
-        out["output"] = _os.path.normpath(_os.path.join(
-            proj, "models", "personalised", subject, sess, f"{stem}_scaled.osim"))
+        out["output"] = (_os.path.normpath(_os.path.join(itdir, it["model_scaled"]))
+                         if it.get("model_scaled") and itdir else
+                         _os.path.normpath(_os.path.join(
+                             proj, "models", "personalised", subject, sess,
+                             f"{stem}_scaled.osim")))
     return out

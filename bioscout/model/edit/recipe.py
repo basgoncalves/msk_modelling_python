@@ -15,7 +15,7 @@ none. A recipe is re-runnable, diffable, and reviewable.
 
 Example::
 
-    base: "generic models/GPK/GPK_generic_modWO.osim"
+    base: "generic models/GPK_v4/GPK_v4_016.osim"
     out_dir: "simulations/Athlete_03/25_03_31/3_iterations/gpk"
     steps:
       - op: scale

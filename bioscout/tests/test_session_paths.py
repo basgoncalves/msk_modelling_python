@@ -148,12 +148,11 @@ class TestResolveAll(_Project):
         return {
             "c3d_source": "../../../c3d_files/022",
             "setup_folder": "setup_files",
-            "markerset": "setup_files/markers_FAIS.xml",
             "iterations": {
-                "rajagopal_fai": {
-                    "generic": "Rajagopal.osim",
-                    "so_model": "022.osim",
-                    "ceinms_model": "022.osim",
+                "rajagopal_fai": {       # relative to 3_iterations/rajagopal_fai
+                    "model_generic": "../../../../../generic models/Rajagopal.osim",
+                    "model_scaled": "022.osim",
+                    "markerset": "../../../../../setup_files/markers_FAIS.xml",
                 },
             },
         }
@@ -162,7 +161,7 @@ class TestResolveAll(_Project):
         got = resolve_all(self.cfg(), self.sess, self.proj)
         keys = [r.key for r in got]
         self.assertIn("c3d_source", keys)
-        self.assertIn("iterations.rajagopal_fai.so_model", keys)
+        self.assertIn("iterations.rajagopal_fai.model_scaled", keys)
         self.assertEqual(len([k for k in keys if k.startswith("iterations.")]), 3)
 
     def test_report_lists_missing_first(self):
@@ -183,10 +182,10 @@ class TestResolveAll(_Project):
 
     def test_one_iteration_can_be_scoped(self):
         cfg = self.cfg()
-        cfg["iterations"]["mri_torsion"] = {"so_model": "022_mri.osim"}
+        cfg["iterations"]["mri_torsion"] = {"model_scaled": "022_mri.osim"}
         got = resolve_all(cfg, self.sess, self.proj, iteration="mri_torsion")
         self.assertEqual([r for r in got if r.key.startswith("iterations.")][0].key,
-                         "iterations.mri_torsion.so_model")
+                         "iterations.mri_torsion.model_scaled")
 
 
 if __name__ == "__main__":

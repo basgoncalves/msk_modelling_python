@@ -11,7 +11,7 @@ subject:
   dominant_leg: "right"
 
 # --- inputs ---
-generic_model: templates/GPK_generic.osim
+generic_model: templates/GPK_v4_016.osim
 scaled_model: final_results/generic_scaled/scaled_model.osim
 mri_landmarks: mri/results/landmarks.mrk.json     # 3D Slicer .mrk.json
 bone_marker_template: templates/markers_and_bone_markers_in_bodies.xml

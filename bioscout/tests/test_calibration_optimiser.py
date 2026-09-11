@@ -15,7 +15,7 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from bioscout.session import session as S
+from bioscout.session import config as S
 from bioscout.simulate.ceinms.configs import (
     calibration_optimiser_settings, calibration_param_ranges, is_optimiser_key,
 )

@@ -7,8 +7,12 @@ import sys
 from pathlib import Path
 import io
 
-# Fix stdout encoding on Windows to support Unicode characters
-if sys.platform == 'win32':
+# Fix stdout encoding on Windows to support Unicode characters -- only when
+# run as a script (the GUI launches it as a subprocess). Imported, it must not
+# replace the caller's sys.stdout: in a notebook that stream has no .buffer
+# and the import itself would fail, and anywhere else it silently re-routes
+# every later print() in the process.
+if sys.platform == 'win32' and __name__ == "__main__":
     # Reconfigure stdout to use UTF-8 encoding with error handling
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')

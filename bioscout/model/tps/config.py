@@ -54,7 +54,7 @@ class PersonalisationConfig:
     subject: SubjectInfo
 
     # --- inputs -------------------------------------------------------------
-    generic_model: Path            # generic .osim (e.g. GPK_generic.osim)
+    generic_model: Path            # generic .osim (e.g. GPK_v4_016.osim)
     scaled_model: Path             # output of the OpenSim scale step
     mri_landmarks: Path            # 3D Slicer .mrk.json with bone landmarks
     bone_marker_template: Path     # markers_and_bone_markers_in_bodies.xml
@@ -63,7 +63,7 @@ class PersonalisationConfig:
     # --- outputs ------------------------------------------------------------
     output_dir: Path               # where personalised model + CSVs are written
     # If left None, the output is named "<generic_model_stem>_tps.osim"
-    # (e.g. GPK_generic_modWO.osim -> GPK_generic_modWO_tps.osim). A "{model}"
+    # (e.g. GPK_v4_016.osim -> GPK_v4_016_tps.osim). A "{model}"
     # token in an explicit name is also replaced with the generic model stem.
     personalised_model_name: Optional[str] = None
 
@@ -203,7 +203,7 @@ class PersonalisationConfig:
         Mirrors BioScout conventions::
 
             <project_root>/players.json
-            <project_root>/Models/GPK_generic.osim
+            <project_root>/Models/GPK_v4_016.osim
             <project_root>/Models/Geometry/
             <project_root>/setup_files/markers_and_bone_markers_in_bodies.xml
             <project_root>/simulations/<player_id>/mri/landmarks.mrk.json
@@ -232,7 +232,7 @@ class PersonalisationConfig:
         defaults = dict(
             subject=subject,
             project_root=project_root,
-            generic_model=project_root / "Models" / "GPK_generic.osim",
+            generic_model=project_root / "Models" / "GPK_v4_016.osim",
             scaled_model=trial_dir / "scaled_model.osim",
             mri_landmarks=sim_dir / "mri" / "landmarks.mrk.json",
             bone_marker_template=project_root / "setup_files"

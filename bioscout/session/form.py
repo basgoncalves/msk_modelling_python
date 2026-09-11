@@ -43,22 +43,22 @@ TRIAL_TYPES = ("static", "running", "walking", "cut", "jump", "squat",
 SCALAR_FIELDS = (
     ("subject", "subject", "text"),
     ("session", "session", "text"),
+    ("project_dir", "project dir (relative)", "text"),
     ("body_mass", "body mass (kg)", "number"),
-    ("markerset", "markerset", "text"),
     ("setup_folder", "setup folder", "text"),
     ("c3d_source", "c3d source", "text"),
 )
 
-#: (key, label, kind, default) for one iteration block. `prescaled` and
-#: `linear_scaling` are the pair that decides whether bioscout scales the model
-#: again — get them wrong and you silently scale an already-scaled model.
+#: (key, label, kind, default) for one iteration block. File paths are
+#: relative to the iteration folder. No `model_generic` means `model_scaled` is
+#: a given model and is not scaled again.
 ITERATION_FIELDS = (
-    ("generic", "generic model", "text", ""),
-    ("so_model", "SO model", "text", ""),
-    ("ceinms_model", "CEINMS model", "text", ""),
+    ("model_generic", "generic model", "text", ""),
+    ("model_scaled", "scaled model", "text", ""),
+    ("markerset", "markerset", "text", ""),
     ("calibration", "calibration config", "text", ""),
     ("calibrated", "calibrated", "bool", True),
-    ("prescaled", "prescaled", "bool", False),
+    ("muscle_opt", "muscle opt", "bool", True),
     ("linear_scaling", "linear scaling", "bool", True),
     ("opt_neval", "opt_neval", "number", 10),
     ("mvic_factor", "mvic_factor", "number", 3.0),
@@ -147,7 +147,7 @@ class SessionForm:
         happens to spell.
         """
         try:
-            from bioscout.session.session import _trial_role
+            from bioscout.session.config import _trial_role
             return _trial_role(self.data, role)
         except Exception:                                      # noqa: BLE001
             legacy = {"calibration": "calibration_trials",
@@ -200,6 +200,24 @@ class SessionForm:
             if named and unlisted:
                 out.append(f"{len(unlisted)} c3d file(s) are not listed under trials: "
                            f"{', '.join(unlisted[:4])}{'...' if len(unlisted) > 4 else ''}")
+
+            its = self.data.get("iterations") or {}
+            if self.data.get("markerset") and its:
+                out.append("markerset is set for the whole session — move it into each "
+                           "iteration (iterations.<name>.markerset); the marker set "
+                           "belongs to the model it scales")
+            from bioscout.session.config import (ITERATION_KEYS, ITERATION_KEY_RENAMES,
+                                                 ITERATION_KEYS_REMOVED)
+            for _n, _b in (its.items() if isinstance(its, dict) else []):
+                for _k in (_b or {}):
+                    if _k in ITERATION_KEY_RENAMES:
+                        out.append(f"iterations.{_n}.{_k} is now "
+                                   f"`{ITERATION_KEY_RENAMES[_k]}` — rename it")
+                    elif _k in ITERATION_KEYS_REMOVED:
+                        out.append(f"iterations.{_n}.{_k} is gone — "
+                                   f"{ITERATION_KEYS_REMOVED[_k]}")
+                    elif _k not in ITERATION_KEYS:
+                        out.append(f"iterations.{_n}: unknown key `{_k}` (ignored)")
 
             dup = self.duplicate_emg_keys()
             if dup:
@@ -498,7 +516,7 @@ class SessionForm:
     # -- creation ----------------------------------------------------------- #
     def scaffold(self, template=None, body_mass=None) -> Optional[Path]:
         """Write a first ``session.yaml`` from the c3d files, then load it."""
-        from bioscout.session.session import scaffold_session_yaml
+        from bioscout.session.config import scaffold_session_yaml
         written = scaffold_session_yaml(str(self.dir), template=template,
                                         body_mass=body_mass)
         if written:

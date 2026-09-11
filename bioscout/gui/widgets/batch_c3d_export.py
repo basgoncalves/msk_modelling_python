@@ -2196,7 +2196,7 @@ class BatchC3DExport(ctk.CTkFrame):
                     # scaffold_session_yaml builds the trial list from the
                     # session's own c3ds — the one blessed way to create the
                     # file (utils/session.py). It returns None when it cannot.
-                    from bioscout.session.session import scaffold_session_yaml
+                    from bioscout.session.config import scaffold_session_yaml
                     made = scaffold_session_yaml(str(root))
                     if made:
                         print(f"[OK] Created {made}")

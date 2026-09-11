@@ -39,7 +39,8 @@ import xml.etree.ElementTree as ET
 import pytest
 
 from bioscout.utils import analysis as A
-from bioscout.session import session as S
+from bioscout.session import config as S
+from bioscout.session.iteration import Iteration
 
 
 def write(tmp_path, text):
@@ -74,7 +75,7 @@ def test_flag_reaches_the_trial_config(tmp_path):
         ceinms: {alpha: 1, beta: 1, gamma: 30, calibrated: false}
         iterations: {gpk: {generic: G.osim}}
     """)
-    cfg = S.Iteration(str(tmp_path), "gpk").trial_config("Walking_03")
+    cfg = Iteration(str(tmp_path), "gpk").trial_config("Walking_03")
     assert cfg["ceinms_calibrated"] is False
 
 
@@ -85,7 +86,7 @@ def test_quoted_false_reaches_the_trial_config_as_false(tmp_path):
         ceinms: {gamma: 30, calibrated: "false"}
         iterations: {gpk: {generic: G.osim}}
     """)
-    cfg = S.Iteration(str(tmp_path), "gpk").trial_config("Walking_03")
+    cfg = Iteration(str(tmp_path), "gpk").trial_config("Walking_03")
     assert cfg["ceinms_calibrated"] is False
 
 
@@ -97,7 +98,7 @@ def test_absent_flag_adds_no_key(tmp_path):
         ceinms: {gamma: 30}
         iterations: {gpk: {generic: G.osim}}
     """)
-    cfg = S.Iteration(str(tmp_path), "gpk").trial_config("Walking_03")
+    cfg = Iteration(str(tmp_path), "gpk").trial_config("Walking_03")
     assert "ceinms_calibrated" not in cfg
 
 
@@ -108,7 +109,7 @@ def test_true_reaches_the_trial_config(tmp_path):
         ceinms: {gamma: 30, calibrated: true}
         iterations: {gpk: {generic: G.osim}}
     """)
-    cfg = S.Iteration(str(tmp_path), "gpk").trial_config("Walking_03")
+    cfg = Iteration(str(tmp_path), "gpk").trial_config("Walking_03")
     assert cfg["ceinms_calibrated"] is True
 
 

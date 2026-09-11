@@ -12,6 +12,203 @@ All notable changes to BioScout are documented here.
 > and a note here.
 
 
+## [Unreleased]
+
+### Legacy removed; one scaled model per iteration (`model_generic` / `model_scaled`, iteration-relative paths, `project_dir`); `markerset` per iteration (breaking)
+
+**Removed** (no aliases left): `Session.open` / `Iteration.open` / `open_session`
+(use `bs.Session(path)`), `Session.prune_legacy_inputs` (and settings.py's
+`RUN_PRUNE_LEGACY_INPUTS` / `PRUNE_*`), `session.xml` support
+(`read_session_xml`, `write_session_xml`, `convert_session_xml_to_yaml`,
+`session/legacy.py`), the `bioscout.session.session` shim, `read_session`,
+`Iteration.scale_model(increase_mvic=)` (use `mvic_factor=`),
+`bs.mew.MuscleAnalyser` (use `Mew`). `do_muscle_analsysis` is no longer accepted.
+
+**One iteration = one scaled model; one set of names.** An iteration block is
+
+    iterations:
+      gpk:                  # files relative to the ITERATION folder (3_iterations/gpk)
+        model_generic: ../../../../../generic models/GPK_v4/GPK_v4_016.osim
+        model_scaled:  ../../../../../models/personalised/<subject>/<session>/gpk_scaled.osim
+        markerset:     ../../../../../setupFiles/markers_orthoload.xml
+        mvic_factor: 1.0    # SO only
+
+`so_model` / `ceinms_model` are gone: CEINMS uses `model_scaled` as is, every
+other stage uses `it.model_so` = `model_scaled` x `mvic_factor`, written beside
+it as `<name>_mvicx<f>.osim` (the same file at 1.0) and never named in the file.
+A different strength or geometry is a different iteration
+(`session.add_iteration(..., mvic_factor=3.0)`). No `model_generic` = a given
+(MRI/TPS) model that is not scaled again (replaces `prescaled`/`session_model`).
+`scale_model(mvic_factor=)` is removed for the same reason.
+
+File paths are relative to the iteration folder -- no search; what the file
+says is where it is. `session.yaml` gains `project_dir: ../../..` (relative to
+the session folder), which `bs.Session(path)` now uses, so `project_dir=` is no
+longer needed in code. `scaffold` writes it.
+
+Every iteration key is an `Iteration` attribute of the same name
+(`config.ITERATION_KEYS`): `it.model_generic`, `it.model_scaled`,
+`it.markerset` (absolute paths), `it.model_so` (derived), `it.label`,
+`it.color`, `it.mvic_factor`, `it.muscle_opt`, `it.linear_scaling`,
+`it.emg_map`, `it.calibrated` ...; `it.config` is the raw block; `it.relpath(p)`
+gives a path the way session.yaml writes it. `it.label` is the legend label;
+the log prefix moved to `it.tag`. `trial_config()` returns `model_scaled`
+(no `model_dir`); `it.model_file(force_type)` is what a trial loads.
+
+**Session keys are attributes too** (`config.SESSION_KEYS`): `session.body_mass`,
+`session.static_trial`, `session.subject`, `session.trials`,
+`session.calibration_trials`, `session.emg_map`, `session.ceinms` ...;
+`session.config` is the whole file. `session.source("body_mass")` /
+`it.source("mvic_factor")` return `<...>/session.yaml:<line>` -- clickable in
+the output, it opens the file at that line. `add_iteration(name)` without
+`copy_from` starts an empty block. The keys are listed once, in `session/config.py`:
+`SessionKeys` / `IterationKeys` hold one line per key (name, type, default,
+meaning) in the file's order, `SESSION_KEYS` / `ITERATION_KEYS` are read off
+them, and `Session` / `Iteration` inherit them and are filled from the file
+when it is read. Ctrl+click on `session.body_mass` lands on that line. Any
+other top-level key works as an attribute too (`session.implanted_side`), just
+not autocompleted. `describe()` starts with the clickable session.yaml path.
+
+**Old files keep running**, with a warning per fix: `generic` ->
+`model_generic`, `so_model`/`ceinms_model` -> one `model_scaled` (refused if
+they named two different models at mvic_factor 1 -- split them), `models:` ->
+`iterations:`, bare names found by the old search. **`session.migrate()`**
+(or `Project.migrate(dry_run=False)` for every session) rewrites the file:
+current keys, paths re-written relative to the iteration folder, `project_dir`
+added, a session-level `markerset` moved into the iterations; `dry_run=True`
+prints the diff, `session.yaml.bak` is kept.
+
+**`markerset` belongs to the iteration** (`iterations.<name>.markerset`). A
+session-level `markerset` is copied into every iteration without one, with a
+warning to move it; the session editor flags it too. `write_session_yaml`
+writes it per iteration. The OrthoLoad example session is updated.
+
+**`Session.describe()`** now describes every iteration (`Iteration.describe()`):
+each model file with found / MISSING and where it resolved, marker set, scaling
+recipe, CEINMS settings, and a trial x stage table of outputs on disk
+(`it.stage_status()`). Stage banners resolve the model the way trials do instead
+of reporting "NOT FOUND in 3_iterations/<it>" for models in `models/personalised/`.
+
+### `bioscout/session/session.py` split by job; `Session.add_iteration`; project-wide ops on `Project`
+
+The 5,300-line `session/session.py` held four unrelated things. It is now:
+
+    recording.py   Session   -- one recording-session folder (bs.Session)
+    iteration.py   Iteration -- one model iteration: the runnable unit
+    config.py      session.yaml: read / write / scaffold, EMG maps, calibration
+    layout.py      + the trial/iteration path helpers that lived in session.py
+    validation.py  TrialValidator / SessionManager (GUI trial checks)
+
+(`legacy.py` and the `session/session.py` shim were removed again in the entry
+above.)
+
+* **`Session.add_iteration(name, copy_from, **overrides)`** -- copies the
+  `copy_from` block in session.yaml under `name`, applies the overrides, creates
+  the folder, returns the Iteration. Config only (no models, no results). Model
+  file names containing `copy_from` are renamed so scaling the copy cannot
+  overwrite the original's model; `label` becomes `name`. Comments and line
+  endings of session.yaml are kept; the file is written only if it re-reads to
+  exactly the intended config.
+* **`Project.sessions(subjects=, sessions=)`, `Project.run(...)`,
+  `Project.reset(...)`** replace `Session.batch_sessions` / `Session.reset_project`
+  (a Session is one folder; those looped over the whole project). The old names
+  are gone (see the entry above).
+  `Project.run` runs nothing unless asked (`batch_sessions` defaulted to
+  `do_so=True, do_ceinms=True`).
+* the XML-era `body_mass_from_static(grf_mot, ...)` was shadowed by the YAML one
+  in the old single file and could not be called; it is `legacy.body_mass_from_grf_mot`.
+
+### `bioscout.simulate.mew` (muscle extrapolation web) -- moved in from FAIS_machine_learning
+
+The draft Python CEINMS/SO solver (`FAIS_machine_learning/code/muscle_analyser`)
+now lives at `bioscout/simulate/mew/`, renamed so it cannot be confused with
+OpenSim's MuscleAnalysis (`do_muscle_analysis`, `muscle_analysis/`). Class
+`Mew` (`MuscleAnalyser` kept as an alias); results go to `<trial>/mew/`.
+Still importable without OpenSim or torch.
+
+* **pipeline stage:** `Iteration.run(..., do_mew=True, mew_opts={...})` and
+  `bioscout simulate mew`. Model and body mass come from `session.yaml`;
+  missing IK/ID/MA and the SO force file (whose residual/reserve columns
+  balance the JRA) are filled, never overwritten; an existing `mew/` result is
+  skipped unless `replace=True`. `run_check` verifies `mew/MuscleForces.sto`.
+* **`bs.mew`:** `import bioscout as bs` is enough -- `bs.mew.read_storage`,
+  `bs.mew.contact_force_magnitude`, `bs.mew.Mew` (lazy; loads no OpenSim).
+  `bs.capture_output` / `bs.stop_logging` restored: they had fallen out of
+  `bioscout.utils`' import from `.shared`, so both raised AttributeError
+  (caught by `test_logging`).
+* **unknown stage flags are reported:** `it.run(do_muscle_analyser=True)` used
+  to disappear into `**kwargs` and return having run nothing; any unknown
+  `do_*` flag now logs a WARNING naming the real stages.
+* imports follow the restructure: `bioscout.session` (was `bioscout.utils.session`),
+  `bioscout.simulate.opensim.run_jra` for JointReaction (was `bioscout.utils.openSim`).
+* `Mew.from_bioscout(iteration, trial)` and `run_iteration()` could not work
+  against the current `Iteration`: the model is returned by `trial_config()` as
+  `model_dir`, `subject_name` is a property, and `Iteration.trials` yields
+  Analyse objects, not names.
+* tests: `bioscout/tests/test_mew.py`, registered in the suite -- selftest,
+  end-to-end, the adapter seam, the pipeline wiring, and a real walking trial
+  (`example_data/orthoload`, skips when absent).
+
+### Imported as a library, bioscout leaves `sys.stdout` alone
+
+Symptom (notebook, 2026-09-10): after `bs.Project(...)`/`Session.open(...)`,
+every later cell that called `print()` finished in 0.0s and showed nothing;
+the text was in `logs/bioscout_*.log` instead. The 2026-08-18 fixes (tee onto
+the current stream, no line filter in notebooks) were in place -- the cause
+was a third one: ipykernel points output at each new cell with
+`if hasattr(sys.stdout, "set_parent"): sys.stdout.set_parent(...)`, and the
+tee hid that method, so the real stream stayed addressed to the cell that
+started logging. Reproduced on ipykernel 7.3.
+
+Rather than patch a third symptom, logging now follows the Python library
+convention -- a library does not replace the process's streams:
+
+* `start_logging(..., capture=None)`: stdout/stderr are teed into the run log
+  only when bioscout's own CLI/GUI owns the process (`__main__` sets
+  `BIOSCOUT_LOG_FILTER=1`; a notebook never counts). In a notebook or your own
+  script `Project`/`Session` still open the log file (heading, OpenSim's
+  native output, completion banner), but `print()` stays yours.
+  **Behaviour change:** library-mode logs no longer contain print output
+  unless you ask for it:
+  - `start_logging(name, capture=True)` -- capture from here on;
+  - `with capture_output(): ...` (`from bioscout.utils import capture_output`)
+    -- capture one block, restored on exit (also on error);
+  - `stop_logging()` -- close the log and restore the streams.
+
+  All three are also on the package itself (`bs.capture_output()`), and
+  `bs.utils` now works straight after `import bioscout as bs` -- it used to
+  raise AttributeError until something else had imported `bioscout.utils`.
+* `utils/logger.py` no longer tees stdout/stderr (or re-encodes stderr) when
+  it is imported -- library code imports it too (`xml_utils`,
+  `analysis_runner`, `plot.summary`). The CLI/GUI opt in explicitly with
+  `logger.capture_std_streams()` in `__main__`.
+* The tee forwards unknown attributes to the stream underneath, so an explicit
+  capture in a notebook keeps working across cells.
+* `lab/record/video_recorder.py`, `video_analyzer.py` and `video.py` only
+  re-encode / replace stdout when run as scripts, not on import.
+* `model/muscle_optimize.py` no longer calls `logging.basicConfig()`, which
+  configured the application's ROOT logger, pulled every other library's
+  records into the muscle log, and -- being once per process -- ignored the
+  log path of every later call. It uses its own logger and a per-run handler.
+* Two runs started in the same second get `bioscout_<ts>_2.log` instead of
+  overwriting the first; a second `start_logging` closes the previous log.
+
+### `Project.subjects` lists the project's own participants
+
+A project with no `settings.py` (running on bioscout's bundled template)
+reported the template's EXAMPLE roster -- `Athlete_03_Cateli`,
+`Athlete_03_GPK_MRI`, ... -- none of which were folders in its
+`simulations/`. The template builds that roster from its `SUBJECT_GROUP`
+keys whether or not the folders exist, and it filled `SUBJECTS`, so the
+`simulations/` discovery (which only ran when `SUBJECTS` was empty) never did.
+
+With the bundled template the roster is now always rebuilt from the project's
+`simulations/<participant>/` folders (`_`/`.`-prefixed ones skipped), and
+everything the template derived from the example roster (`SUBJECTS_BY_NAME`,
+`model_config`, `MODEL_FILES`, `SETUP_FOLDERS`, `sessions`) is rebuilt with
+it; `sessions` lists each participant's session folders on disk. A project
+WITH its own settings.py is unchanged -- its roster is its own.
+
 ## [3.0.5] — 2026-09-08
 
 ### Setup files name their inputs relatively
@@ -279,6 +476,40 @@ verb below. Closing that gap for good is follow-up work for `session`/
 - Includes everything in the unreleased 2.0.0c1–c4 series below (stage registry, JCF muscle contributions, session/iteration work). First release on PyPI after 2.0.0; the [2.1.0]–[2.4.2] entries far below are pre-renumber history, not PyPI releases.
 
 ## Unreleased
+
+### Added
+- `bioscout.movement_detector.mesh_rig`: STL/OBJ whole-body mesh -> rigged
+  OpenSim model, in one call. Loads and welds the mesh, decimates by vertex
+  clustering, orients it into the anatomical frame (medio-lateral axis from the
+  ankle line, anterior sign from the toes), finds the landmarks, cuts the mesh
+  into the base model's bodies, un-poses each segment onto the body's long axis
+  with an axial rescale to the model's segment length, caps every cut, adds a
+  joint filler on the proximal body, and writes one STL per body plus an
+  `.osim` whose joints, coordinates, forces and markers are copied verbatim
+  from the base — so existing `.mot`/`.sto` files and IK/ID setups keep
+  working. `--xray` also writes a bones-visible copy for checking the fit.
+  About 0.5 s for a 90 k-triangle scan, 5 s for a 1 M-triangle sculpt; numpy
+  only. Generalises the per-character build scripts in `test_project/human_stl`.
+  CLI: `python -m bioscout.movement_detector.mesh_rig scan.stl -o out --height 1.81`.
+  - Landmarks: the hip is measured (crotch height + 2 % of stature), and the
+    knee and ankle then split it in the base model's own femur : tibia :
+    ankle-height proportions. A girth minimum is used only when both legs show
+    a real interior one that agrees with the proportional estimate — on real
+    scans, trousers and socks leave a profile with no knee minimum at all, and
+    a search that takes the band edge anyway is confidently 6 cm wrong.
+  - Hands resting at hip height are kept off the thighs by a limb-radius test
+    plus a connected-component pass; they go to `torso`, not to `/dev/null`.
+  - Base model: any `.osim`. `default_base_model()` picks the highest-versioned
+    GPK model it can find in `bioscout/models`, the source folder or the cwd.
+  - `fit_legs=True` (`--fit-legs`) scales by the model's LEG LENGTH instead of
+    `target_height`. Scaling a figure whose proportions differ from the
+    skeleton's by stature stretches the limbs to the model's segment lengths —
+    a 1.3 m figure on GPK comes out as a small torso on stilts. Without the
+    flag a hip height more than ~12 % off the model's now warns and names the
+    height that would fit.
+  - A skirt or coat below the hip cut goes to `pelvis` (central to the
+    midline), a hand to `torso` (lateral) — a skirt rigid to the hips beats one
+    swinging with a femur.
 
 ### Changed
 - `Iteration.models_dir()` now writes and reads

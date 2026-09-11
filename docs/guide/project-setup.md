@@ -1,11 +1,41 @@
-# Session layout, settings.py and the test fixture
+# Project and session setup
 
-Written 2026-08-11, bioscout 2.0.0b19.
-
-Three things this file covers: the folder layout a session must have, how to
-create one, and how the test fixture now proves both.
+Merged 2026-09-08 from `SESSION_LAYOUT.md` (written 2026-08-11, bioscout
+2.0.0b19) and `PROJECT_SETUP.md`. Where the two disagreed the session-layout
+version won: `PROJECT_SETUP.md` still described the pre-numbering layout
+(`c3dfiles/`, `models/`) and a `session.xml` config that no longer exists —
+`session.yaml` has been the source of truth since 2.0.2. Its surviving
+contribution is §0 and §6 below.
 
 ---
+
+## 0. Why model creation is separate from analysis
+
+BioScout separates **model creation** (scaling / personalisation) from
+**analysis**. A session owns its personalised OpenSim model and its motion
+data; the analysis pipeline just *consumes* whatever model is in the session.
+Making that model is a standalone step you run once per session.
+
+So the analysis run never scales, never needs a "generic model", and never
+cares how the `.osim` was produced — it just uses it.
+
+Above the session, a project is a folder with a `settings.py`, a
+`simulations/` tree, and two shared resource folders:
+
+```
+<project>/
+  settings.py
+  generic models/          # unscaled templates + geometry (INPUT to `scale`)
+  setupFiles/              # OpenSim setup XMLs + marker sets (shared)
+  simulations/<Subject>/<Session>/     # see §1
+```
+
+`generic models/` and `setupFiles/` are lab-level resources: templates for the
+`scale` step, and OpenSim setup/marker XMLs for analysis. They are properties
+of the laboratory, not of a participant.
+
+---
+
 
 ## 1. The iterative layout
 
@@ -192,3 +222,22 @@ OpenSim, and it checks the numbered layout, the iteration sitting under
 iteration. Everything after it self-skips without OpenSim (and, for calibration,
 without the CEINMS binary), which is exactly why the layout checks must not be
 behind that skip.
+
+---
+
+## 6. Heterogeneous datasets, and datasets that arrive with a model
+
+**Some datasets have sessions, some don't.** If a subject folder has no session
+sub-folders, the subject folder *is* the session (`session = ""`). Discovery
+handles both — point it at the data root and let it walk:
+
+* `subject/session/` folders → session rows;
+* `subject/` folders with data but no session sub-folders → one session-less row;
+* folders **without** a model are skipped when `require_model=True`, so you can
+  run the `scale` step for those first and analyse afterwards.
+
+No per-subject configuration is needed; `settings.py` is the same file whether
+the project has 1 or 500 subjects.
+
+For data that already arrives with a model, skip model creation entirely — drop
+the `.osim` into the iteration folder.

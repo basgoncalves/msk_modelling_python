@@ -27,7 +27,6 @@ subject: 18
 session: pre
 body_mass: 89.4          # weighed from the static trial
 static_trial: static1
-markerset: setup_files/markers_FAIS.xml
 setup_folder: setup_files
 calibration_trials:
 - Run_baselineA1
@@ -57,9 +56,8 @@ trials:
     type: static
 iterations:
   rajagopal_fai:
-    generic: Rajagopal2015_FAI_os4.osim
-    so_model: 022_Rajagopal2015_FAI.osim
-    prescaled: true
+    markerset: ../../../../setup_files/markers_FAIS.xml
+    model_scaled: 022_Rajagopal2015_FAI.osim
     label: Rajagopal FAI 022
 """
 
@@ -110,6 +108,14 @@ class TestReading(_Session):
 class TestRedFlags(_Session):
     def test_clean_session_has_none(self):
         self.assertEqual(self.form().problems(), [])
+
+    def test_session_level_markerset_is_flagged(self):
+        self.yaml_path.write_text(
+            SESSION_YAML.replace("static_trial: static1\n",
+                                 "static_trial: static1\nmarkerset: m.xml\n"),
+            encoding="utf-8")
+        self.assertTrue(any("markerset is set for the whole session" in p
+                            for p in self.form().problems()))
 
     def test_empty_c3d_folder_is_the_loudest_flag(self):
         for p in (self.sess / "1_c3dfiles").glob("*.c3d"):
@@ -213,7 +219,7 @@ class TestSurgicalEditing(_Session):
         out = self.saved(lambda f: (f.set_scalar("subject", 22),
                                     f.set_list("normalisation_trials", ["HAB1"]),
                                     f.set_trial_type("HAB1", "calibration")))
-        self.assertIn("  rajagopal_fai:\n    generic: Rajagopal2015_FAI_os4.osim\n", out)
+        self.assertIn("  rajagopal_fai:\n    markerset: ../../../../setup_files/markers_FAIS.xml\n", out)
         self.assertIn("    label: Rajagopal FAI 022", out)
 
     def test_result_still_parses_and_keeps_every_key(self):
@@ -255,19 +261,18 @@ class TestIterations(_Session):
     def test_reads_the_existing_block(self):
         its = self.form().iterations()
         self.assertEqual(list(its), ["rajagopal_fai"])
-        self.assertEqual(its["rajagopal_fai"]["so_model"], "022_Rajagopal2015_FAI.osim")
+        self.assertEqual(its["rajagopal_fai"]["model_scaled"], "022_Rajagopal2015_FAI.osim")
 
     def test_add_a_second_arm(self):
         import yaml
         out = self.saved(lambda f: f.add_iteration(
-            "mri_torsion", generic="Rajagopal2015_FAI_os4.osim",
-            so_model="022_mri.osim", ceinms_model="022_mri.osim",
-            prescaled=True, linear_scaling=False, label="022 MRI torsion"))
+            "mri_torsion", model_scaled="022_mri.osim",
+            muscle_opt=False, linear_scaling=False, label="022 MRI torsion"))
         blocks = yaml.safe_load(out)["iterations"]
         self.assertEqual(set(blocks), {"rajagopal_fai", "mri_torsion"})
         new = blocks["mri_torsion"]
-        self.assertEqual(new["so_model"], "022_mri.osim")
-        self.assertIs(new["prescaled"], True)
+        self.assertEqual(new["model_scaled"], "022_mri.osim")
+        self.assertIs(new["muscle_opt"], False)
         self.assertIs(new["linear_scaling"], False)
         # and the original arm is untouched, comments included
         self.assertIn("ONE CEINMS CALIBRATION PER FATIGUE STATE", out)
@@ -282,24 +287,24 @@ class TestIterations(_Session):
         import yaml
         def edit(f):
             f.duplicate_iteration("rajagopal_fai", "mri_torsion")
-            f.set_iteration_field("mri_torsion", "so_model", "022_mri.osim")
+            f.set_iteration_field("mri_torsion", "model_scaled", "022_mri.osim")
             f.set_iteration_field("mri_torsion", "label", "022 MRI torsion")
         blocks = yaml.safe_load(self.saved(edit))["iterations"]
-        self.assertEqual(blocks["mri_torsion"]["so_model"], "022_mri.osim")
-        self.assertEqual(blocks["rajagopal_fai"]["so_model"],
+        self.assertEqual(blocks["mri_torsion"]["model_scaled"], "022_mri.osim")
+        self.assertEqual(blocks["rajagopal_fai"]["model_scaled"],
                          "022_Rajagopal2015_FAI.osim")
 
     def test_boolean_fields_stay_yaml_booleans(self):
         import yaml
         out = self.saved(lambda f: f.set_iteration_field(
-            "rajagopal_fai", "prescaled", False))
-        self.assertIs(yaml.safe_load(out)["iterations"]["rajagopal_fai"]["prescaled"],
+            "rajagopal_fai", "muscle_opt", False))
+        self.assertIs(yaml.safe_load(out)["iterations"]["rajagopal_fai"]["muscle_opt"],
                       False)
 
     def test_delete_an_iteration(self):
         import yaml
         f = self.form()
-        f.add_iteration("scratch", so_model="x.osim")
+        f.add_iteration("scratch", model_scaled="x.osim")
         f.save(backup=False)
         f = self.form()
         f.delete_iteration("scratch")

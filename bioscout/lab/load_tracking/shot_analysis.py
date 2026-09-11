@@ -555,63 +555,104 @@ def shot_kinematics(poses: Dict[int, dict], shot: Shot,
 # ---------------------------------------------------------------------------
 # Muscle forces (kinematics-only surrogate)
 # ---------------------------------------------------------------------------
-def load_force_model(path: str) -> dict:
-    with open(path, "rb") as f:
-        return pickle.load(f)
+def load_force_model(path: str):
+    """Load the FAIS surrogate, refusing a file that fails its own check.
 
-
-def _relu(x):
-    return np.maximum(0, x)
-
-
-def _predict_forces(model: dict, X: np.ndarray) -> np.ndarray:
-    Xs = (X - model["xm"]) / model["xs"]
-    a1 = _relu(Xs @ model["W1"] + model["b1"])
-    Yz = a1 @ model["W2"] + model["b2"]
-    return np.clip(np.expm1(Yz * model["ys"] + model["ym"]), 0, None)
-
-
-def kinematics_to_model_features(kin: Dict[str, np.ndarray], model: dict,
-                                 side: str = "right") -> np.ndarray:
-    """Map the 2-D shot angles onto the model's OpenSim feature columns.
-
-    Only the sagittal angles we can see from video are filled; everything else
-    is left at the training-set mean (model['xm']). This is a coarse mapping —
-    image-plane angles are not OpenSim joint coordinates — hence low fidelity.
+    See ``bioscout/models/force_model.py``. The pre-2026-09
+    ``kinematics_only_model.pkl`` is rejected here rather than used: it was
+    exported from a BatchNorm network without its running statistics and
+    predicts 113,250 N on a trial from its own training set.
     """
-    feat = list(model["feat"])
-    n = len(kin["pct"])
-    X = np.tile(np.asarray(model["xm"], float), (n, 1))   # start at training mean
+    from bioscout.models import force_model as _fm
+    return _fm.load(path)
+
+
+# Video angle -> OpenSim coordinate, in Rajagopal conventions and degrees.
+#
+# Every one of these is a convention, and getting one backwards is invisible in
+# the output -- it just makes the forces wrong. The signs below are pinned
+# against the training distribution of the shipped model:
+#
+#   knee_angle_r     0 .. 160, flexion POSITIVE   (mean  41.5, sd 34.9)
+#   hip_flexion_r  -30 .. 120, flexion positive   (mean  24.9, sd 28.2)
+#   elbow_flex_r     0 .. 150, flexion positive   (mean  60.4, sd 31.6)
+#   arm_flex_r     -90 ..  90, forward flexion    (mean  37.3, sd 50.4)
+#
+# NOTE the knee. The previous mapping wrote ``-(180 - v)``, i.e. flexion
+# negative, which is the gait2392/GPK convention -- not the Rajagopal one the
+# model is trained in. A shot with a 90-degree knee was being fed in as -90,
+# which the model has never seen on that coordinate at all.
+_VIDEO_TO_OPENSIM = {
+    # video key       coordinate suffix   conversion from the 2-D angle
+    "knee_flex":     ("knee_angle_{s}",  lambda v: 180.0 - v),
+    "hip_flex":      ("hip_flexion_{s}", lambda v: 180.0 - v),
+    "elbow_flex":    ("elbow_flex_{s}",  lambda v: 180.0 - v),
+    "shoulder_elev": ("arm_flex_{s}",    lambda v: v),
+}
+
+
+def kinematics_to_coords(kin: Dict[str, np.ndarray], side: str = "right"
+                         ) -> Dict[str, np.ndarray]:
+    """The four sagittal angles a video gives, as OpenSim coordinates.
+
+    Everything else -- the other limb, the pelvis, the trunk -- is left out, and
+    the model holds it at its training mean. That is a real limitation of a
+    single view and is reported by :func:`predict_muscle_forces` rather than
+    hidden.
+    """
     s = "r" if side.startswith("r") else "l"
-    # video angle -> OpenSim coordinate (degrees, rough sign conventions)
-    knee = kin.get("knee_flex")
-    hip = kin.get("hip_flex")
-    elb = kin.get("elbow_flex")
-    sh = kin.get("shoulder_elev")
-    mapping = {
-        f"knee_angle_{s}":  (knee, lambda v: -(180.0 - v)),   # flexion negative in model
-        f"hip_flexion_{s}": (hip,  lambda v: (180.0 - v)),    # more trunk-thigh closing = flexion
-        f"elbow_flex_{s}":  (elb,  lambda v: (180.0 - v)),
-        f"arm_flex_{s}":    (sh,   lambda v: v),
-    }
-    for col, (series, fn) in mapping.items():
-        if col in feat and series is not None and np.isfinite(series).any():
-            X[:, feat.index(col)] = fn(_interp_nan(series))
-    # Clamp to the model's training range to curb wild extrapolation on
-    # out-of-distribution inputs (image-plane angles are not OpenSim coords).
-    xm, xs = np.asarray(model["xm"], float), np.asarray(model["xs"], float)
-    X = np.clip(X, xm - 3 * xs, xm + 3 * xs)
-    return X
+    coords = {}
+    for key, (template, fn) in _VIDEO_TO_OPENSIM.items():
+        series = kin.get(key)
+        if series is None or not np.isfinite(series).any():
+            continue
+        coords[template.format(s=s)] = fn(_interp_nan(np.asarray(series, float)))
+    return coords
 
 
-def predict_muscle_forces(kin: Dict[str, np.ndarray], model: dict,
-                          side: str = "right", smooth_frac: float = 0.06) -> Dict[str, np.ndarray]:
-    X = kinematics_to_model_features(kin, model, side=side)
-    Y = _predict_forces(model, X)                 # (n, 80)
+def predict_muscle_forces(kin: Dict[str, np.ndarray], model,
+                          side: str = "right", smooth_frac: float = 0.06,
+                          duration_s: Optional[float] = None,
+                          mass_kg: float = 75.0,
+                          height_m: float = 1.75) -> Dict[str, np.ndarray]:
+    """Per-shot muscle forces (N) and joint contact forces (bodyweight).
+
+    ``duration_s`` is the wall-clock length of the shot. It matters: the model
+    reads joint velocity and acceleration, which are differentiated from the
+    time axis, and the 0-100% axis in ``kin`` has had real time normalised out
+    of it. Without a duration the shot is treated as one second, and the
+    dynamics are then only as right as that guess.
+
+    The returned dict carries the force curves on the same 0-100% axis as
+    ``kin``, plus ``_meta`` describing how far outside the training data the
+    inputs sat -- which for a basketball shot is the number worth reading first.
+    """
+    from bioscout.models import force_model as _fm
+
+    coords = kinematics_to_coords(kin, side=side)
     n = len(kin["pct"])
+    span = float(duration_s) if duration_s and duration_s > 0 else 1.0
+    times = np.asarray(kin["pct"], float) / 100.0 * span
+
+    out_pred = _fm.predict(model, coords, times, mass_kg=mass_kg, height_m=height_m)
+
     out = {"pct": kin["pct"]}
-    for j, name in enumerate(model["targ"]):
-        out[name] = _smooth_resample(Y[:, j], n, smooth_frac)   # tidy MLP jitter
+    for j, name in enumerate(out_pred["muscle_names"]):
+        out[name] = _smooth_resample(out_pred["muscle_forces_N"][:, j], n, smooth_frac)
+    for j, name in enumerate(out_pred["jrf_names"]):
+        out[name] = _smooth_resample(out_pred["jrf_BW"][:, j], n, smooth_frac)
+
+    sigma = out_pred["sigma_from_training_mean"]
+    out["_meta"] = {
+        "supplied_coords": sorted(coords),
+        "coords_held_at_training_mean": len(_fm.coordinate_names(model)) - len(coords),
+        "sigma_from_training_mean": sigma,
+        "worst_coord": max(sigma, key=sigma.get) if sigma else None,
+        "implausible_fraction": out_pred["implausible_fraction"],
+        "duration_s": span,
+        "duration_assumed": duration_s is None,
+        "mass_kg": mass_kg,
+    }
     return out
 
 
@@ -648,19 +689,34 @@ def plot_muscle_forces(shots_forces: List[Dict[str, np.ndarray]], shots: List[Sh
         muscles = ["vaslat_r", "recfem_r", "gasmed_r", "soleus_r",
                    "glmax2_r", "bflh_r"]
     muscles = [m for m in muscles if m in shots_forces[0]]
-    fig, ax = plt.subplots(1, len(muscles), figsize=(3.2 * len(muscles), 3.2), squeeze=False)
+    jrf = [j for j in ("hip_r_mag", "knee_r_mag", "ankle_r_mag") if j in shots_forces[0]]
+    cols = muscles + jrf
+    fig, ax = plt.subplots(1, len(cols), figsize=(3.2 * len(cols), 3.4), squeeze=False)
     cmap = matplotlib.colormaps["tab10"]
-    for j, m in enumerate(muscles):
+    for j, m in enumerate(cols):
         a = ax[0, j]
         for k, (ff, sh) in enumerate(zip(shots_forces, shots)):
             a.plot(ff["pct"], ff[m], color=cmap(k % 10),
                    ls="--" if sh.made is False else "-", label=f"#{sh.index}")
-        a.set_title(m); a.set_xlabel("% shot")
+        a.set_title(m.replace("_mag", " contact")); a.set_xlabel("% shot")
         if j == 0:
             a.set_ylabel("force (N)")
+        if m in jrf:
+            a.set_ylabel("× bodyweight")
         a.legend(fontsize=6)
-    fig.suptitle("Per-shot muscle forces (kinematics-only surrogate — low fidelity)", fontsize=11)
-    fig.tight_layout(rect=(0, 0, 1, 0.95))
+
+    # Say on the figure how far outside its training data the model was pushed.
+    # A basketball shot is not running and not a single-leg squat, and a plot
+    # that does not say so will be read as if it were a measurement.
+    meta = [f.get("_meta", {}) for f in shots_forces]
+    sig = [m["sigma_from_training_mean"].get(m.get("worst_coord"), 0.0)
+           for m in meta if m.get("worst_coord")]
+    held = max((m.get("coords_held_at_training_mean", 0) for m in meta), default=0)
+    note = (f"worst input {max(sig):.1f} sd outside training data; "
+            f"{held} coordinates held at the training mean" if sig else "")
+    fig.suptitle("Per-shot forces — FAIS surrogate trained on running and "
+                 "single-leg squats, not shooting\n" + note, fontsize=10)
+    fig.tight_layout(rect=(0, 0, 1, 0.90))
     fig.savefig(out_path, dpi=130)
     plt.close(fig)
 
@@ -1015,10 +1071,33 @@ def analyze_video(video_path: str, out_dir: Optional[str] = None,
     # 4. muscle forces (optional, low fidelity)
     forces = []
     if model_path and os.path.exists(model_path) and kins_ok:
-        model = load_force_model(model_path)
-        forces = [predict_muscle_forces(k, model, side=side) for k, _ in kins_ok]
-        plot_muscle_forces(forces, [s for _, s in kins_ok],
-                           os.path.join(out_dir, "muscle_forces.png"))
+        try:
+            model = load_force_model(model_path)
+        except Exception as exc:
+            # A refused model is a result, not a crash: everything above this
+            # point -- shot detection, kinematics, made/missed -- is unaffected.
+            logger.warning(f"muscle forces skipped: {exc}")
+            model = None
+        if model is not None:
+            # Real shot duration, so velocity and acceleration are real. The
+            # 0-100% axis has time normalised out of it; without this the model
+            # sees the dynamics of a one-second shot whatever was filmed.
+            forces = [predict_muscle_forces(
+                          k, model, side=side,
+                          duration_s=(sh.end_frame - sh.start_frame) / sh.fps
+                                     if sh.fps else None)
+                      for k, sh in kins_ok]
+            worst = max((f["_meta"]["sigma_from_training_mean"].get(
+                             f["_meta"]["worst_coord"], 0.0)
+                         for f in forces if f.get("_meta", {}).get("worst_coord")),
+                        default=0.0)
+            if worst > 3.0:
+                logger.warning(
+                    f"muscle forces are an extrapolation: the worst input sits "
+                    f"{worst:.1f} sd outside the training data. The model was "
+                    f"trained on running and single-leg squats, not shooting.")
+            plot_muscle_forces(forces, [s for _, s in kins_ok],
+                               os.path.join(out_dir, "muscle_forces.png"))
 
     made = sum(1 for s in shots if s.made is True)
     missed = sum(1 for s in shots if s.made is False)

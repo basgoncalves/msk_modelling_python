@@ -20,7 +20,7 @@ What these tests pin:
   because these files carry hand-written notes explaining why a bound is what
   it is.
 
-Standard library + PyYAML only; session.py is imported by file path with a
+Standard library + PyYAML only; config.py is imported by file path with a
 stubbed parent package so this runs where `bioscout.utils` cannot
 (utils-init-scipy-block).
 """
@@ -44,7 +44,7 @@ def _load(name, rel):
         spec.loader.exec_module(mod)
     except BaseException:
         # Un-register the half-built module. Leaving it in sys.modules under a
-        # REAL package name (this loads session.py as `bioscout.session.session`)
+        # REAL package name (this loads config.py as `bioscout.session.config`)
         # poisons that name for the whole interpreter: every later import gets
         # this empty stub instead of the real module, and the failures surface
         # far away as `has no attribute 'Iteration'`. Skipping this test must
@@ -61,9 +61,9 @@ try:
         # shadows it for the whole interpreter -- every later
         # `from bioscout.utils import analysis` then gets an empty stub, and
         # the failures surface far away in unrelated test modules.
-        from bioscout.session import session as S
+        from bioscout.session import config as S
     except Exception:                                          # noqa: BLE001
-        # Crippled environment (no scipy, say): load session.py by path under
+        # Crippled environment (no scipy, say): load config.py by path under
         # stub parents so this module's own tests can still run. Only reached
         # when the real import is impossible, so nothing working is shadowed.
         _pkg = types.ModuleType("bioscout")
@@ -76,8 +76,8 @@ try:
         _s_pkg.__path__ = [os.path.join(_PKG, "session")]
         sys.modules.setdefault("bioscout.session", _s_pkg)
         _u.file_edit = _load("bioscout.utils.file_edit", "utils/file_edit.py")
-        S = _load("bioscout.session.session", "session/session.py")
-        _s_pkg.session = S
+        S = _load("bioscout.session.config", "session/config.py")
+        _s_pkg.config = S
     import yaml
     HAVE = True
 except Exception:                                              # noqa: BLE001
@@ -109,7 +109,7 @@ LEGACY = textwrap.dedent("""\
     """)
 
 
-@unittest.skipUnless(HAVE, "session.py / PyYAML not importable")
+@unittest.skipUnless(HAVE, "session/config.py / PyYAML not importable")
 class TestNestedWins(unittest.TestCase):
     def test_nested_is_read(self):
         cfg = yaml.safe_load(LEGACY)
@@ -142,7 +142,7 @@ class TestNestedWins(unittest.TestCase):
         self.assertEqual(S.calibration_name_for(cfg, "gpk"), "prod")
 
 
-@unittest.skipUnless(HAVE, "session.py / PyYAML not importable")
+@unittest.skipUnless(HAVE, "session/config.py / PyYAML not importable")
 class TestMigration(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()

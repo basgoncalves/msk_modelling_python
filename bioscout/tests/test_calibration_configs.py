@@ -19,7 +19,8 @@ import textwrap
 
 import pytest
 
-from bioscout.session import session as S
+from bioscout.session import config as S
+from bioscout.session.iteration import Iteration
 
 
 def write(tmp_path, text):
@@ -54,7 +55,7 @@ def test_absent_block_changes_nothing(tmp_path):
     assert S.calibration_configs(cfg) == {}
     assert S.resolve_calibration(cfg, "cateli") == {}
     assert S.calibration_name_for(cfg, "cateli") is None
-    assert "calibration_params" not in S.Iteration(str(tmp_path),
+    assert "calibration_params" not in Iteration(str(tmp_path),
                                                    "cateli").trial_config("T")
 
 
@@ -90,7 +91,7 @@ def test_snake_case_and_lists_are_canonicalised(tmp_path):
 
 def test_trial_config_injects_the_bounds(tmp_path):
     write(tmp_path, NAMED)
-    cfg = S.Iteration(str(tmp_path), "cateli__tight").trial_config("Walking_03")
+    cfg = Iteration(str(tmp_path), "cateli__tight").trial_config("Walking_03")
     assert cfg["calibration_name"] == "tight"
     assert cfg["calibration_params"]["tendonSlackLength"] == "0.75 1.25"
 

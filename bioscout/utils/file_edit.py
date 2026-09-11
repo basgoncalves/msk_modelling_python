@@ -774,11 +774,14 @@ class YamlDocument(Document):
             for name, blk in iters.items():
                 if not isinstance(blk, dict):
                     continue
-                for k in ("so_model", "ceinms_model", "session_model"):
+                for k in ("model_generic", "model_scaled", "markerset",
+                          "so_model", "ceinms_model", "generic"):
                     rel = blk.get(k)
                     if rel and not self._iteration_file_exists(sdir, name, str(rel)):
                         out.append(f"iterations.{name}.{k}: '{rel}' not found "
-                                   f"in {name}/ — has this model been scaled yet?")
+                                   f"(relative to 3_iterations/{name}/)"
+                                   + (" — has this model been scaled yet?"
+                                      if k == "model_scaled" else ""))
         return out
 
     @staticmethod
@@ -1051,12 +1054,16 @@ _SESSION_YAML_SCHEMA = {
         "alpha":        {"help": "CEINMS calibration weight — tracking term."},
         "beta":         {"help": "CEINMS calibration weight — regularisation."},
         "gamma":        {"help": "CEINMS calibration weight — EMG tracking."},
-        "generic":      {"help": "Template .osim to scale from, relative to the "
-                                 "shared 'generic models' library."},
-        "session_model": {"help": "Already-personalised .osim (MRI/TPS). If set, "
-                                  "geometric scaling is skipped."},
-        "so_model":     {"help": ".osim used for static optimisation."},
-        "ceinms_model": {"help": ".osim used for CEINMS."},
+        "project_dir":  {"help": "The project folder, relative to this session "
+                                 "folder (usually ../../..)."},
+        "model_generic": {"help": "Generic .osim to scale, relative to the "
+                                  "iteration folder. Leave out when model_scaled "
+                                  "is a given (MRI/TPS) model."},
+        "model_scaled": {"help": "THE scaled model of this iteration, relative to "
+                                 "the iteration folder. CEINMS uses it as is; SO "
+                                 "uses a copy x mvic_factor."},
+        "markerset":    {"help": "Marker set .xml used to scale, relative to the "
+                                 "iteration folder."},
         "calibration_trials":   {"help": "Trials CEINMS calibrates on."},
         "normalisation_trials": {"help": "Trials spanned for EMG MVC "
                                          "normalisation, or 'all'."},

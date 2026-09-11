@@ -13,7 +13,7 @@ import os
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from config.config_manager import ConfigManager
-from bioscout.session.session import SessionManager, TrialValidator
+from bioscout.session.validation import SessionManager, TrialValidator
 from utils.logger import logger
 from utils import SIMULATIONS_DIR
 

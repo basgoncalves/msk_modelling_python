@@ -53,6 +53,22 @@ __all__ = ["VERBS", "build_parser", "route", "main", "legacy_hint"]
 VERBS = ("help", "init", "gui", "model", "simulate", "session",
          "plot", "utils", "lab")
 
+#: Subcommand -> the verb it lives under. These are the words people reach for
+#: at the top level because that is where the old flags were (`bioscout --env`),
+#: so a bare `bioscout env` should say where it went rather than "unknown".
+NESTED = {
+    "env": "utils env", "install": "utils install", "md2pdf": "utils md2pdf",
+    "pylance": "utils pylance",
+    "new": "session new", "edit": "session edit", "export": "session export",
+    "classify": "session classify", "ingest": "session ingest",
+    "reset": "session reset",
+    "check": "model check", "compare": "model compare", "tune-ma": "model tune-ma",
+    "scale": "model scale", "tps": "model tps", "mrs": "simulate mrs", "project": "init --from-settings",
+    "validate": "model validate", "joint-centres": "model joint-centres",
+    "jc": "model jc",
+    "summary": "plot summary", "jcf": "plot jcf", "figures": "plot figures",
+}
+
 _EPILOG = """\
 examples:
   bioscout simulate so simulations/023/pre --replace
@@ -134,6 +150,51 @@ def build_parser() -> argparse.ArgumentParser:
                        help="add Harrington hip / midpoint knee-ankle centres to a TRC")
     mj.add_argument("trc", metavar="TRC")
     mj.add_argument("-o", "--out", metavar="FILE")
+    mj.add_argument("--alias", action="append", metavar="EXPECTED=ACTUAL",
+                    help="marker this lab spells differently, e.g. "
+                         "--alias LPSI=LSACR --alias RKNEL=RLFC. Without these "
+                         "a lab using other names gets NO joint centres.")
+
+    # `model scale` -- interactive, session-less; `session scale` is the
+    # session.yaml-driven one.
+    sc_ = ms.add_parser(
+        "scale", help="scale a model by answering questions (interactive)",
+        description="Needs no project and no settings.py: point it at a generic "
+                    ".osim and a static .trc and it works out the rest, asking "
+                    "only about what it cannot determine. Shows which "
+                    "measurements it can build BEFORE running, and refuses when "
+                    "the femurs or tibiae are not measured -- a near-empty "
+                    "MeasurementSet scales every body by 1.0 and returns generic "
+                    "geometry wearing the subject's mass, which no downstream "
+                    "result can reveal.")
+    sc_.add_argument("--setup", "--xml", "-xml", dest="setup", metavar="XML",
+                     help="run an existing ScaleTool setup XML exactly as "
+                          "written (e.g. the scale_setup.xml a previous run "
+                          "left beside the model) and ask nothing. Reproduces "
+                          "the DIMENSIONAL scaling; marker placement is a "
+                          "separate pass, see `bioscout help model`.")
+    sc_.add_argument("--model", metavar="OSIM", help="generic (unscaled) model")
+    sc_.add_argument("--static", metavar="TRC", help="static-trial markers")
+    sc_.add_argument("--markerset", metavar="XML",
+                     help="marker set to put on the model (default: its own)")
+    sc_.add_argument("--mass", type=float, metavar="KG",
+                     help="subject mass; default is measured from the static "
+                          "GRF when a grf.mot sits beside the .trc")
+    sc_.add_argument("--grf", metavar="MOT",
+                     help="static-trial grf.mot to weigh the subject from "
+                          "(default: grf.mot beside the .trc)")
+    sc_.add_argument("-o", "--out", metavar="OSIM", help="scaled model to write")
+    sc_.add_argument("--alias", action="append", metavar="EXPECTED=ACTUAL",
+                     help="marker this lab spells differently, e.g. "
+                          "--alias LPSI=LSACR. Repeatable; skips the prompt.")
+    sc_.add_argument("--no-placer", action="store_true",
+                     help="skip marker placement (dimensional scaling only)")
+    sc_.add_argument("--no-scaling", action="store_true",
+                     help="place markers only, do not resize the model")
+    sc_.add_argument("--dry-run", action="store_true",
+                     help="decide everything and show the measurements; run nothing")
+    sc_.add_argument("-y", "--yes", action="store_true",
+                     help="do not prompt; fail rather than ask")
 
     mt = ms.add_parser("tps", help="build an MRI-personalised model (interactive)",
                        description="Warps a generic model onto MRI/3D-Slicer "
@@ -172,6 +233,7 @@ def build_parser() -> argparse.ArgumentParser:
     _simulate_action("exbiomec", "inverse kinematics -> inverse dynamics")
     _simulate_action("ma", "muscle analysis")
     _simulate_action("so", "static optimisation -> muscle moments -> joint reaction")
+    _simulate_action("mew", "mew (Python muscle solver) -> joint reaction, into <trial>/mew/")
     _simulate_action("ceinms", "calibrate + execute CEINMS -> joint reaction")
     # `simulate mrs` forwards to bioscout.simulate.mrs.cli's own parser (see
     # route()); registered here only so it shows in `bioscout simulate -h`.
@@ -237,6 +299,22 @@ def build_parser() -> argparse.ArgumentParser:
     si.add_argument("folder", metavar="C3D_FOLDER")
     si.add_argument("--subject", required=True)
     si.add_argument("--session", required=True)
+
+    ssc = ss.add_parser(
+        "scale", help="scale this session's model(s) from session.yaml",
+        description="Builds the scaled model for one session, driven entirely "
+                    "by its session.yaml: body_mass (the static GRF wins when "
+                    "readable), static_trial, markerset, marker_aliases, and "
+                    "each iteration's generic / so_model / linear_scaling / "
+                    "marker_placer / mvic_factor. Nothing is typed on the "
+                    "command line but WHICH session. Needs no settings.py and "
+                    "no project root — just the session folder. `bioscout scale` "
+                    "is the interactive, session-less equivalent.")
+    ssc.add_argument("path", metavar="SESSION_PATH")
+    ssc.add_argument("--iteration", metavar="NAME",
+                     help="which model arm (default: every one on disk)")
+    ssc.add_argument("--replace", action="store_true",
+                     help="rebuild a model that already exists")
 
     sr = ss.add_parser("reset", help="strip trials back to inputs-only")
     sr.add_argument("--subject")
@@ -401,6 +479,11 @@ def _to_legacy(ns: argparse.Namespace) -> List[str]:      # noqa: C901 — a fla
         return ["--gui"]
 
     if v == "session":
+        if a == "scale":
+            out = ["--scale-session", ns.path]
+            _flag(out, "--iteration", ns.iteration)
+            _flag(out, "--REPLACE", ns.replace, store_true=True)
+            return out
         if a == "new":
             out = ["--new-session", ns.path or "."]
             _flag(out, "--from-session", ns.from_session)
@@ -449,7 +532,29 @@ def _to_legacy(ns: argparse.Namespace) -> List[str]:      # noqa: C901 — a fla
         if a in ("joint-centres", "jc"):
             out = ["--joint-centres", ns.trc]
             _flag(out, "-o", ns.out)
+            for a_ in (getattr(ns, "alias", None) or []):
+                out += ["--alias", a_]
             return out
+
+    if v == "model" and a == "scale":
+        if ns.setup:
+            out = ["--scale-setup", ns.setup]
+            _flag(out, "--mass", ns.mass)
+            return out
+        out = ["--scale-model"]
+        _flag(out, "--scale-generic", ns.model)
+        _flag(out, "--static", ns.static)
+        _flag(out, "--markerset", ns.markerset)
+        _flag(out, "--mass", ns.mass)
+        _flag(out, "--grf", ns.grf)
+        _flag(out, "-o", ns.out)
+        for a_ in (ns.alias or []):
+            out += ["--alias", a_]
+        _flag(out, "--no-placer", ns.no_placer, store_true=True)
+        _flag(out, "--no-scaling", ns.no_scaling, store_true=True)
+        _flag(out, "--dry-run", ns.dry_run, store_true=True)
+        _flag(out, "-y", ns.yes, store_true=True)
+        return out
 
 
 
@@ -589,15 +694,15 @@ def _direct(ns: argparse.Namespace) -> Optional[int]:
     if v == "simulate":
         # Direct dispatch straight to Iteration.run() via the Session it
         # belongs to -- no legacy flag translation exists for this (there is
-        # no old flat-flag equivalent of a single simulate stage). Session.open
+        # no old flat-flag equivalent of a single simulate stage). Session()
         # raises a clear FileNotFoundError when session.yaml is missing rather
         # than silently doing nothing, which is exactly what a run command
         # should do on a bad path.
-        from bioscout.session.session import Session
+        from bioscout.session.recording import Session
         stage_kwarg = {"exbiomec": "do_exbiomec", "ma": "do_muscle_analysis",
-                       "so": "do_so", "ceinms": "do_ceinms"}[a]
+                       "so": "do_so", "mew": "do_mew", "ceinms": "do_ceinms"}[a]
         try:
-            s = Session.open(ns.path)
+            s = Session(ns.path)
         except FileNotFoundError as e:
             print(f"[simulate] {e}", file=sys.stderr)
             return 1

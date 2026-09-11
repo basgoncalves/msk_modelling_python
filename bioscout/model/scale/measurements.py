@@ -53,6 +53,72 @@ _MIDPOINT_JC = {
 }
 _HARRINGTON_MARKERS = ("LASI", "RASI", "LPSI", "RPSI")
 
+#: Every skin-marker name this module expects, in one place, so a laboratory
+#: that spells them differently can be accommodated by DATA rather than by a
+#: fork. The names above are the powerlifting/Vicon-CGM set; FAIS, for example,
+#: records LSACR/RSACR instead of LPSI/RPSI and RLFC/RMFC instead of RKNEL/RKNEM,
+#: which used to mean NO joint centre could be built and 1 of 13 measurements
+#: survived -- a model with a scaled pelvis and generic femurs, silently.
+#:
+#: An alias map is ``{expected_name: name_this_lab_records}``.
+EXPECTED_MARKERS = tuple(sorted(
+    set(_HARRINGTON_MARKERS)
+    | {m for pair in _MIDPOINT_JC.values() for m in pair}))
+
+
+def apply_aliases(aliases, *names):
+    """``names`` with ``aliases`` applied. Unknown names pass through."""
+    aliases = aliases or {}
+    out = tuple(aliases.get(n, n) for n in names)
+    return out[0] if len(out) == 1 else out
+
+
+def resolve_spec(spec, aliases):
+    """A measurement spec with ``aliases`` applied to every marker name.
+
+    Returns the spec unchanged when there is nothing to apply, so callers can
+    pass the result straight to :func:`build_measurement_set`.
+    """
+    if not aliases:
+        return spec
+    out = []
+    for name, pairs, bodies in spec:
+        out.append((name,
+                    [tuple(apply_aliases(aliases, a, b)) for a, b in pairs],
+                    bodies))
+    return out
+
+
+def suggest_alias(missing, candidates, limit=6):
+    """Plausible stand-ins for ``missing`` among ``candidates``, best first.
+
+    Cheap and deliberately transparent: same side prefix (L/R) first, then
+    shared substrings. It is a shortlist for a human to choose from, never an
+    automatic substitution -- picking the wrong ankle marker is not an error
+    anything downstream can detect.
+    """
+    m = str(missing).upper()
+    side = m[0] if m[:1] in ("L", "R") else ""
+    core = m[1:] if side else m
+
+    def score(c):
+        c = str(c).upper()
+        if c == m:
+            return -100
+        s = 0
+        if side and c[:1] == side:
+            s -= 10
+        elif side and c[:1] in ("L", "R"):
+            s += 20                     # wrong side: push down, do not hide
+        for n in range(min(len(core), 5), 1, -1):
+            if core[:n] in c or c[1:][:n] in core:
+                s -= n
+                break
+        return s
+
+    ranked = sorted(candidates, key=score)
+    return [c for c in ranked if score(c) < 0][:limit] or list(ranked)[:limit]
+
 
 # --------------------------------------------------------------------------
 # TRC I/O (deliberately text-level: the multi-index DataFrame round-trip in
@@ -151,8 +217,13 @@ def harrington_hjc(lasi, rasi, lpsi, rpsi):
     return lhjc, rhjc, pw, pd
 
 
-def compute_joint_centres(names, data):
-    """Per-frame joint centres from a parsed TRC. Returns ``{name: (n,3)}``."""
+def compute_joint_centres(names, data, aliases=None):
+    """Per-frame joint centres from a parsed TRC. Returns ``{name: (n,3)}``.
+
+    ``aliases`` maps the expected skin-marker names to what this lab records
+    (see :data:`EXPECTED_MARKERS`); without it a lab using different spellings
+    gets no joint centres at all.
+    """
     idx = {n: 3 * i for i, n in enumerate(names)}
 
     def col(n):
@@ -162,13 +233,15 @@ def compute_joint_centres(names, data):
 
     out = {}
     for jc, (a, b) in _MIDPOINT_JC.items():
+        a, b = apply_aliases(aliases, a, b)
         A, B = col(a), col(b)
         if A is None or B is None:
             continue
         out[jc] = (A + B) / 2.0
 
-    if all(col(m) is not None for m in _HARRINGTON_MARKERS):
-        LA, RA, LP, RP = (col(m) for m in _HARRINGTON_MARKERS)
+    _harr = apply_aliases(aliases, *_HARRINGTON_MARKERS)
+    if all(col(m) is not None for m in _harr):
+        LA, RA, LP, RP = (col(m) for m in _harr)
         n = data.shape[0]
         lh = np.full((n, 3), np.nan)
         rh = np.full((n, 3), np.nan)
@@ -181,14 +254,14 @@ def compute_joint_centres(names, data):
     return out
 
 
-def augment_static_trc(trc_in, trc_out=None, verbose=True):
+def augment_static_trc(trc_in, trc_out=None, verbose=True, aliases=None):
     """Write a copy of the static TRC with the ``*WK`` joint centres appended.
 
     Returns the path to the augmented TRC (or ``trc_in`` unchanged if no joint
     centre could be built -- e.g. the pelvis or knee markers are absent).
     """
     header, names, frames, data = read_trc(trc_in)
-    jcs = compute_joint_centres(names, data)
+    jcs = compute_joint_centres(names, data, aliases=aliases)
     jcs = {k: v for k, v in jcs.items() if k not in names}
     if not jcs:
         if verbose:

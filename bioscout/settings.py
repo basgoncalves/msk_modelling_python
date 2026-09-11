@@ -52,7 +52,9 @@ __version__ = "2.0.0b1"
 PROJECT_NAME    = "powerlifting_squat"
 PROJECT_ROOT    = Path(__file__).resolve().parent
 MODELS_DIR      = PROJECT_ROOT / "models"
-SETUP_DIR       = PROJECT_ROOT / "setupFiles"
+# bioscout 3.x renamed setupFiles/ -> setup_files/; take whichever exists.
+SETUP_DIR       = (PROJECT_ROOT / "setup_files" if (PROJECT_ROOT / "setup_files").is_dir()
+                   else PROJECT_ROOT / "setupFiles")
 SIMULATIONS_DIR = PROJECT_ROOT / "simulations"
 RESULTS_DIR     = PROJECT_ROOT / "results"
 LOG_DIR         = PROJECT_ROOT / "logs"
@@ -146,7 +148,6 @@ LOG_TYPE = "minimal"
 RUN_TPS_PERSONALISE     = False
 RUN_SESSION_ITERATIONS  = True
 RUN_SINGLE_ITERATION    = False
-RUN_PRUNE_LEGACY_INPUTS = False
 # -- what to run over --------------------------------------------------------
 ITERATIONS   = list(CAPTURE["iterations"])
 TRIALS       = list(CAPTURE["trials"])
@@ -199,9 +200,6 @@ TPS_ITERATIONS = list(CAPTURE["tps_iterations"])
 TPS_INSPECT = True
 TPS_LANDMARKS = (os.path.join(PROJECT_ROOT, *CAPTURE["tps_landmarks"])
                  if CAPTURE["tps_landmarks"] else None)
-# -- legacy-input pruning ----------------------------------------------------
-PRUNE_DRY_RUN = False
-PRUNE_ARCHIVE = os.path.join("_to_delete", "legacy_inputs")
 
 
 GROUPS = {
@@ -216,12 +214,12 @@ GROUPS = {
         static_trial="Static_01", setup_folder=SETUP_DIR,
         label="Scaled (Lernagopal)", color="blue", group="generic"),
     "gpk": dict(
-        generic_model="GPK/GPK_v3.osim",
+        generic_model="GPK_v4/GPK_v4_016.osim",
         model_so="scaled_mvicx3.00.osim", model_ceinms="scaled.osim",
         static_trial="Static_01", setup_folder=SETUP_DIR,
         label="Scaled (GPK)", color="red", group="generic"),
     "gpk_mri": dict(
-        generic_model="GPK/GPK_v3_tps_Athlete_03.osim",
+        generic_model="GPK_v4/GPK_v4_016_tps_Athlete_03.osim",
         linear_scaling=False, marker_placer=True,
         model_so="scaled_mvicx3.00.osim", model_ceinms="scaled.osim",
         static_trial="Static_01", setup_folder=SETUP_DIR,
@@ -398,6 +396,11 @@ class BatchSettings:
     enable_inverse_dynamics = True
     enable_static_optimization = True
     enable_muscle_analysis = True
+    # Muscle Redundancy Solver (KU Leuven). Off by default: it needs MATLAB and
+    # a checkout of the toolbox. See docs/MRS.md.
+    enable_mrs = False
+    mrs_dir = ""            # .../MuscleRedundancySolver  (or $BIOSCOUT_MRS_DIR)
+    matlab_exe = "matlab"   # or the full path to matlab.exe
     enable_emg_normalise = True
     enable_trial_validation = False
 
@@ -617,19 +620,19 @@ class RecordingSettings:
     DEFAULT_DURATION_SECONDS = 5
     DEFAULT_VIDEO_SOURCE = 'webcam'
     IP_CAMERA_ADDRESS = 'http://192.168.1.100:8080/video'
-    DEFAULT_OSIM_MODEL = 'GPK_generic'
-    DEFAULT_VIDEO_ANALYSIS_MODEL = 'GPK_generic'
+    DEFAULT_OSIM_MODEL = 'GPK_v4_016'
+    DEFAULT_VIDEO_ANALYSIS_MODEL = 'GPK_v4_016'
     DEFAULT_POSE_MAX_DELTA_PX = 50
 
 def run_catelli_marker_placer_ik_id_ma_so_ceinms():
     from bioscout import Session, Iteration
 
-    s  = Session.open(os.path.join("simulations", "Athlete_03", "25_03_31"))
+    s  = Session(os.path.join("simulations", "Athlete_03", "25_03_31"))
     it = s.iteration("cateli")
 
     it.run(trials=["Walking_03","Squat_BW_01","Squat_BW_02"],
        do_exbiomec=False,
-       do_muscle_analsysis=True,
+       do_muscle_analysis=True,
        do_so=True,
        do_ceinms=True,
        calibrate=True,
@@ -654,13 +657,13 @@ def run_deadlifts_export_to_ceinms_jrf():
     TRIALS      = ["Deadlift_35kg_01"]
     ITERATIONS  = ["gpk"]
 
-    s = Session.open(os.path.join("simulations", "Athlete_03", "25_03_31"))
+    s = Session(os.path.join("simulations", "Athlete_03", "25_03_31"))
 
     for name in ITERATIONS:
         it = s.iteration(name)
         it.run(trials=TRIALS,
             export=False,
-            do_exbiomec=False, do_muscle_analsysis=False,
+            do_exbiomec=False, do_muscle_analysis=False,
             do_so=False, do_ceinms=True, calibrate=False, replace=True)
 
 
@@ -697,7 +700,6 @@ if __name__ == "__main__":
         "RUN_TPS_PERSONALISE":     RUN_TPS_PERSONALISE,
         "RUN_SESSION_ITERATIONS":  RUN_SESSION_ITERATIONS,
         "RUN_SINGLE_ITERATION":    RUN_SINGLE_ITERATION,
-        "RUN_PRUNE_LEGACY_INPUTS": RUN_PRUNE_LEGACY_INPUTS,
         "RUN_CHECK_SCALING":       RUN_CHECK_SCALING,
         "RUN_RESCALE_ALL":         RUN_RESCALE_ALL,
     }
@@ -723,7 +725,7 @@ if __name__ == "__main__":
     if RUN_CHECK_SCALING or RUN_RESCALE_ALL:
         import time as _time
         from bioscout.model.scale import measurements as _sm
-        from bioscout.session.session import experimental_dir as _expdir
+        from bioscout.session.layout import experimental_dir as _expdir
 
         def _session_path(sess):
             hits = glob.glob(os.path.join(str(SIMULATIONS_DIR), "*", sess, "session.yaml"))
@@ -746,7 +748,7 @@ if __name__ == "__main__":
                     print(f"[check] MISSING static TRC: {trc} — export the static "
                           f"trial first, nothing can be scaled without it.")
                     continue
-                s_ = Session.open(sp)
+                s_ = Session(sp)
                 _measured = _sm.mass_from_static_grf(grf)
                 _typed = s_._cfg.get("body_mass")
                 print(f"[check] session.yaml body_mass: {_typed} kg"
@@ -757,11 +759,11 @@ if __name__ == "__main__":
                         print(f"[check] {n}: not in this session — skipping")
                         continue
                     _it = s_.iteration(n)
-                    mks = _it._resolve_model_file(s_._cfg.get("markerset"), "markerset")
-                    itcfg = (s_._cfg.get("iterations") or {}).get(n) or {}
-                    gen = _it._resolve_model_file(itcfg.get("generic"), "generic")
+                    mks = _it.markerset
+                    itcfg = _it.config
+                    gen = _it.model_generic
                     if not gen or not os.path.exists(gen):
-                        print(f"[check] {n}: generic not found ({itcfg.get('generic')!r})")
+                        print(f"[check] {n}: model_generic not found ({gen!r})")
                         continue
                     if not bool(itcfg.get("linear_scaling", True)):
                         print(f"--- {n}  (linear_scaling=false — geometry is already "
@@ -809,7 +811,7 @@ if __name__ == "__main__":
                 print(f"[rescale] adding calibration trials to the analysis list: "
                       f"{', '.join(_extra)}")
                 trials += _extra
-            s_ = Session.open(sp)
+            s_ = Session(sp)
             print(f"\n########## {cap['subject']} / {sess} — {len(names)} iterations "
                   f"over {len(trials)} trials ##########")
             for n in names:
@@ -825,12 +827,9 @@ if __name__ == "__main__":
                 try:
                     it_ = s_.iteration(n)
                     if do_scale:
-                        _icfg = (s_._cfg.get("iterations") or {}).get(n) or {}
-                        _mopt = _icfg.get("muscle_opt")
-                        if _mopt is None:
-                            _mopt = "opt_N" in str(_icfg.get("ceinms_model") or "")
+                        _mopt = it_.muscle_opt
                         print(f"[rescale] {tag}: muscle_opt={bool(_mopt)} "
-                              f"(ceinms_model={_icfg.get('ceinms_model')!r})")
+                              f"(model_scaled={it_.config.get('model_scaled')!r})")
                         m = it_.scale_model(static_trial=cap["static_trial"],
                                             muscle_opt=bool(_mopt),
                                             replace=not REUSE_MODELS)
@@ -862,7 +861,7 @@ if __name__ == "__main__":
             print(f"[rescale] FAILED ({len(_failed)}): {', '.join(_failed)}")
             print("[rescale] Re-run just those by trimming RESCALE_PLAN.")
         print("[rescale] Next: rebuild gpk_ma / gpk_optimised from the NEW gpk "
-              "models (`bioscout --change-moment-arms`) — the copies on disk carry "
+              "models (`bioscout model ma`) — the copies on disk carry "
               "the old unscaled geometry.")
         print("[rescale] Then: python results.py --subject Athlete_03 --session 25_03_31")
         exit()
@@ -877,16 +876,6 @@ if __name__ == "__main__":
              f"be unique across subjects.")
     SESSION_PATH = os.path.dirname(_hits[0])
     print(f"[settings] session: {SESSION_PATH}  (subject {CAPTURE['subject']})")
-
-    if RUN_PRUNE_LEGACY_INPUTS:
-        s = Session.open(SESSION_PATH)
-        if not hasattr(s, "prune_legacy_inputs"):
-            exit("[settings] this bioscout has no prune_legacy_inputs() — needs "
-                 ">= 2.0.3. Reinstall with: pip install -e C:/Git/bioscout")
-        s.prune_legacy_inputs(dry_run=PRUNE_DRY_RUN, archive_dir=PRUNE_ARCHIVE)
-        if PRUNE_DRY_RUN:
-            print("[settings] dry run only — set PRUNE_DRY_RUN = False to apply.")
-        exit()
 
     if RUN_TPS_PERSONALISE:
         if not TPS_LANDMARKS:
@@ -911,7 +900,7 @@ if __name__ == "__main__":
         print("[settings] continuing into the pipeline...")
 
     if RUN_SINGLE_ITERATION:
-        s = Session.open(SESSION_PATH)
+        s = Session(SESSION_PATH)
         it = s.iteration(ITERATIONS[0])
         print(f"[settings] --- single: {ITERATIONS[0]} ---")
         it.run(trials=TRIALS, do_exbiomec=DO_EXBIOMEC, do_so=DO_SO, do_muscle_analysis=DO_MA,
@@ -924,7 +913,7 @@ if __name__ == "__main__":
         print("[settings] done (RUN_SESSION_ITERATIONS is False — batch skipped).")
         exit()
 
-    s = Session.open(SESSION_PATH)
+    s = Session(SESSION_PATH)
     print(s, "-> iterations on disk:", s.iterations)
 
     if DO_EXPORT:
@@ -949,14 +938,9 @@ if __name__ == "__main__":
         it = s.iteration(name)
         print(f"[settings] --- {name} ---")
         if DO_SCALE:
-            _icfg = (s._cfg.get("iterations") or {}).get(name) or {}
-            _mopt = MUSCLE_OPT
-            if _mopt is None:
-                _mopt = _icfg.get("muscle_opt")
-            if _mopt is None:
-                _mopt = "opt_N" in str(_icfg.get("ceinms_model") or "")
+            _mopt = MUSCLE_OPT if MUSCLE_OPT is not None else it.muscle_opt
             print(f"[settings] {name}: muscle_opt={bool(_mopt)} "
-                  f"(ceinms_model={_icfg.get('ceinms_model')})")
+                  f"(model_scaled={it.config.get('model_scaled')})")
             _model = it.scale_model(static_trial=STATIC_TRIAL,
                                     muscle_opt=bool(_mopt), replace=REPLACE)
             if not _model:

@@ -1,4 +1,4 @@
-# IMPLEMENTATIONS.md — what bioscout needs to serve researchers beyond us
+# What bioscout needs to serve researchers beyond us
 
 Written 2026-08-17, after running bioscout as the engine of two real studies —
 the **Powerlifting** model-personalisation project (6 models × 2 athletes,
@@ -16,14 +16,14 @@ bioscout verb behind them.
 
 Four figures carry the arguments that are hard to make in prose; each sits in
 the section it belongs to, and the sources live in
-[`docs/_figures/`](_figures/).
+[`docs/_figures/`](../_figures/).
 
 | figure | section | the claim it makes |
 |---|---|---|
-| [the pipeline and its three gates](_figures/pipeline-and-gates.svg) | §1, §2.2, §2.8 | a run that produced nothing must not be able to end by saying "done" |
-| [where a fact lives](_figures/where-a-fact-lives.svg) | §2.9 | `settings.py` conflates five things with five different owners |
-| [the stage registry](_figures/stage-registry.svg) | §2.10 | six stages are currently declared four times, once per surface |
-| [the model axis](_figures/model-axis.svg) | §3 | the model is an artefact to be verified, not an input to be assumed |
+| [the pipeline and its three gates](../_figures/pipeline-and-gates.svg) | §1, §2.2, §2.8 | a run that produced nothing must not be able to end by saying "done" |
+| [where a fact lives](../_figures/where-a-fact-lives.svg) | §2.9 | `settings.py` conflates five things with five different owners |
+| [the stage registry](../_figures/stage-registry.svg) | §2.10 | six stages are currently declared four times, once per surface |
+| [the model axis](../_figures/model-axis.svg) | §3 | the model is an artefact to be verified, not an input to be assumed |
 
 ---
 
@@ -31,7 +31,7 @@ the section it belongs to, and the sources live in
 
 ![The pipeline and the three gates that keep it honest: a preflight gate before
 any solving, an input contract on every stage, and a trial × stage ok/MISS
-table at the end.](_figures/pipeline-and-gates.svg)
+table at the end.](../_figures/pipeline-and-gates.svg)
 
 *The pipeline, and where the three gates sit. Every bug below is a place where
 one of them was missing: §1 is the list of silent failures, §2.2 is the ask for
@@ -242,7 +242,7 @@ under them.)*
 
 ![settings.py split into its five constituents — library code to bioscout, lab
 facts to project.yaml, session facts to session.yaml, run selection to the call
-site, paths to convention.](_figures/where-a-fact-lives.svg)
+site, paths to convention.](../_figures/where-a-fact-lives.svg)
 
 *The same five rows as the table below, drawn with their owners and lifetimes.
 The left column is what makes a copied settings.py drift: the top slice changes
@@ -352,7 +352,7 @@ different names and the pipeline diverges a bit".)*
 ![Left: four surfaces each declaring their own name for the IK/ID/MA stage.
 Right: one STAGES list in the package, from which the CLI flags, the GUI
 navigation, the verify table's expected outputs and the docs tables are all
-generated.](_figures/stage-registry.svg)
+generated.](../_figures/stage-registry.svg)
 
 *The direction of the arrows is the whole point. On the left every surface
 declares the stage for itself, so six stages need four lists kept in step by
@@ -506,7 +506,7 @@ The `--verify` half of the first one now does: see 3.2.
 ![The model axis: a generic template plus subject measurements through one of
 four morph back-ends, then a three-step verify chain — model-diff, geometry
 resolution, muscle_inspect — before the model enters the trial
-pipeline.](_figures/model-axis.svg)
+pipeline.](../_figures/model-axis.svg)
 
 *Shaded green is what bioscout ships today; shaded red is still a hand-run
 script. The shape to notice is that the morph and the verification are the same
@@ -791,10 +791,10 @@ registered model rather than an ad-hoc file, the plots are free.
 - **CWD is still unowned** — ~20 unrestored `os.chdir(self.path)` in
   `utils/analysis.py`, one carrying a comment that admits it. The
   `setResultsDir` fix above treats one symptom. See
-  `docs/PROPOSAL_models_and_cwd.md` for the `in_dir()` context manager, the
+  `history/2026-08-24-proposal-models-and-cwd.md` for the `in_dir()` context manager, the
   absolutise-at-the-boundary rule and the regression test.
 
-- **Models layout (`docs/PROPOSAL_models_and_cwd.md`).** The 2026-08-19
+- **Models layout (`history/2026-08-24-proposal-models-and-cwd.md`).** The 2026-08-19
   `models/personalised/<subject>/` change dropped session from a model's
   identity, correctly, but kept a flat folder with fixed filenames — which
   assumes one model per subject. A project with N generics per subject cannot
