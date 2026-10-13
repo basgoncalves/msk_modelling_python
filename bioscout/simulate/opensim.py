@@ -321,7 +321,7 @@ def add_joint_centers_to_trc(input_trc_path=None, output_trc_path=None, marker_m
 
     print(f"Saved TRC with joint centres: {output_trc_path}")
 
-def validate_markers_used(osim_modelPath, ikTool, markers_path):
+def validate_markers_used(osim_modelPath, ikTool, markers_path, ik_weights=None):
 
     def get_all_marker_parent_frames(model_path):
         model = _quiet_model(model_path)
@@ -342,9 +342,10 @@ def validate_markers_used(osim_modelPath, ikTool, markers_path):
     markers_df = utils.load_trc(markers_path)
     markers_trc = markers_df.columns.get_level_values(0).unique().tolist()
     
-    for marker_name in markers_model:
-        if marker_name not in markers_trc:
-            print(f"Warning: Marker '{marker_name}' not found in TRC file.")
+    # One line per marker is 60 lines of log that nobody reads and that buries
+    # the two facts that matter: how many markers IK is tracking, and which
+    # ones it had to drop. Tally instead of narrate.
+    _missing_in_trc = [m for m in markers_model if m not in markers_trc]
 
     markers_in_task = [task.getName() for task in task_set_template if isinstance(task, osim.IKMarkerTask)]
     markers_parent_frames = get_all_marker_parent_frames(osim_modelPath)
@@ -367,39 +368,55 @@ def validate_markers_used(osim_modelPath, ikTool, markers_path):
     except Exception:
         _skip = set()
 
+    # session.yaml `ik_weights` (marker or body names) over the settings' body weights
+    _over = {str(k): float(v) for k, v in (ik_weights or {}).items()}
+
     def _weight_for(_mname):
         _pf = (markers_parent_frames.get(_mname) or "").replace("/bodyset/", "")
+        if _mname in _over:
+            return _over[_mname], _pf
+        if _pf in _over:
+            return _over[_pf], _pf
         return float(_marker_weights.get(_pf, 1.0)), _pf
 
+    _tally = {"tracked": [], "disabled": [], "skipped": []}
     for marker_name in markers_model:
         _w, _pf = _weight_for(marker_name)
-        _skipped = marker_name.upper() in _skip
+        _skipped = marker_name.upper() in _skip or _w <= 0
         _in_trc = (marker_name in markers_trc) and not _skipped
         if marker_name in markers_in_task:
             task = task_set_template.get(marker_name)
             task.setWeight(_w)                 # apply weight to template markers too
             task.setApply(_in_trc)
             if _skipped:
-                print(f"Marker '{marker_name}' SKIPPED (markers_to_skip). Disabling task.")
+                _tally["skipped"].append(marker_name)
             elif not _in_trc:
-                print(f"Marker '{marker_name}' not found in TRC file. Disabling task.")
+                _tally["disabled"].append(marker_name)
             else:
-                print(f"Marker '{marker_name}' weight={_w} (body '{_pf}').")
+                _tally["tracked"].append(marker_name)
         else:
             newTask = osim.IKMarkerTask()
             newTask.setName(marker_name)
             newTask.setWeight(_w)
             newTask.setApply(_in_trc)
             if _skipped:
-                print(f"Marker '{marker_name}' SKIPPED (markers_to_skip). Disabling task.")
+                _tally["skipped"].append(marker_name)
             elif _in_trc:
-                print(f"Marker '{marker_name}' added with weight={_w} (body '{_pf}').")
+                _tally["tracked"].append(marker_name)
             else:
-                print(f"Marker '{marker_name}' in Model not found in TRC file. Disabling task.")
+                _tally["disabled"].append(marker_name)
             task_set_template.adoptAndAppend(newTask)
 
-
-    
+    print(f"    markers: {len(_tally['tracked'])} tracked"
+          + (f", {len(_tally['disabled'])} disabled (not in TRC)"
+             if _tally["disabled"] else "")
+          + (f", {len(_tally['skipped'])} skipped" if _tally["skipped"] else ""))
+    if _tally["disabled"]:
+        print(f"[WARNING] not in the TRC, task disabled: "
+              f"{', '.join(sorted(_tally['disabled']))}")
+    if _tally["skipped"]:
+        print(f"[WARNING] excluded by markers_to_skip: "
+              f"{', '.join(sorted(_tally['skipped']))}")
     return ikTool
 
 def compare_marker_locations(marker_experimental_path=None, marker_virtual_path=None):
@@ -448,7 +465,6 @@ def compare_marker_locations(marker_experimental_path=None, marker_virtual_path=
         output_dir = _extbio
     mean_errors_filename = os.path.join(output_dir, '_ik_marker_errors_mean.txt')
 
-    print('Calculating marker errors for all markers...')
     with open(mean_errors_filename, 'w') as f_mean_errors:
         f_mean_errors.write('mean errors for each marker (m)\n\n')
 
@@ -495,29 +511,71 @@ def compare_marker_locations(marker_experimental_path=None, marker_virtual_path=
     # Write all distance data to a .sto file
     all_errors_filename = os.path.join(output_dir, '_ik_marker_errors_all.sto')
     utils.write_sto_file(distances.dropna(axis=1, how='all'), all_errors_filename)
-    print(f"Mean errors saved to: {mean_errors_filename}")
-    print(f"All error data saved to: {all_errors_filename}")
     
-    # plot marker errors over time    
-    plt.figure(figsize=(12, 6))
-    for marker_name in distances.columns:
-        if marker_name != 'time':
-            plt.plot(distances['time'], distances[marker_name], label=marker_name)
-    
-    # plot mean error as a dashed line
-    mean_errors = distances.drop(columns='time').mean(axis=1)
-    plt.plot(distances['time'], mean_errors, label='Mean Error', linestyle='--', color='black')
-    
-    plt.xlabel('Time (s)')
-    plt.ylabel('Marker Error (m)')
-    plt.title('Marker Errors Over Time')
-    plt.legend()
-    plt.grid()
-    
-    # save fig
-    plt.savefig(os.path.join(output_dir, '_ik_marker_errors_plot.png'))
-    plt.close()
-    print(f"Marker errors plot saved to: {os.path.join(output_dir, '_ik_marker_errors_plot.png')}")
+    # plot marker errors over time: vertical task layout (poses + vGRF on top,
+    # bioscout.plot.task_figure); the old single-panel figure if that fails
+    _out_png = os.path.join(output_dir, '_ik_marker_errors_plot.png')
+    try:
+        _plot_ik_marker_errors_task(distances, output_dir, _out_png)
+    except Exception as _e:                              # noqa: BLE001
+        print(f"[IK] task-layout marker-error figure failed ({type(_e).__name__}: {_e}); "
+              f"single panel instead")
+        plt.figure(figsize=(12, 6))
+        for marker_name in distances.columns:
+            if marker_name != 'time':
+                plt.plot(distances['time'], distances[marker_name], label=marker_name)
+        mean_errors = distances.drop(columns='time').mean(axis=1)
+        plt.plot(distances['time'], mean_errors, label='Mean Error', linestyle='--', color='black')
+        plt.xlabel('Time (s)'); plt.ylabel('Marker Error (m)')
+        plt.title('Marker Errors Over Time'); plt.legend(); plt.grid()
+        plt.savefig(_out_png)
+        plt.close()
+    print(f"[IK] marker errors -> {os.path.basename(mean_errors_filename)}, _ik_marker_errors_plot.png")
+
+def _plot_ik_marker_errors_task(distances, output_dir, out_png, n_label=4):
+    """``_ik_marker_errors_plot.png`` in the vertical task layout.
+
+    rows: every marker's error (mm; the ``n_label`` worst named at their peak),
+    then the mean and the max over markers (worst marker named per stretch)."""
+    from bioscout.plot.task_figure import TaskStrip
+    t = pd.to_numeric(distances['time'], errors='coerce').to_numpy(float)
+    E = distances.drop(columns='time').apply(pd.to_numeric, errors='coerce') * 1000.0
+    E = E.dropna(axis=1, how='all')
+    mean, mx = E.mean(axis=1).to_numpy(float), E.max(axis=1).to_numpy(float)
+    worst = E.max().sort_values(ascending=False).index[:n_label]
+
+    def _all(a):
+        for c in E.columns:
+            hot = c in worst
+            a.plot(t, E[c].to_numpy(float), lw=1.0 if hot else 0.6,
+                   color=None if hot else '0.75', zorder=3 if hot else 2)
+        for c in worst:
+            i = int(np.nanargmax(E[c].to_numpy(float)))
+            a.annotate(c, (t[i], E[c].iloc[i]), fontsize=6, xytext=(2, 2),
+                       textcoords='offset points')
+        a.plot(t, mean, color='k', ls='--', lw=1.2, zorder=4)
+        a.set_ylim(bottom=0)
+
+    def _summary(a):
+        a.plot(t, mean, color='k', ls='--', lw=1.2)
+        a.plot(t, mx, color='tab:red', lw=1.0)
+        a.axhline(20, color='0.6', lw=0.6, ls=':')
+        a.set_ylim(bottom=0)
+
+    trial = output_dir
+    if os.path.basename(os.path.normpath(trial)) == 'external_biomechanics':
+        trial = os.path.dirname(os.path.normpath(trial))
+    rows = [dict(draw=_all, ylabel='error (mm)',
+                 title=f"every marker (grey); worst {n_label} named and coloured"),
+            dict(draw=_summary, ylabel='error (mm)',
+                 title=f"mean {np.nanmean(mean):.1f} mm (peak {np.nanmax(mean):.1f}) · "
+                       f"max {np.nanmax(mx):.1f} mm ({E.max().idxmax()})")]
+    h = [plt.Line2D([], [], color='k', ls='--', lw=1.2, label='mean over markers'),
+         plt.Line2D([], [], color='tab:red', lw=1.0, label='max over markers'),
+         plt.Line2D([], [], color='0.6', lw=0.6, ls=':', label='20 mm')]
+    TaskStrip(trial, t_range=(float(t[0]), float(t[-1])), log=None).figure(
+        rows, out_png, legend=h, row_height=1.6)
+
 
 def assign_grfs_to_feet(grf_mot_path=None, marker_trc_path=None,
                         right_foot_markers=None, left_foot_markers=None,
@@ -1019,9 +1077,13 @@ def convert_mot_to_sto(mot_file_path = None):
 # --- Inverse Kinematics ---
 def create_setup_IK(osim_modelPath=None, marker_trc=None,
                     ik_output=None, taskSetPath=None, time_range=None,
-                    saveXMLPath=None):
+                    saveXMLPath=None, ik_weights=None):
     """
     Create an Inverse Kinematics (IK) setup XML file for OpenSim.
+
+    ``ik_weights``: {marker or body: weight} over BatchSettings.marker_weights
+    (session.yaml ``ik_weights``, session-wide and per iteration); a marker
+    name beats its body, and 0 leaves the marker untracked.
     """
     if not osim_modelPath:
         raise ValueError("create_setup_IK: osim_modelPath is required")
@@ -1047,7 +1109,8 @@ def create_setup_IK(osim_modelPath=None, marker_trc=None,
         ikTool.set_IKTaskSet(ikTaskSet_template)    
     
     # simple function to validate the markers used in the IK setup
-    ikTool = validate_markers_used(osim_modelPath, ikTool, marker_trc)
+    ikTool = validate_markers_used(osim_modelPath, ikTool, marker_trc,
+                                   ik_weights=ik_weights)
 
     # Set the model and parameters
     ikTool.setModel(model)
@@ -1066,8 +1129,7 @@ def create_setup_IK(osim_modelPath=None, marker_trc=None,
     ikTool.set_report_errors(True)
 
     # # check time range is valid and set it
-    print(f"Input time_range: {time_range}")
-    print(f"Marker data time range: [{markers.getFirstTime()}, {markers.getLastTime()}]")
+
 
     if time_range is not None:
         try:
@@ -1083,14 +1145,15 @@ def create_setup_IK(osim_modelPath=None, marker_trc=None,
                 time_range = None
 
             if time_range and len(time_range) >= 2:
-                print(f"Parsed time_range: [{time_range[0]}, {time_range[1]}]")
                 if time_range[0] < markers.getFirstTime() or time_range[1] > markers.getLastTime():
-                    print("Warning: Specified time range is outside the bounds of the marker data. Using full range instead.")
+                    print(f"[WARNING] time range {time_range} is outside the marker "
+                          f"data [{markers.getFirstTime()}, {markers.getLastTime()}] "
+                          f"-- using the full range")
                     time_range = [markers.getFirstTime(), markers.getLastTime()]
 
                 ikTool.setStartTime(float(time_range[0]))  # Set start time
                 ikTool.setEndTime(float(time_range[1]))    # Set end time
-                print(f"IK time range set to: [{time_range[0]}, {time_range[1]}]")
+                print(f"    time range: [{time_range[0]}, {time_range[1]}]")
             else:
                 time_range = None
         except (ValueError, TypeError, AttributeError) as e:
@@ -1118,12 +1181,73 @@ def create_setup_IK(osim_modelPath=None, marker_trc=None,
     if saveXMLPath is None:
         saveXMLPath = ik_output.replace('.mot', '_ik_setup.xml')
     ikTool.printToXML(saveXMLPath)
-    print(f"Inverse Kinematics setup saved to {os.path.abspath(saveXMLPath)}")
+    print("\nStart Inverse Kinematics:\n")
+    print(f"[SETUP] {os.path.abspath(saveXMLPath)}")
+
+class _osim_file_sink:
+    """OpenSim's own log lines go to ``path`` for the duration of one tool run
+    and nowhere else. The terminal/bioscout log stays quiet, and when the tool
+    fails the real reason ("marker X not in model", "assembly failed") is in
+    the file instead of behind "please see messages window"."""
+
+    def __init__(self, path, level="info"):
+        self.path, self.level = path, level
+        self._sink = self._console = False
+
+    def __enter__(self):
+        try:
+            if os.path.exists(self.path):
+                os.remove(self.path)
+        except OSError:
+            pass
+        try:
+            _rm = getattr(osim.Logger, "removeConsoleSink", None)
+            if callable(_rm):
+                _rm()
+                self._console = True
+        except Exception:
+            self._console = False
+        try:
+            osim.Logger.addFileSink(self.path)
+            if self._console:
+                osim.Logger.setLevelString(self.level)
+            self._sink = True
+        except Exception:
+            self._sink = False
+        return self
+
+    def __exit__(self, *exc):
+        if self._sink:
+            try:
+                osim.Logger.removeFileSink()
+            except Exception:
+                pass
+        if self._console:
+            try:
+                osim.Logger.addConsoleSink()
+            except Exception:
+                pass
+        try:
+            from bioscout.model.opensim_base import _quiet_osim as _qo
+            _qo()
+        except Exception:
+            pass
+        return False
+
+    def errors(self, n=12):
+        """The [error]/[warning] lines OpenSim wrote, last ``n``."""
+        try:
+            with open(self.path, "r", errors="replace") as fh:
+                lines = [l.rstrip() for l in fh]
+        except OSError:
+            return []
+        bad = [l for l in lines if "[error]" in l.lower() or "[warning]" in l.lower()
+               or "exception" in l.lower() or "failed" in l.lower()]
+        return (bad or lines)[-n:]
+
 
 @_quiet_console
 def run_ik(osim_modelPath=None, setup_xml=None, resultsDir=None):
-    print(f"DEBUG: run_ik() called with osim_modelPath={osim_modelPath}, setup_xml={setup_xml}, resultsDir={resultsDir}")
-    utils.print_to_log(f"DEBUG: run_ik() called with osim_modelPath={osim_modelPath}, setup_xml={setup_xml}, resultsDir={resultsDir}")
 
     if osim_modelPath is None:
         osim_modelPath = input("Enter the path to the OpenSim model file (.osim): ").strip('"')
@@ -1136,47 +1260,26 @@ def run_ik(osim_modelPath=None, setup_xml=None, resultsDir=None):
 
     resultsDir = os.path.abspath(resultsDir)
     original_cwd = os.getcwd()
-    print(f"DEBUG: resultsDir={resultsDir}, original_cwd={original_cwd}")
-    utils.print_to_log(f"DEBUG: resultsDir={resultsDir}, original_cwd={original_cwd}")
+    _ik_log = None
 
     try:
-        # Pre-flight checks
-        print(f"[IK] Performing pre-flight checks...")
         _check_ik_prerequisites(osim_modelPath, setup_xml, resultsDir)
-
-        # Change to the results directory to ensure output files are created in the correct location
+        # results are created relative to the cwd
         os.chdir(resultsDir)
-        print(f"Changed working directory to: {resultsDir}")
-        utils.print_to_log(f"Changed working directory to: {resultsDir}")
-
-        # Load the model
-        print(f"Loading model from {osim_modelPath}")
         model = _quiet_model(osim_modelPath)
-
-        # Initialize the system before disabling analyses
         model.initSystem()
-        print(f"Model initialized")
-
         # Disable all analyses to avoid "null upcall object" errors
         analysisSet = model.getAnalysisSet()
-        print(f"Number of analyses in model: {analysisSet.getSize()}")
         for i in range(analysisSet.getSize()):
             try:
-                analysis = analysisSet.get(i)
-                analysis.setEnabled(False)
-                print(f"Disabled analysis {i}: {analysis.getName()}")
+                analysisSet.get(i).setEnabled(False)
             except Exception as e:
-                print(f"Error disabling analysis {i}: {e}")
-
-        # Finalize the model after modifying analyses
+                print(f"[IK] could not disable analysis {i}: {e}")
         try:
             model.finalizeConnections()
-            print("Model connections finalized")
         except Exception as e:
-            print(f"Warning: Error finalizing connections: {e}")
+            print(f"[IK] warning: finalizeConnections: {e}")
 
-        # Reload tool from xml
-        print(f"Loading IK tool from {setup_xml}")
         ikTool = osim.InverseKinematicsTool(setup_xml)
         ikTool.setModel(model)
 
@@ -1269,6 +1372,10 @@ def run_ik(osim_modelPath=None, setup_xml=None, resultsDir=None):
                                           f"nothing observed.")
                             except Exception:
                                 pass
+                            # NaNs before vs after: 0 means nothing changed,
+                            # and then the line is not worth printing
+                            _filled = max(0, (_nan_count
+                                              - int(_np.isnan(_A[:, 2:]).sum())) // 3)
                             _out = list(_hdr)
                             for _i in range(_A.shape[0]):
                                 _v = _A[_i]
@@ -1278,7 +1385,10 @@ def run_ik(osim_modelPath=None, setup_xml=None, resultsDir=None):
                                 _out.append('\t'.join(_cells) + '\n')
                             with open(_mf, 'w', newline='') as _f:
                                 _f.writelines(_out)
-                            print(f"[IK] TRC gap-fill complete → {_mf}")
+                            # only worth a line when it actually filled something
+                            if _filled:
+                                print(f"[WARNING] gap-fill: {_filled} frame(s) "
+                                      f"interpolated in the TRC")
                 except Exception as _ie:
                     # Any problem → put the original TRC back so IK still runs.
                     with open(_mf, 'w', newline='') as _f:
@@ -1317,17 +1427,19 @@ def run_ik(osim_modelPath=None, setup_xml=None, resultsDir=None):
                 os.makedirs(os.path.dirname(_om_abs), exist_ok=True)
                 try:    ikTool.set_output_motion_file(_om_abs)
                 except Exception: ikTool.setOutputMotionFileName(_om_abs)
-            print(f"[IK] marker_file={_mk_abs}\n[IK] output_motion_file={_om_abs}")
         except Exception as _abs_e:
             print(f"[IK] Warning: could not set absolute tool paths ({_abs_e})")
 
         # Run the inverse kinematics calculation. The TOOL loads its own
         # model from the setup XML, so _quiet_model() upstream cannot reach
         # that copy's printBasicInfo — only the fd-level context can.
-        with _osim_quiet_ctx():
+        # OpenSim's own messages go to external_biomechanics/ik_opensim.log:
+        # quiet on success, and the actual reason is in there on failure
+        _ik_log = _osim_file_sink(os.path.join(
+            os.path.dirname(os.path.abspath(setup_xml)), "ik_opensim.log"))
+        with _ik_log, _osim_quiet_ctx():
             ikTool.run()
-        utils.print_to_log(f"Inverse Kinematics calculation completed. Results saved to {resultsDir}")
-        print(f"Inverse Kinematics calculation completed successfully")
+        print(f"[IK] done -> {os.path.relpath(_om_abs, resultsDir) if _om_abs else 'joint_angles.mot'}")
         # Cold-start repair: the FIRST solved frame starts from the model's
         # default pose and can converge to a folded mirror solution (pelvis
         # ~90 deg off) that the warm-started frames never revisit. ID then
@@ -1340,30 +1452,19 @@ def run_ik(osim_modelPath=None, setup_xml=None, resultsDir=None):
             print(f"[IK] leading-frame check skipped: {_se}")
 
     except Exception as e:
-        utils.print_to_log(f"Error running IK: {e}")
-        print(f"Error running IK: {e}")
-        # OpenSim writes the real failure detail to opensim.log (in cwd); surface
-        # the tail so the actual cause is visible instead of the generic message.
-        try:
-            for _logp in ('opensim.log', os.path.join(resultsDir, 'opensim.log')):
-                if os.path.isfile(_logp):
-                    _tail = open(_logp, 'r', errors='replace').read().splitlines()[-25:]
-                    print("----- opensim.log (last 25 lines) -----")
-                    print("\n".join(_tail))
-                    print("---------------------------------------")
-                    break
-        except Exception:
-            pass
-        import traceback
-        traceback.print_exc()
+        # the generic OpenSim message says nothing; the file sink has the cause
+        _why = _ik_log.errors() if _ik_log is not None else []
+        print(f"[IK] FAILED: {e}")
+        for _l in _why:
+            print(f"[IK]   opensim: {_l.strip()}")
+        if _ik_log is not None:
+            print(f"[IK]   full OpenSim output: {_ik_log.path}")
         raise
     finally:
-        # Always restore original working directory
         try:
             os.chdir(original_cwd)
-            print(f"Restored working directory to: {original_cwd}")
         except Exception as e:
-            print(f"Warning: Could not restore original working directory: {e}")
+            print(f"[IK] warning: could not restore working directory: {e}")
 
 def _sanitize_ik_leading_frames(mot_path, max_lead=5, tol_deg=30.0):
     """Replace up to `max_lead` leading frames whose pelvis orientation is more
@@ -1473,10 +1574,12 @@ def relativise_setup_xml(xml_path):
 
     The implementation is :func:`bioscout.utils.paths.relativise_xml`, shared
     with every other tool that writes a setup. This wrapper keeps the name its
-    callers use and the Windows-style separator this one has always written.
+    callers use and the Windows-style separator this one has always written --
+    on Windows only: OpenSim on Linux (the hosted lab engine) cannot open a
+    backslash path, so there the native "/" is written.
     """
     from bioscout.utils.paths import relativise_xml
-    return relativise_xml(xml_path, sep="\\")
+    return relativise_xml(xml_path, sep="\\" if os.name == "nt" else "/")
 
 
 def create_analysis_tool(marker_trc, externalloadsfile, osim_modelPath,
@@ -1784,7 +1887,6 @@ def run_id(osimModelPath=None, ikOutputPath=None, grfXmlPath=None,
         os.makedirs(resultsDir)
     
     # Load the model
-    print(f"Loading OpenSim model from {osimModelPath}")
     model = load_model(osimModelPath)
     model.initSystem()
 
@@ -1807,7 +1909,6 @@ def run_id(osimModelPath=None, ikOutputPath=None, grfXmlPath=None,
     
     # Print the setup to XML
     idTool.printToXML(setupXmlPath)
-    print(f"Inverse Dynamics setup saved to {setupXmlPath}")
     
     # Load xml and edit forces to exclude
     xml = utils.read_xml(setupXmlPath)
@@ -1820,13 +1921,37 @@ def run_id(osimModelPath=None, ikOutputPath=None, grfXmlPath=None,
 
     # Run the inverse dynamics calculation
     original_cwd = os.getcwd()
+    # ID does not use the out.log file sink that SO does, but its `finally`
+    # below was copied from SO's and read these names -- every ID then ended
+    # in "name '_sink_added' is not defined" AFTER the .sto was written, so the
+    # kinematics/moments/residual figures were never drawn and the stage
+    # reported an error.
+    _sink_added, _console_dropped, _out_log = False, False, ""
     try:
         os.chdir(resultsDir)
         with _osim_quiet_ctx():
             idTool.run()
         idTool.setModel(model)  # Set the model again after running
-        print(f"Inverse Dynamics calculation completed. Results saved to {resultsDir}\\inverse_dynamics.sto")
+        print(f"[ID] done -> {os.path.join(os.path.basename(resultsDir), 'inverse_dynamics.sto')}")
     finally:
+        if _sink_added:
+            try:
+                osim.Logger.removeFileSink()
+            except Exception:
+                pass
+        if _console_dropped:
+            try:
+                osim.Logger.addConsoleSink()
+            except Exception:
+                pass
+        if _sink_added:
+            try:
+                from bioscout.model.opensim_base import _quiet_osim as _qo
+                _qo()                       # back to the configured level
+            except Exception:
+                pass
+            if os.path.exists(_out_log):
+                print(f"    {os.path.abspath(_out_log)}", flush=True)
         # Restore original working directory
         try:
             os.chdir(original_cwd)
@@ -1836,7 +1961,20 @@ def run_id(osimModelPath=None, ikOutputPath=None, grfXmlPath=None,
 @_quiet_console
 def run_ma(osim_modelPath=None, ik_output=None,
          grf_xml=None, results_dir=None, coordinates=None,
-         solve_equilibrium=False):
+         solve_equilibrium=False, actuators=None, method=None):
+    """Muscle analysis: MTU length + moment arms for the leg coordinates.
+
+    method="fast" (default; env BIOSCOUT_MA_METHOD overrides): only
+    _MuscleAnalysis_Length.sto and _MuscleAnalysis_MomentArm_<coord>.sto, moment
+    arms by central differences of the lengths (OpenSim's own solver for
+    multi-wrap muscles, i.e. the gastrocnemii); ~50-100x faster, matches
+    OpenSim's MuscleAnalysis within ~1 mm (K2L Gehen_01, 2026-10-08).
+    method="opensim": the full OpenSim MuscleAnalysis (fibre outputs, moments;
+    needed only with solve_equilibrium=True).
+    """
+    method = (method or os.environ.get("BIOSCOUT_MA_METHOD") or "fast").lower()
+    if solve_equilibrium:
+        method = "opensim"
     if osim_modelPath is None:
         osim_modelPath = input("Enter the path to the OpenSim model file (.osim): ").strip('"')
     if ik_output is None:
@@ -1863,8 +2001,13 @@ def run_ma(osim_modelPath=None, ik_output=None,
     if not os.path.exists(resultsDir):
         os.makedirs(resultsDir, exist_ok=True)
     
+    # so_actuators file REPLACES the model actuators (muscles-only copy of
+    # the model); no file -> the model's own; neither -> warning.
+    from bioscout.simulate.so_actuators import plan as _so_plan
+    osim_modelPath, actuators, _res_note = _so_plan(osim_modelPath, actuators)
+    print(f"[SO] reserve actuators: {_res_note}")
+
     # Load the model
-    print(f"Loading OpenSim model from {osim_modelPath}")
     model = load_model(osim_modelPath)
     model.initSystem()
 
@@ -1907,10 +2050,16 @@ def run_ma(osim_modelPath=None, ik_output=None,
             for nm in want:
                 arr.append(nm)
             muscleAnalysis.setCoordinates(arr)
-            print(f"MuscleAnalysis restricted to {len(want)} coordinates: {want}")
+            print(f"[MA] restricted to {len(want)} coordinates (hip/knee/ankle)")
     except Exception as _e:
+        want = []
         print(f"Warning: could not restrict MuscleAnalysis coordinates ({_e}); "
               "computing all.")
+
+    if method == "fast":
+        from bioscout.simulate import fast_ma as _fma
+        _fma.run(osim_modelPath, ik_output, resultsDir, coords=want or None, lowpass=6.0)
+        return
 
     # Create the muscle analysis tool
     maTool = osim.AnalyzeTool()
@@ -2060,8 +2209,7 @@ def run_so(osim_modelPath=None, ik_output=None, grf_xml=None,
     if not setup_xml:
         setup_xml = input("Enter the path to the setup XML file (.xml): ").strip('"')
 
-    if not actuators:
-        actuators = input("Enter the path to the actuators file (.xml): ").strip('"')
+    # actuators=None -> the model uses its own reserves/residuals.
 
     if not resultsDir:
         resultsDir = os.path.dirname(ik_output)
@@ -2084,9 +2232,6 @@ def run_so(osim_modelPath=None, ik_output=None, grf_xml=None,
 
     if not os.path.exists(resultsDir):
         os.makedirs(resultsDir)
-
-    # Load the model
-    print(f"Loading OpenSim model from {osim_modelPath}")
 
     model = load_model(osim_modelPath)
     # model.initSystem()
@@ -2112,9 +2257,7 @@ def run_so(osim_modelPath=None, ik_output=None, grf_xml=None,
     so_analyze_tool.setCoordinatesFileName(os.path.relpath(ik_output, start=os.path.dirname(setup_xml)))
     so_analyze_tool.setExternalLoadsFileName(os.path.relpath(grf_xml, start=os.path.dirname(setup_xml)))
     so_analyze_tool.setReplaceForceSet(False)
-    _res_src, _res_note = reserve_actuator_plan(model, actuators, osim_modelPath)
-    print(f"[SO] reserve actuators: {_res_note}")
-    if _res_src == "file":
+    if actuators:
         so_analyze_tool.getForceSetFiles().append(
             os.path.relpath(actuators, start=os.path.dirname(setup_xml)))
 
@@ -2133,8 +2276,6 @@ def run_so(osim_modelPath=None, ik_output=None, grf_xml=None,
 
     # Print configuration to XML file
     so_analyze_tool.printToXML(setup_xml)
-    print("\n \n Static Optimization setup saved to:", setup_xml)
-    
     # change optimizer_max_iterations in the xml file
     xml = utils.read_xml(setup_xml)
     static_opt = xml.getroot().find('.//StaticOptimization/optimizer_max_iterations')
@@ -2144,18 +2285,102 @@ def run_so(osim_modelPath=None, ik_output=None, grf_xml=None,
     # run the Static Optimization
     so_analyze_tool = osim.AnalyzeTool(setup_xml)
     original_cwd = os.getcwd()
+
+    # The console log is deliberately terse now, but SO's per-frame optimiser
+    # detail is the first thing you want when a solve looks wrong. Send it to
+    # out.log beside the results: a file sink at 'info' for the duration of the
+    # run only, so the terminal stays quiet and the level is put back after.
+    _out_log = os.path.join(resultsDir, "out.log")
+    _sink_added = False
+    try:
+        if os.path.exists(_out_log):
+            os.remove(_out_log)
+    except OSError:
+        pass
+    # The level is GLOBAL across OpenSim's sinks: raising it to 'info' so the
+    # file sink has something to write also un-mutes the CONSOLE sink, which is
+    # how the terminal filled with [info] lines again. Drop the console sink
+    # first, so 'info' reaches the file only, and put it back afterwards. If this
+    # build has no removeConsoleSink, stay quiet and accept a sparse out.log --
+    # a readable terminal matters more than a complete file.
+    _console_dropped = False
+    try:
+        _rm = getattr(osim.Logger, "removeConsoleSink", None)
+        if callable(_rm):
+            _rm()
+            _console_dropped = True
+    except Exception:
+        _console_dropped = False
+    if _console_dropped:
+        try:
+            osim.Logger.addFileSink(_out_log)
+            osim.Logger.setLevelString("info")
+            _sink_added = True
+        except Exception:
+            _sink_added = False
+    else:
+        try:
+            osim.Logger.addFileSink(_out_log)   # at the configured (quiet) level
+            _sink_added = True
+        except Exception:
+            _sink_added = False
+
     try:
         os.chdir(resultsDir)
         so_analyze_tool.run()
-        print(f"Static Optimization calculation completed. Results saved to {resultsDir}")
+        # OpenSim writes <toolname>_StaticOptimization_*; drop the SO_ prefix
+        from bioscout.simulate.so_files import migrate_dir as _so_rename, FORCE as _SOF
+        _so_rename(resultsDir)
+        print(f"[SO] done -> {os.path.basename(resultsDir)}/{_SOF}", flush=True)
     except Exception as e:
-        print(f"Error during Static Optimization: {e}")
+        print("", flush=True)
+        print(f"[ERROR] Static Optimisation failed: {e}", flush=True)
     finally:
         # Restore original working directory
         try:
             os.chdir(original_cwd)
         except Exception as e:
             print(f"Warning: Could not restore original working directory: {e}")
+
+
+#: the Lerner/GPK knee's condyle hinges. They MUST be free for the lateral
+#: compartment to carry any load: the lateral condyle is closed by a
+#: WeldConstraint, and with the hinges locked the medial path is already rigid,
+#: so the constraint is redundant and Simbody gives it nothing -- every JRA
+#: then reports the whole knee load on med_cond and ~0 N on lat_cond.
+CONDYLE_HINGES = ("med_cond_adduction_r", "lat_cond_adduction_r",
+                  "med_cond_adduction_l", "lat_cond_adduction_l")
+
+
+def free_condyle_hinges(osim_modelPath, suffix="_condylesfree"):
+    """Path of a copy of the model whose condyle hinges are unlocked, written
+    beside it (``<model>_condylesfree.osim``), or the model itself when it
+    has no locked condyle hinge. Pure XML: no OpenSim needed, nothing else in
+    the model is touched, and the copy is only rewritten when it is older
+    than its source."""
+    import xml.etree.ElementTree as ET
+    if not osim_modelPath or not os.path.isfile(osim_modelPath):
+        return osim_modelPath
+    if osim_modelPath.endswith(suffix + ".osim"):
+        return osim_modelPath
+    try:
+        tree = ET.parse(osim_modelPath)
+    except ET.ParseError:
+        return osim_modelPath
+    locked = [c for c in tree.getroot().iter("Coordinate")
+              if c.get("name") in CONDYLE_HINGES
+              and (c.findtext("locked") or "").strip().lower() == "true"]
+    if not locked:
+        return osim_modelPath
+    out = osim_modelPath[:-5] + suffix + ".osim"
+    if os.path.isfile(out) and os.path.getmtime(out) >= os.path.getmtime(osim_modelPath):
+        return out
+    for c in locked:
+        c.find("locked").text = "false"
+    tree.write(out, encoding="utf-8", xml_declaration=True)
+    print(f"[JRA] condyle hinges unlocked for the JRA -> {os.path.basename(out)}")
+    return out
+
 
 @_quiet_console
 def run_jra(osim_modelPath=None, ik_output=None,
@@ -2177,6 +2402,10 @@ def run_jra(osim_modelPath=None, ik_output=None,
     # (external_biomechanics/). Derive from setup_xml, falling back to ik_output.
     setup_xml_parent = os.path.dirname(os.path.abspath(setup_xml)) if setup_xml \
         else os.path.dirname(os.path.abspath(ik_output))
+
+    # the JRA runs on a copy with the knee's condyle hinges free (see
+    # free_condyle_hinges): the rest of the pipeline keeps its own model
+    osim_modelPath = free_condyle_hinges(osim_modelPath)
 
     # start model
     osimModel = _quiet_model(osim_modelPath)
@@ -2235,7 +2464,6 @@ def run_jra(osim_modelPath=None, ik_output=None,
         analyzeTool_JR.getModel().set_assembly_accuracy(_assembly_accuracy())
     except Exception:
         pass
-    print('jra for', setup_xml)
     analyzeTool_JR.run()
     
     # rename output file
@@ -2246,10 +2474,10 @@ def run_jra(osim_modelPath=None, ik_output=None,
             if os.path.exists(new_jra_file):
                 os.remove(new_jra_file)
             os.rename(output_jra_file, new_jra_file)
-            print(f"Joint Reaction Analysis results saved to: {new_jra_file}")
+            print(f"[JRA] done -> {os.path.join(os.path.basename(os.path.dirname(new_jra_file)), os.path.basename(new_jra_file))}")
     else:
         if os.path.exists(output_jra_file):
-            print(f"Joint Reaction Analysis results saved to: {output_jra_file}")
+            print(f"[JRA] done -> {os.path.join(os.path.basename(setup_xml_parent), os.path.basename(output_jra_file))}")
 
 def run_emg_normalise(target_emg_path=None, normalise_emg_list=None):
     """
@@ -2332,73 +2560,395 @@ def run_iaa(osim_modelPath=None, ik_output=None, grf_xml=None, setup_file_path=N
         utils.print_to_log(f"Error running IAA: {e}")
 
 # --- Residual Reduction Algorithm (RRA) ---
-def run_rra(osim_modelPath=None, ik_output=None, grf_xml=None, actuators=None, setup_xml=None, results_dir=None):
-    """
-    Run Residual Reduction Algorithm (RRA) using OpenSim.
+def run_rra(osim_modelPath=None, ik_output=None, grf_xml=None, actuators=None,
+            tasks=None, setup_xml=None, results_dir=None, template_xml=None,
+            adjust_com=True, adjusted_com_body="torso", lowpass_cutoff=None,
+            time_range=None, replace_force_set=True):
+    """Residual Reduction Algorithm (OpenSim RRATool) for one trial.
 
-    RRA is used to reduce the residual forces and moments at the pelvis by adjusting
-    body mass and inertia properties or applying model-wide kinematic adjustments.
+    Builds ``setup_xml`` from ``template_xml`` (a setup_RRA.xml with
+    MODEL / IK_MOT / GRF_XML placeholders -- any real paths in the template are
+    overwritten too), points it at this trial's IK, GRF and the given actuator
+    and task files, runs it from ``results_dir`` and returns a dict of the
+    files RRA wrote::
 
-    Args:
-        osim_modelPath: Path to the OpenSim model file
-        ik_output: Path to inverse kinematics output file (.mot)
-        grf_xml: Path to ground reaction force XML file
-        actuators: Path to actuators setup file
-        setup_xml: Path to RRA setup XML file (if already created)
-        results_dir: Directory for results output
+        {"setup": ..., "kinematics": <RRA_Kinematics_q.sto>,
+         "actuation": <RRA_Actuation_force.sto>, "states": ...,
+         "model": <adjusted model .osim or None>, "log": <out.log>}
+
+    * ``actuators``: residual (FX..MZ on the pelvis) + reserve CoordinateActuators.
+      With ``replace_force_set=True`` (the standard RRA setting) they REPLACE
+      the muscles, so the solve is a pure torque-driven tracking problem. The
+      pelvis PointActuator points are rewritten to the model's pelvis
+      ``mass_center`` so the residual forces act through the pelvis COM.
+    * ``tasks``: CMC_TaskSet of tracked coordinates. Tasks naming a coordinate
+      the model does not have are dropped (with a warning) rather than failing.
+    * ``adjust_com``: write ``<results_dir>/<model>_rra_adjusted.osim`` with
+      the ``adjusted_com_body`` COM shifted to cancel the mean MX/MZ, and the
+      mass-change recommendation printed in out.log. The adjusted model is NOT
+      applied anywhere automatically.
+    * ``lowpass_cutoff``: filter the desired kinematics (Hz); None keeps the
+      template value (-1 = unfiltered).
+    * ``time_range``: (t0, t1); defaults to the IK file's span.
     """
+    import shutil
+    from xml.etree import ElementTree as _ET
+
+    for _nm, _p in (("model", osim_modelPath), ("IK", ik_output), ("GRF xml", grf_xml),
+                    ("actuators", actuators), ("tasks", tasks), ("template", template_xml)):
+        if not _p or not os.path.exists(_p):
+            raise FileNotFoundError(f"RRA: {_nm} file not found: {_p}")
+    if not results_dir:
+        results_dir = os.path.join(os.path.dirname(ik_output), "residual_reduction")
+    os.makedirs(results_dir, exist_ok=True)
+    if not setup_xml:
+        setup_xml = os.path.join(results_dir, "setup_RRA.xml")
+    setup_dir = os.path.dirname(os.path.abspath(setup_xml))
+    _rel = lambda p: os.path.relpath(os.path.abspath(p), start=setup_dir)
+
+    # ---- time range from the IK file ---------------------------------------
+    if time_range is None:
+        _m = osim.Storage(ik_output)
+        time_range = (_m.getFirstTime(), _m.getLastTime())
+    t0, t1 = float(time_range[0]), float(time_range[1])
+
+    # ---- actuators: pelvis residual points -> model pelvis mass centre ------
+    _act_local = os.path.join(results_dir, os.path.basename(actuators))
     try:
-        print("Starting Residual Reduction Algorithm (RRA)...")
+        _mx = _ET.parse(osim_modelPath).getroot()
+        _com = None
+        for _b in _mx.iter("Body"):
+            if _b.get("name") == "pelvis":
+                _com = (_b.findtext("mass_center") or "").strip()
+        _coords = {c.get("name") for c in _mx.iter("Coordinate")}
+        _locked = {c.get("name") for c in _mx.iter("Coordinate")
+                   if (c.findtext("locked") or "").strip() == "true"}
+    except Exception as e:                                       # noqa: BLE001
+        print(f"[RRA] [WARNING] could not parse model XML ({e}); actuators used as-is")
+        _com, _coords, _locked = None, set(), set()
+    _ax = _ET.parse(actuators); _aroot = _ax.getroot()
+    _aobjs = _aroot.find(".//ForceSet/objects")
+    _dropped = []
+    for _e in list(_aobjs):
+        if _e.tag == "PointActuator" and _com:
+            _pt = _e.find("point")
+            if _pt is not None:
+                _pt.text = _com
+        if _e.tag == "CoordinateActuator" and _coords:
+            _c = (_e.findtext("coordinate") or "").strip()
+            if _c not in _coords or _c in _locked:
+                _aobjs.remove(_e); _dropped.append(_e.get("name"))
+    _n_res = sum(1 for _e in _aobjs if _e.tag in ("PointActuator", "TorqueActuator"))
+    _n_rsv = sum(1 for _e in _aobjs if _e.tag == "CoordinateActuator")
+    _ax.write(_act_local, encoding="UTF-8", xml_declaration=True)
 
-        if setup_xml and os.path.exists(setup_xml):
-            # Use existing RRA setup file
-            try:
-                tool = osim.RRATool(setup_xml)
-                model = _quiet_model(osim_modelPath)
-                tool.setModel(model)
-                tool.run()
-                utils.print_to_log("RRA completed successfully using existing setup file.")
-                print("RRA calculation completed.")
-                return
-            except Exception as e:
-                print(f"Error running RRA with existing setup: {e}")
-                utils.print_to_log(f"Error running RRA with existing setup: {e}")
+    # ---- tasks: drop coordinates the model does not have ---------------------
+    _tasks_local = os.path.join(results_dir, os.path.basename(tasks))
+    _tx = _ET.parse(tasks); _tobjs = _tx.getroot().find(".//CMC_TaskSet/objects")
+    _tdrop = []
+    if _coords:
+        for _e in list(_tobjs):
+            _c = (_e.findtext("coordinate") or "").strip()
+            if _c not in _coords or _c in _locked:
+                _tobjs.remove(_e); _tdrop.append(_e.get("name"))
+    _n_tasks = len(list(_tobjs))
+    _tx.write(_tasks_local, encoding="UTF-8", xml_declaration=True)
 
-        # Create a new RRA tool if setup_xml not provided
-        if not osim_modelPath or not ik_output:
-            raise ValueError("osim_modelPath and ik_output are required for RRA")
+    # ---- setup xml from the template -----------------------------------------
+    _sx = _ET.parse(template_xml); _tool = _sx.getroot().find("RRATool")
+    if _tool is None:
+        raise ValueError(f"RRA: no <RRATool> in template {template_xml}")
+    _tool.set("name", "RRA")
+    _model_base = os.path.splitext(os.path.basename(osim_modelPath))[0]
+    _adj_name = f"{_model_base}_rra_adjusted.osim"
+    def _set(tag, val):
+        _el = _tool.find(tag)
+        if _el is None:
+            _el = _ET.SubElement(_tool, tag)
+        _el.text = str(val)
+    _set("model_file", _rel(osim_modelPath))
+    _set("replace_force_set", "true" if replace_force_set else "false")
+    _set("force_set_files", _rel(_act_local))
+    _set("results_directory", _rel(results_dir) or ".")
+    _set("initial_time", f"{t0:.6f}")
+    _set("final_time", f"{t1:.6f}")
+    _set("external_loads_file", _rel(grf_xml))
+    _set("desired_kinematics_file", _rel(ik_output))
+    _set("task_set_file", _rel(_tasks_local))
+    _set("constraints_file", "")
+    if lowpass_cutoff is not None:
+        _set("lowpass_cutoff_frequency", lowpass_cutoff)
+    _set("adjust_com_to_reduce_residuals", "true" if adjust_com else "false")
+    _set("adjusted_com_body", adjusted_com_body)
+    _set("output_model_file", _adj_name)   # RRATool resolves this against results_directory
+    utils.save_pretty_xml(_sx, setup_xml) if hasattr(utils, "save_pretty_xml") \
+        else _sx.write(setup_xml, encoding="UTF-8", xml_declaration=True)
 
-        model = _quiet_model(osim_modelPath)
-        state = model.initSystem()
+    # ---- run in a CHILD process, stdout/stderr -> out.log ---------------------
+    # RRATool prints the model summary (bodies, joints, states) and the
+    # optimiser chatter with plain C++ std::cout. Neither the OpenSim Logger
+    # sinks nor an os.dup2() of this process's fd 1 catch that on Windows (the
+    # OpenSim DLL keeps its own C-runtime stdout), so the only reliable way to
+    # keep it off the terminal is to run the tool where stdout IS the file.
+    import subprocess
+    _out_log = os.path.join(results_dir, "out.log")
+    _child = (
+        "import os, sys, opensim as osim\n"
+        "os.chdir(sys.argv[1])\n"
+        "try:\n"
+        "    osim.Logger.setLevelString('info')\n"
+        "except Exception:\n"
+        "    pass\n"
+        "ok = osim.RRATool(sys.argv[2]).run()\n"
+        "sys.exit(0 if ok else 3)\n")
+    with open(_out_log, "w", encoding="utf-8") as _fh:
+        _fh.write(f"# bioscout RRA  {datetime.datetime.now():%Y-%m-%d %H:%M:%S}\n"
+                  f"# setup: {os.path.abspath(setup_xml)}\n\n")
+        _fh.flush()
+        _proc = subprocess.run([sys.executable, "-c", _child, setup_dir,
+                                os.path.abspath(setup_xml)],
+                               stdout=_fh, stderr=subprocess.STDOUT, cwd=setup_dir)
+    ok = _proc.returncode == 0
 
-        # Create RRA tool
-        rra_tool = osim.RRATool()
-        rra_tool.setModel(model)
-        rra_tool.setInitialTime(0.0)
-        rra_tool.setFinalTime(0.0)
+    _f = lambda n: os.path.join(results_dir, n)
+    out = {"setup": setup_xml, "log": _out_log,
+           "kinematics": _f("RRA_Kinematics_q.sto"),
+           "actuation": _f("RRA_Actuation_force.sto"),
+           "states": _f("RRA_states.sto"),
+           "model": _f(_adj_name) if adjust_com else None,
+           "ok": bool(ok)}
+    out.update({"n_residuals": _n_res, "n_reserves": _n_rsv, "n_tasks": _n_tasks,
+                "dropped_actuators": _dropped, "dropped_tasks": _tdrop,
+                "time_range": (t0, t1), "mass_change": None, "com_shift": None})
+    if not ok or not os.path.exists(out["kinematics"]):
+        try:
+            with open(_out_log, encoding="utf-8", errors="ignore") as fh:
+                _tail = [l.rstrip() for l in fh][-12:]
+        except OSError:
+            _tail = []
+        raise RuntimeError(f"RRA did not complete -- see {_out_log}\n"
+                           + "\n".join("    | " + l for l in _tail))
+    # RRATool prints the COM shift and the mass recommendation only to its log
+    try:
+        import re as _re
+        with open(_out_log, encoding="utf-8", errors="ignore") as fh:
+            for ln in fh:
+                _m = _re.search(r"[Tt]otal mass change:\s*([-+0-9.eE]+)", ln)
+                if _m:
+                    out["mass_change"] = float(_m.group(1))
+                if "mass center" in ln.lower() or "center of mass" in ln.lower():
+                    _v = _re.findall(r"[-+]?\d*\.\d+(?:[eE][-+]?\d+)?", ln)
+                    if len(_v) >= 3:
+                        out["com_shift"] = (ln.strip(), tuple(float(x) for x in _v[-3:]))
+    except OSError:
+        pass
+    return out
 
-        # Set kinematics from IK output
-        rra_tool.setKinematicsFileName(ik_output)
 
-        # Set external loads if provided
-        if grf_xml and os.path.exists(grf_xml):
-            rra_tool.setExternalLoadsFileName(grf_xml)
+# --- Forward simulation (CMC tracking -> open-loop ForwardTool replay) -------
+def _run_tool_child(tool_cls, setup_xml, out_log, title):
+    """Run an OpenSim tool from ``setup_xml`` in a CHILD python with stdout ->
+    ``out_log`` (same reason as run_rra: the DLL's own std::cout cannot be
+    redirected in-process on Windows). Returns True when the tool reported ok."""
+    import subprocess
+    setup_dir = os.path.dirname(os.path.abspath(setup_xml))
+    _child = (
+        "import os, sys, opensim as osim\n"
+        "os.chdir(sys.argv[1])\n"
+        "try:\n"
+        "    osim.Logger.setLevelString('info')\n"
+        "except Exception:\n"
+        "    pass\n"
+        f"ok = osim.{tool_cls}(sys.argv[2]).run()\n"
+        "sys.exit(0 if ok else 3)\n")
+    with open(out_log, "w", encoding="utf-8") as _fh:
+        _fh.write(f"# bioscout {title}  {datetime.datetime.now():%Y-%m-%d %H:%M:%S}\n"
+                  f"# setup: {os.path.abspath(setup_xml)}\n\n")
+        _fh.flush()
+        _p = subprocess.run([sys.executable, "-c", _child, setup_dir,
+                             os.path.abspath(setup_xml)],
+                            stdout=_fh, stderr=subprocess.STDOUT, cwd=setup_dir)
+    return _p.returncode == 0
 
-        # Set output directory
-        if results_dir:
-            rra_tool.setOutputModelFileName(os.path.join(results_dir, "rra_adjusted_model.osim"))
-            rra_tool.setResultsDir(results_dir)
 
-        # Run RRA
-        rra_tool.run()
-        utils.print_to_log("RRA completed successfully.")
-        print("RRA calculation completed. Results saved.")
+def _log_tail(path, n=12):
+    try:
+        with open(path, encoding="utf-8", errors="ignore") as fh:
+            return "\n".join("    | " + l.rstrip() for l in list(fh)[-n:])
+    except OSError:
+        return ""
 
-    except Exception as e:
-        error_msg = f"Error running RRA: {str(e)}"
-        print(error_msg)
-        utils.print_to_log(error_msg)
-        raise
+
+def run_forward(osim_modelPath=None, kinematics=None, grf_xml=None, actuators=None,
+                tasks=None, results_dir=None, time_range=None, lowpass_cutoff=6.0,
+                cmc_time_window=0.01, use_fast_target=True, replay=True,
+                replace_force_set=False, max_steps=20000, step_tol=1e-5):
+    """Muscle-driven forward simulation of one trial, in two OpenSim steps::
+
+        <results_dir>/cmc/       CMCTool: forward-integrates the model while a
+                                 tracking controller (tasks = kinematics, kp/kv
+                                 from ``tasks``) solves for muscle excitations
+                                 every ``cmc_time_window`` s -> CMC_controls.xml,
+                                 CMC_states.sto, CMC_Actuation_force.sto, CMC_pErr.sto
+        <results_dir>/forward/   ForwardTool: the CMC excitations replayed OPEN-LOOP
+                                 from CMC's initial state (no tracking) ->
+                                 forward_states.sto. How far it drifts from the
+                                 measured motion is the check that the excitations
+                                 alone reproduce the movement.         [replay=True]
+
+    * ``actuators``: force-set file APPENDED to the model (``replace_force_set``
+      False keeps the muscles) -- normally the trial's SO actuators (pelvis
+      residuals + reserves), so CMC's muscle forces compare with SO's.
+    * ``tasks``: CMC_TaskSet; tasks naming a coordinate the model does not
+      have, or one that is locked, are dropped (as run_rra does).
+    * ``kinematics``: coordinates to track (RRA kinematics preferred, IK otherwise).
+
+    Returns a dict of the files written (+ counts / dropped tasks / ok flags).
+    Raises RuntimeError when CMC fails; a failed replay is reported, not raised.
+    """
+    for _nm, _p in (("model", osim_modelPath), ("kinematics", kinematics),
+                    ("GRF xml", grf_xml), ("tasks", tasks)):
+        if not _p or not os.path.exists(_p):
+            raise FileNotFoundError(f"forward: {_nm} file not found: {_p}")
+    if actuators and not os.path.exists(actuators):
+        raise FileNotFoundError(f"forward: actuators file not found: {actuators}")
+    if not results_dir:
+        results_dir = os.path.join(os.path.dirname(kinematics), "forward_simulation")
+    d_cmc = os.path.join(results_dir, "cmc")
+    d_fwd = os.path.join(results_dir, "forward")
+    for _d in (d_cmc, d_fwd):
+        os.makedirs(_d, exist_ok=True)
+    if time_range is None:
+        _m = osim.Storage(kinematics)
+        time_range = (_m.getFirstTime(), _m.getLastTime())
+    t0, t1 = float(time_range[0]), float(time_range[1])
+
+    # ---- model coordinates (drop tasks/reserves on missing or locked DOFs) --
+    try:
+        _mx = ET.parse(osim_modelPath).getroot()
+        _coords = {c.get("name") for c in _mx.iter("Coordinate")}
+        _locked = {c.get("name") for c in _mx.iter("Coordinate")
+                   if (c.findtext("locked") or "").strip() == "true"}
+    except Exception as e:                                       # noqa: BLE001
+        print(f"[forward] [WARNING] could not parse model XML ({e})")
+        _coords, _locked = set(), set()
+
+    _tasks_local = os.path.join(d_cmc, "tasks_CMC.xml")
+    _tx = ET.parse(tasks); _tobjs = _tx.getroot().find(".//CMC_TaskSet/objects")
+    _tdrop = []
+    if _coords:
+        for _e in list(_tobjs):
+            _c = (_e.findtext("coordinate") or "").strip()
+            if _c not in _coords or _c in _locked:
+                _tobjs.remove(_e); _tdrop.append(_e.get("name"))
+    _tx.getroot().find(".//CMC_TaskSet").set("name", "cmc_tasks")
+    _tx.write(_tasks_local, encoding="UTF-8", xml_declaration=True)
+    _n_tasks = len(list(_tobjs))
+
+    _act_local = None
+    if actuators:
+        _act_local = os.path.join(d_cmc, "actuators_CMC.xml")
+        _ax = ET.parse(actuators); _aobjs = _ax.getroot().find(".//ForceSet/objects")
+        if _coords and _aobjs is not None:
+            for _e in list(_aobjs):
+                if _e.tag == "CoordinateActuator":
+                    _c = (_e.findtext("coordinate") or "").strip()
+                    if _c not in _coords or _c in _locked:
+                        _aobjs.remove(_e)
+        _ax.write(_act_local, encoding="UTF-8", xml_declaration=True)
+
+    def _tool_xml(tag, name, folder, fields):
+        _rel = lambda p: os.path.relpath(os.path.abspath(p), start=folder)
+        doc = ET.Element("OpenSimDocument", Version="40000")
+        tool = ET.SubElement(doc, tag, name=name)
+        for k, v in fields:
+            if k.endswith("_file") and v and not str(v).startswith("<"):
+                v = _rel(v)
+            el = ET.SubElement(tool, k)
+            el.text = "" if v is None else str(v)
+        ET.indent(doc, space="   ")
+        return ET.ElementTree(doc)
+
+    _common = [
+        ("model_file", osim_modelPath),
+        ("replace_force_set", "true" if replace_force_set else "false"),
+        ("force_set_files", os.path.relpath(_act_local, d_cmc) if _act_local else ""),
+        ("results_directory", "."),
+        ("output_precision", 8),
+        ("initial_time", f"{t0:.6f}"),
+        ("final_time", f"{t1:.6f}"),
+        ("solve_for_equilibrium_for_auxiliary_states", "true"),
+        ("maximum_number_of_integrator_steps", max_steps),
+        ("maximum_integrator_step_size", 1),
+        ("minimum_integrator_step_size", 1e-8),
+        ("integrator_error_tolerance", step_tol),
+    ]
+
+    # ---- 1. CMC --------------------------------------------------------------
+    setup_cmc = os.path.join(d_cmc, "setup_CMC.xml")
+    _cx = _tool_xml("CMCTool", "CMC", d_cmc, _common + [
+        ("external_loads_file", grf_xml),
+        ("desired_kinematics_file", kinematics),
+        ("task_set_file", _tasks_local),
+        ("constraints_file", ""),
+        ("lowpass_cutoff_frequency", lowpass_cutoff if lowpass_cutoff else -1),
+        ("cmc_time_window", cmc_time_window),
+        ("use_curvature_filter", "false"),
+        ("use_fast_optimization_target", "true" if use_fast_target else "false"),
+        ("optimizer_algorithm", "ipopt"),
+        ("numerical_derivative_step_size", 1e-4),
+        ("optimization_convergence_tolerance", 1e-5),
+        ("optimizer_max_iterations", 2000),
+        ("use_verbose_printing", "false"),
+    ])
+    # force_set_files is relative already; model/grf/kinematics made relative above
+    _cx.write(setup_cmc, encoding="UTF-8", xml_declaration=True)
+    log_cmc = os.path.join(d_cmc, "out.log")
+    _t = time()
+    ok_cmc = _run_tool_child("CMCTool", setup_cmc, log_cmc, "CMC")
+    _f = lambda d, n: os.path.join(d, n)
+    out = {"results_dir": results_dir, "setup_cmc": setup_cmc, "log_cmc": log_cmc,
+           "cmc_states": _f(d_cmc, "CMC_states.sto"),
+           "cmc_controls": _f(d_cmc, "CMC_controls.xml"),
+           "cmc_force": _f(d_cmc, "CMC_Actuation_force.sto"),
+           "cmc_kinematics": _f(d_cmc, "CMC_Kinematics_q.sto"),
+           "cmc_perr": _f(d_cmc, "CMC_pErr.sto"),
+           "cmc_seconds": time() - _t, "time_range": (t0, t1),
+           "n_tasks": _n_tasks, "dropped_tasks": _tdrop, "ok_cmc": bool(ok_cmc),
+           "ok_forward": None}
+    if not os.path.exists(out["cmc_force"]) or not os.path.exists(out["cmc_controls"]):
+        raise RuntimeError(f"CMC did not complete -- see {log_cmc}\n" + _log_tail(log_cmc))
+    # CMC may stop early (failed optimisation); keep what it reached
+    try:
+        _st = osim.Storage(out["cmc_states"])
+        out["cmc_reached"] = float(_st.getLastTime())
+    except Exception:
+        out["cmc_reached"] = None
+
+    # ---- 2. open-loop replay -------------------------------------------------
+    if replay:
+        setup_fwd = os.path.join(d_fwd, "setup_Forward.xml")
+        _t1 = out["cmc_reached"] or t1
+        _fields = [(k, v) for k, v in _common if k not in ("force_set_files", "final_time")]
+        _fields.insert(2, ("force_set_files",
+                           os.path.relpath(_act_local, d_fwd) if _act_local else ""))
+        _fields.insert(6, ("final_time", f"{_t1:.6f}"))
+        _fx = _tool_xml("ForwardTool", "forward", d_fwd, _fields + [
+            ("external_loads_file", grf_xml),
+            ("controls_file", out["cmc_controls"]),
+            ("states_file", out["cmc_states"]),
+            ("use_specified_dt", "false"),
+        ])
+        _fx.write(setup_fwd, encoding="UTF-8", xml_declaration=True)
+        log_fwd = os.path.join(d_fwd, "out.log")
+        _t = time()
+        ok_fwd = _run_tool_child("ForwardTool", setup_fwd, log_fwd, "Forward")
+        out.update({"setup_forward": setup_fwd, "log_forward": log_fwd,
+                    "forward_states": _f(d_fwd, "forward_states.sto"),
+                    "forward_seconds": time() - _t,
+                    "ok_forward": bool(ok_fwd and os.path.exists(_f(d_fwd, "forward_states.sto")))})
+    return out
+
 
 # --- Computed Muscle Control (CMC) ---
 def run_cmc(osim_modelPath=None, ik_output=None, grf_xml=None, emg_file=None, actuators=None, setup_xml=None, results_dir=None):

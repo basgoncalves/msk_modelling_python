@@ -39,7 +39,7 @@ CEINMS_FORCES = os.path.join(LAYOUT_DIRS["ceinms"], "Optimised", "MuscleForces.s
 
 OUTPUT_DIR = "mew"
 SO_FORCES = os.path.join(LAYOUT_DIRS["static_optimisation"],
-                         "SO_StaticOptimization_force.sto")
+                         "StaticOptimization_force.sto")   # readers: so_files.pick
 CEINMS_FORCES_REL = os.path.join(LAYOUT_DIRS["ceinms"], "Optimised", "MuscleForces.sto")
 #  CEINMS output dirs. `Execution` is where CEINMS.exe writes and `Optimised`
 #  where CEINMSoptimise writes; bioscout's execution modes (simulate/ceinms/modes.py)
@@ -128,7 +128,12 @@ def read_session_yaml(trial_dir) -> Dict:
         "time_range": meta.get("time_range"),
         "side": meta.get("side", "both"),
         "trial_type": meta.get("type"),
-        "ceinms": cfg.get("ceinms") or {},
+        # the iteration's own ceinms: over the session's (trial_dir is
+        # .../3_iterations/<iteration>/<trial>)
+        "ceinms": {**(cfg.get("ceinms") or {}),
+                   **((((cfg.get("iterations") or {}).get(
+                       os.path.basename(os.path.dirname(os.path.normpath(str(trial_dir)))))
+                       or {}).get("ceinms")) or {})},
         "session_dir": session,
     }
 
@@ -226,6 +231,9 @@ def discover_trial(trial_dir) -> Dict[str, Optional[str]]:
         found["grf_xml"] = _first_existing(os.path.join(exp, "GRF.xml"))
     else:
         found["grf_xml"] = None
+    # a self-contained trial (the lab engine) keeps GRF.xml beside grf.mot in inputs/
+    found["grf_xml"] = found["grf_xml"] or _first_existing(
+        os.path.join(trial_dir, LAYOUT_DIRS["inputs"], "GRF.xml"))
 
     ma = os.path.join(trial_dir, MA_DIR)
     found["moment_arms"] = ma if os.path.isdir(ma) and os.listdir(ma) else None

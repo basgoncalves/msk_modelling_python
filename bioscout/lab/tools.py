@@ -93,14 +93,16 @@ TOOLS = {
     "ceinms": {
         "label": "CEINMS",
         "slots": {
-            "emg_mot": ("EMG envelopes, filtered and normalised (.mot/.sto)", [".mot", ".sto"], None, True),
+            "emg_mot": ("EMG envelopes, filtered and normalised (.mot/.sto) -- optional with the Python solver", [".mot", ".sto"], None, False),
             "ik_mot": ("Joint angles (.mot) -- default: the IK result", [".mot", ".sto"], None, False),
             "id_sto": ("Joint moments (.sto) -- default: the ID result", [".sto"], None, False),
             "ceinms_cfg": ("CEINMS execution config (.xml)", [".xml"], "ceinms_cfg.xml", False),
             "excitation_generator": ("Excitation generator (.xml)", [".xml"], "excitationGenerator.xml", False),
             "model": ("Model (.osim) -- default: the scaled model", [".osim"], None, False),
         },
-        "options": {},
+        "options": {"solver": "Solver: auto, python (mew, runs anywhere) or exe (CEINMS.exe, Windows + EMG)",
+                    "mass": "Body mass (kg) -- default: the one given to Scale",
+                    "jra": "Also joint contact forces (1 = yes)"},
     },
 }
 ORDER = ["scale", "ik", "id", "ma", "rra", "so", "ceinms"]
@@ -368,10 +370,77 @@ def run_tool(job_dir, tool):
                           actuators=act, muscle_force_path=forces)
 
     elif tool == "ceinms":
-        run_ceinms(job_dir, state, out)
+        solver = str(opts.get("solver") or "auto").strip().lower()
+        if solver == "auto":
+            solver = "exe" if _ceinms_exe_ok() and dropped(job_dir, "ceinms", "emg_mot") else "python"
+        if solver in ("python", "mew", "py"):
+            run_ceinms_python(job_dir, state, out, opts)
+        else:
+            run_ceinms(job_dir, state, out)
     else:
         raise SystemExit(f"[tools] unknown tool {tool!r}")
     print(f"[tools] {tool} finished; outputs in {out}")
+
+
+def _ceinms_exe_ok():
+    """CEINMS.exe is a Windows program; anywhere else (the hosted engine) use mew."""
+    if os.name != "nt":
+        return False
+    try:
+        from bioscout.simulate.ceinms import commands as CX  # noqa: F401
+        return True
+    except Exception:
+        return False
+
+
+def run_ceinms_python(job_dir, state, out, opts):
+    """CEINMS in Python (bioscout.simulate.mew): the same EMG-informed Hill-type
+    solve, runs on any OS, and without EMG it falls back to the no-EMG tier
+    instead of failing. Outputs use CEINMS's file names (MuscleForces.sto, ...)."""
+    from bioscout.simulate.mew.pipeline import analyse_trial
+    model = need(model_for(job_dir, "ceinms", state), "a model")
+    ik = need(ik_for(job_dir, "ceinms"), "joint angles .mot (run IK or drop one)")
+    mom = need(dropped(job_dir, "ceinms", "id_sto") or output_of(job_dir, "id", "inverse_dynamics.sto"),
+               "joint moments (run ID)")
+    trial = os.path.join(out, "trial")
+    shutil.rmtree(trial, ignore_errors=True)
+    os.makedirs(os.path.join(trial, "external_biomechanics"))
+    shutil.copy2(ik, os.path.join(trial, "external_biomechanics", "joint_angles.mot"))
+    shutil.copy2(mom, os.path.join(trial, "external_biomechanics", "inverse_dynamics.sto"))
+    emg = dropped(job_dir, "ceinms", "emg_mot")
+    if emg:
+        os.makedirs(os.path.join(trial, "inputs"))
+        shutil.copy2(emg, os.path.join(trial, "inputs", "emg_filtered_normalised.mot"))
+    else:
+        print("[tools] no EMG dropped: mew solves without EMG (moment tracking + effort)")
+    if dropped(job_dir, "id", "grf_mot"):  # GRF.xml names grf.mot relative to itself
+        grf, grf_xml = grf_for(job_dir, "id")
+        os.makedirs(os.path.join(trial, "inputs"), exist_ok=True)
+        shutil.copy2(grf, os.path.join(trial, "inputs", "grf.mot"))
+        if grf_xml:
+            shutil.copy2(grf_xml, os.path.join(trial, "inputs", "GRF.xml"))
+    ma_len = output_of(job_dir, "ma", "*MuscleAnalysis_Length.sto")
+    if ma_len:                       # moment arms from MA; else mew asks OpenSim
+        shutil.copytree(os.path.dirname(ma_len), os.path.join(trial, "muscle_analysis"))
+    so = output_of(job_dir, "so", "*StaticOptimization_force.sto")
+    if so:                           # lets mew write its comparison vs SO
+        os.makedirs(os.path.join(trial, "static_optimisation"))
+        shutil.copy2(so, os.path.join(trial, "static_optimisation", "StaticOptimization_force.sto"))
+    if template("setup_JRA.xml"):    # mew reuses the trial's JRA setup as its template
+        os.makedirs(os.path.join(trial, "joint_contact_forces"))
+        shutil.copy2(template("setup_JRA.xml"), os.path.join(trial, "joint_contact_forces", "setup_JRA.xml"))
+    mass = opts.get("mass") or state.get("options", {}).get("scale", {}).get("mass")
+    mass = float(mass) if mass not in (None, "") else None
+    res = analyse_trial(trial, model, mass=mass, jcf=str(opts.get("jra", "1")) == "1",
+                        plot=False, ceinms_compat=False, verbose=True)
+    if res.get("jcf_error"):
+        print(f"[tools] joint contact forces skipped: {res['jcf_error']}")
+    # Flatten into out/ so the page lists them like any other tool's outputs.
+    mew_dir = os.path.join(trial, "mew")
+    for f in os.listdir(mew_dir):
+        src = os.path.join(mew_dir, f)
+        if os.path.isfile(src):
+            shutil.copy2(src, os.path.join(out, f))
 
 
 def run_ceinms(job_dir, state, out):
