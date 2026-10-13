@@ -81,6 +81,11 @@ MAGIC = {"c3d": lambda b: len(b) > 512 and b[1] == 0x50,
          "marker_experimental.trc": lambda b: b[:40].lstrip().lower().startswith(b"pathfiletype"),
          "grf.mot": lambda b: b"endheader" in b[:4000].lower()}
 
+# One OpenSim / CEINMS tool at a time (the Simulate page's sections): bioscout/lab/tools.py.
+TOOLS_PY = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tools.py")
+TOOL_IDS = ["scale", "ik", "id", "ma", "rra", "so", "ceinms"]
+SAFE_NAME = re.compile(r"^[A-Za-z0-9_.-]{1,80}$")
+
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".."))
 
 
@@ -329,7 +334,8 @@ class Engine:
     def new_job(self):
         job = "L" + secrets.token_hex(4)
         st = {"id": job, "created": time.time(), "mass": 75.0, "files": {}, "example": False,
-              "steps": {s: {"state": "idle"} for s in STEPS}}
+              "steps": {s: {"state": "idle"} for s in STEPS},
+              "tools": {t: {"state": "idle"} for t in TOOL_IDS}, "model": None, "options": {}}
         os.makedirs(session_dir(self.work, job), exist_ok=True)
         with self.lock:
             self.jobs[job] = st
@@ -352,8 +358,107 @@ class Engine:
                     + (1 if self.running and self.running != st["id"] else 0)
             if sp["state"] in ("running", "error", "done"):
                 sp["log"] = self.log_tail(st["id"], name)
+        for name, sp in out.get("tools", {}).items():
+            if sp["state"] == "queued":
+                sp["ahead"] = (waiting.index(st["id"]) if st["id"] in waiting else 0) \
+                    + (1 if self.running and self.running != st["id"] else 0)
+            if sp["state"] in ("running", "error", "done"):
+                sp["log"] = self.log_tail(st["id"], "tool_" + name)
+            sp["inputs"] = self.tool_inputs(st["id"], name)
         out["ready"] = self.ready(st)
         return out
+
+    # -- single tools (Simulate page)
+    def job_dir(self, job):
+        return os.path.join(self.work, "simulations", job)
+
+    def models(self):
+        if REPO_ROOT not in sys.path:
+            sys.path.insert(0, REPO_ROOT)
+        from bioscout.lab import tools as T
+        extra = [os.path.join(self.template, "generic models")]
+        return T.list_models(extra)
+
+    def tool_state_write(self, st):
+        d = os.path.join(self.job_dir(st["id"]), "tools")
+        os.makedirs(d, exist_ok=True)
+        m = next((x for x in self.models() if x["name"] == st.get("model")), None)
+        with open(os.path.join(d, "state.json"), "w", encoding="utf-8") as f:
+            json.dump({"model_path": m["path"] if m else None, "options": st.get("options", {})}, f)
+
+    def set_model(self, st, name):
+        if not any(x["name"] == name for x in self.models()):
+            raise ValueError("unknown model")
+        st["model"] = name
+        self.tool_state_write(st)
+
+    def set_options(self, st, tool, opts):
+        if tool not in TOOL_IDS or not isinstance(opts, dict):
+            raise ValueError("bad options")
+        st.setdefault("options", {})[tool] = {str(k)[:40]: str(v)[:400] for k, v in opts.items()}
+        self.tool_state_write(st)
+
+    def tool_inputs(self, job, tool):
+        d = os.path.join(self.job_dir(job), "tools", tool, "in")
+        try:
+            return {os.path.splitext(n)[0]: os.path.getsize(os.path.join(d, n)) for n in sorted(os.listdir(d))}
+        except OSError:
+            return {}
+
+    def tool_upload(self, st, tool, slot, filename, body):
+        from bioscout.lab import tools as T
+        if tool not in T.TOOLS or slot not in T.TOOLS[tool]["slots"]:
+            raise ValueError("unknown tool or slot")
+        ext = os.path.splitext(filename or "")[1].lower()
+        if ext not in T.TOOLS[tool]["slots"][slot][1]:
+            raise ValueError(f"{slot} takes {', '.join(T.TOOLS[tool]['slots'][slot][1])} files")
+        d = os.path.join(self.job_dir(st["id"]), "tools", tool, "in")
+        os.makedirs(d, exist_ok=True)
+        for old in glob.glob(os.path.join(d, slot + ".*")):
+            os.remove(old)
+        with open(os.path.join(d, slot + ext), "wb") as f:
+            f.write(body)
+        if st["tools"][tool]["state"] in ("done", "error"):
+            st["tools"][tool] = {"state": "idle"}
+
+    def tool_clear(self, st, tool, slot):
+        d = os.path.join(self.job_dir(st["id"]), "tools", tool, "in")
+        for old in glob.glob(os.path.join(d, slot + ".*")):
+            os.remove(old)
+
+    def tool_start(self, st, tool):
+        if tool not in TOOL_IDS:
+            raise ValueError("unknown tool")
+        if not st.get("model"):
+            raise ValueError("choose a model first")
+        if st["tools"][tool]["state"] in ("queued", "running"):
+            return
+        self.tool_state_write(st)
+        st["tools"][tool] = {"state": "queued", "queued": time.time()}
+        with self.lock:
+            self.waiting.append(st["id"])
+        self.q.put((st["id"], "tool:" + tool))
+
+    def tool_outputs(self, st, tool):
+        d = os.path.join(self.job_dir(st["id"]), "tools", tool, "out")
+        out = []
+        for root, _dirs, files in os.walk(d):
+            if "_temp" in root:
+                continue
+            for n in files:
+                p = os.path.join(root, n)
+                rel = os.path.relpath(p, d).replace("\\", "/")
+                if n.endswith((".sto", ".mot", ".osim", ".xml", ".trc", ".log", ".csv", ".txt")):
+                    out.append({"path": rel, "size": os.path.getsize(p)})
+        return sorted(out, key=lambda x: x["path"])
+
+    def tool_file(self, st, tool, rel):
+        d = os.path.realpath(os.path.join(self.job_dir(st["id"]), "tools", tool, "out"))
+        p = os.path.realpath(os.path.join(d, rel))
+        if not p.startswith(d + os.sep) or not os.path.isfile(p):
+            raise FileNotFoundError("no such output")
+        with open(p, "rb") as f:
+            return f.read()
 
     def ready(self, st):
         f = st["files"]
@@ -450,6 +555,9 @@ class Engine:
                 if job in self.waiting:
                     self.waiting.remove(job)
             st = self.job(job)
+            if step.startswith("tool:"):
+                self._run_tool(st, step[5:])
+                continue
             if not st or st["steps"][step]["state"] != "queued":
                 continue
             self.running = job
@@ -485,6 +593,33 @@ class Engine:
             print(f"[engine] {job} {step}: {'done' if ok else 'FAILED (' + str(err) + ')'} "
                   f"in {sp['seconds']} s", flush=True)
             self.running = None
+
+    def _run_tool(self, st, tool):
+        if not st or st["tools"][tool]["state"] != "queued":
+            return
+        self.running = st["id"]
+        sp = st["tools"][tool] = {"state": "running", "started": time.time()}
+        err = None
+        try:
+            lp = self.log_path(st["id"], "tool_" + tool)
+            os.makedirs(os.path.dirname(lp), exist_ok=True)
+            with open(lp, "w", encoding="utf-8") as log:
+                env = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUNBUFFERED="1",
+                           PYTHONPATH=REPO_ROOT + os.pathsep + os.environ.get("PYTHONPATH", ""))
+                rc = subprocess.run([sys.executable, TOOLS_PY, self.job_dir(st["id"]), tool],
+                                    stdout=log, stderr=subprocess.STDOUT, cwd=self.work, env=env,
+                                    timeout=STEP_TIMEOUT_S).returncode
+            if rc:
+                err = f"exit code {rc}"
+        except subprocess.TimeoutExpired:
+            err = f"stopped after {STEP_TIMEOUT_S // 60} minutes"
+        except Exception as e:                         # noqa: BLE001 -- reported, not raised
+            err = f"{type(e).__name__}: {e}"
+        sp.update(state="error" if err else "done", ended=time.time(), seconds=round(time.time() - sp["started"], 1))
+        if err:
+            sp["error"] = err
+        print(f"[engine] {st['id']} tool {tool}: {'FAILED (' + err + ')' if err else 'done'} in {sp['seconds']} s", flush=True)
+        self.running = None
 
     def _fake(self, job, step, log):
         """Replay the template's stored results instead of computing them."""
@@ -619,6 +754,8 @@ def make_handler(engine):
                                         "model": os.path.basename(engine.preset["model"]),
                                         "markerset": os.path.basename(engine.preset["markerset"]),
                                         "steps": STEPS,
+                                        "tools": TOOL_IDS,
+                                        "models": [m["name"] for m in engine.models()] if self._authed(q) else [],
                                         "authed": self._authed(q)})
             if not self._authed(q):
                 return self._fail(401, "bad_code", "wrong or missing session code")
@@ -635,6 +772,8 @@ def make_handler(engine):
                     return self._send(200, engine.public(st))
                 if method == "GET" and rest == ["result"]:
                     return self._send(200, engine.result(st, (q.get("what") or [""])[0]))
+                if rest[:1] == ["tools"]:
+                    return self._tools_route(method, st, rest[1:], q)
                 if method == "GET" and rest == ["bundle"]:
                     return self._send(200, engine.bundle(st), "application/zip",
                                       {"Content-Disposition": f'attachment; filename="opensim_{st["id"]}.zip"'})
@@ -662,6 +801,40 @@ def make_handler(engine):
             except (ValueError, TypeError, KeyError) as e:
                 return self._fail(400, "bad_request", str(e))
             return self._fail(404, "not_found", "no such address")
+
+        def _tools_route(self, method, st, rest, q):
+            """/api/job/<id>/tools/model | <tool>/file?slot=&name= | <tool>/clear?slot= |
+               <tool>/options | <tool>/run | <tool>/outputs | <tool>/download?path="""
+            n = int(self.headers.get("Content-Length") or 0)
+            if n > MAX_UPLOAD:
+                return self._fail(413, "too_big", "file too large")
+            body = self.rfile.read(n) if (method == "POST" and n) else b""
+            if method == "POST" and rest == ["model"]:
+                engine.set_model(st, json.loads(body or b"{}").get("name"))
+                return self._send(200, engine.public(st))
+            if len(rest) != 2 or rest[0] not in TOOL_IDS:
+                return self._fail(404, "not_found", "no such address")
+            tool, what = rest
+            if method == "POST" and what == "file":
+                slot, name = (q.get("slot") or [""])[0], (q.get("name") or [""])[0]
+                engine.tool_upload(st, tool, slot, name, body)
+            elif method == "POST" and what == "clear":
+                engine.tool_clear(st, tool, (q.get("slot") or [""])[0])
+            elif method == "POST" and what == "options":
+                engine.set_options(st, tool, json.loads(body or b"{}"))
+            elif method == "POST" and what == "run":
+                engine.tool_start(st, tool)
+            elif method == "GET" and what == "outputs":
+                return self._send(200, {"files": engine.tool_outputs(st, tool)})
+            elif method == "GET" and what == "download":
+                rel = (q.get("path") or [""])[0]
+                data = engine.tool_file(st, tool, rel)
+                fn = os.path.basename(rel)
+                return self._send(200, data, "application/octet-stream",
+                                  {"Content-Disposition": f'attachment; filename="{fn}"'})
+            else:
+                return self._fail(404, "not_found", "no such address")
+            return self._send(200, engine.public(st))
 
         def do_GET(self):
             self._route("GET")
