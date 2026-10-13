@@ -99,3 +99,4 @@ ziLDWRaE
 .wt/
 # the artifact-deletion helper: local convenience, not shipped
 cleanup.sh
+deploy/hosted_engine/space/

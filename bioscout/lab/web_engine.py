@@ -872,7 +872,9 @@ def student_link(engine_url, code):
 def main(argv=None):
     ap = argparse.ArgumentParser(description="OpenSim engine for the BioScout Web lab demo")
     ap.add_argument("--run-step", nargs=2, metavar=("SESSION_DIR", "STEP"), help=argparse.SUPPRESS)
-    ap.add_argument("--port", type=int, default=8771)
+    ap.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8771)))
+    ap.add_argument("--host", default=os.environ.get("BIOSCOUT_HOST", "127.0.0.1"),
+                    help="address to listen on; 0.0.0.0 inside a container (the hosted engine)")
     ap.add_argument("--work", default=os.path.join(os.path.expanduser("~"), "bioscout_lab_engine"),
                     help="where students' trials are kept while they work")
     ap.add_argument("--template", default=os.path.join(REPO_ROOT, "example_data", "orthoload"),
@@ -897,9 +899,19 @@ def main(argv=None):
     purge_old(work, a.keep_hours)
     preset = find_preset(work, a.model, a.markerset)
     example = find_example(template)
-    code = a.code or f"{secrets.randbelow(10**6):06d}"
+    # The hosted engine uses a fixed code that the web app knows (BIOSCOUT_CODE);
+    # a lab PC gets a fresh random one each start.
+    code = a.code or os.environ.get("BIOSCOUT_CODE") or f"{secrets.randbelow(10**6):06d}"
     engine = Engine(work, template, preset, example, code, fake=a.fake)
-    httpd = ThreadingHTTPServer(("127.0.0.1", a.port), make_handler(engine))
+    def _purge_loop():                      # a hosted engine runs for weeks
+        while True:
+            time.sleep(3600)
+            try:
+                purge_old(work, a.keep_hours)
+            except OSError:
+                pass
+    threading.Thread(target=_purge_loop, daemon=True).start()
+    httpd = ThreadingHTTPServer((a.host, a.port), make_handler(engine))
     local = f"http://127.0.0.1:{a.port}"
     print(f"[engine] BioScout lab engine v{VERSION}{'  (FAKE: replaying stored results)' if a.fake else ''}")
     print(f"[engine] model      {preset['model']}")
