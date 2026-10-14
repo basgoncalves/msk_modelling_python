@@ -13,7 +13,7 @@ WHY IT WORKS
 
     Cost: one JRA run per group + a baseline + a total (the total is re-run
     rather than read off disk so the closure check compares like with like).
-    The check is written to `closure.txt` -- if it is not ~0 the decomposition
+    The check is written to the .sto header (closure=...) -- if it is not ~0 the decomposition
     is not trustworthy, so read it before quoting anything.
 
 WHAT IS REPORTED  (per joint, per source, per frame)
@@ -70,12 +70,8 @@ def write_sto(path, header, df):
 # ------------------------------------------------------------- muscle sets --
 def model_muscles(model_path):
     """Muscle names in the .osim (the ONLY columns that may be zeroed)."""
-    try:
-        from bioscout.model.opensim_base import _quiet_model
-        m = _quiet_model(model_path)
-    except Exception:
-        import opensim as osim
-        m = osim.Model(model_path)
+    from bioscout.model.opensim_base import _quiet_model
+    m = _quiet_model(model_path)
     ms = m.getMuscles()
     return [ms.get(i).getName() for i in range(ms.getSize())]
 
@@ -142,6 +138,22 @@ def _slug(name):
 
 
 # --------------------------------------------------------------- the core ---
+def _so_force_set(forces_file, out_dir):
+    """[actuators_so.xml] the trial's SO ran with, or None (2026-10-12).
+
+    The reserves and residuals are NOT in the model; SO and the trial's own JRA
+    load them from this force-set file. Without it every column of the forces
+    file that is not a model muscle (the *_reserve, FX..MZ) is silently ignored,
+    so the decomposition misses them and its total falls short of output_so.sto.
+    """
+    for d in (os.path.dirname(os.path.abspath(forces_file)),
+              os.path.join(os.path.abspath(out_dir), "..", "..", "static_optimisation")):
+        f = os.path.normpath(os.path.join(d, "actuators_so.xml"))
+        if os.path.exists(f):
+            return [f]
+    return None
+
+
 def _jra_task(args):
     """One JointReaction run in its own process (and its own working dir, so
     parallel runs never share a setup/forces/log file). Module-level so it
@@ -168,7 +180,7 @@ def _jra_task(args):
     try:
         _o.chdir(wdir)
         _os.run_jra(osim_modelPath=model_path, ik_output=ik_file, grf_xml=grf_xml,
-                    setup_xml=setup_xml, actuators=None,
+                    setup_xml=setup_xml, actuators=_so_force_set(forces_file, out_dir),
                     muscle_force_path=tmp_forces, saveFileName=sto)
     finally:
         _o.chdir(cwd)
@@ -233,7 +245,7 @@ def decompose(model_path, ik_file, grf_xml, forces_file, out_dir, jra_columns,
             shutil.copyfile(setup_template, setup_xml)
         from bioscout.simulate import opensim as _os
         _os.run_jra(osim_modelPath=model_path, ik_output=ik_file, grf_xml=grf_xml,
-                    setup_xml=setup_xml, actuators=None,
+                    setup_xml=setup_xml, actuators=_so_force_set(forces_file, out_dir),
                     muscle_force_path=tmp_forces, saveFileName=sto)
         _, d = read_sto(sto)
         if not keep_sto:
@@ -311,12 +323,103 @@ def decompose(model_path, ik_file, grf_xml, forces_file, out_dir, jra_columns,
         lines.append(f"{j:6s} max |sum - total| = {e:10.3f} N   "
                      f"({100*e/max(mag[j].max(), 1e-9):.4f} % of peak |JCF|)")
     txt = "\n".join(lines)
-    open(os.path.join(out_dir, "closure.txt"), "w").write(txt + "\n")
+    df.attrs["closure"] = lines[1:]
     log("[contrib] " + txt.replace("\n", "\n[contrib] "))
     for p in (tmp_forces,):
         if os.path.exists(p):
             os.remove(p)
     return df
+
+
+RESERVE_SOURCE = "Reserve actuators"
+NONMUSCLE_SOURCE = "Non-muscle (gravity+GRF+residuals)"
+
+
+def split_reserves(model_path, ik_file, grf_xml, forces_file, out_dir, jra_columns,
+                   setup_template=None, replace=False, log=print,
+                   reserve_pattern=r"_reserve$"):
+    """Split the reserves out of the non-muscle baseline of an existing
+    `contributions.csv` (2026-10-12).
+
+    decompose() leaves every non-muscle column in every run, so its baseline row
+    is gravity + GRF + residuals + RESERVES. One more JointReaction with the
+    muscles AND the reserve columns zeroed gives B0, then
+        Reserve actuators = B - B0          Non-muscle = B0
+    The sum over sources is unchanged, so the closure stays exact. Residuals
+    (FX..MZ) and GRF stay in -- zeroing those unbalances the analysis.
+
+    jra_columns: {"hip_l": [fx, fy, fz], ...} as passed to decompose().
+    Idempotent: skipped when the csv already has a reserve row (unless replace).
+    """
+    model_path, ik_file, grf_xml, forces_file, out_dir = (
+        os.path.abspath(x) for x in (model_path, ik_file, grf_xml, forces_file, out_dir))
+    csv_path = os.path.join(out_dir, "contributions.csv")
+    if not os.path.exists(csv_path):
+        log(f"[contrib] reserve split: no {csv_path}")
+        return None
+    df = pd.read_csv(csv_path)
+    closure = df.attrs.get("closure")
+    if RESERVE_SOURCE in set(df.source) and not replace:
+        log("[contrib] reserve split: already done")
+        return df
+    header, forces = read_sto(forces_file)
+    reserves = [c for c in forces.columns if re.search(reserve_pattern, c)]
+    if not reserves:
+        log("[contrib] reserve split: no reserve columns in the forces file")
+        return df
+    if not _so_force_set(forces_file, out_dir):
+        log("[contrib] reserve split: no actuators_so.xml next to the forces -- the "
+            "reserves are not in the model, so JRA would ignore them; skipped")
+        return df
+    muscles = [m for m in model_muscles(model_path) if m in forces.columns]
+    wdir = os.path.join(out_dir, "_par", "no_reserve")
+    os.makedirs(wdir, exist_ok=True)
+    tmp = os.path.join(wdir, "forces.sto")
+    setup_xml = os.path.join(wdir, "setup_JRA_contrib.xml")
+    sto = os.path.join(wdir, "JRA_no_reserve.sto")
+    f = forces.copy()
+    f[muscles + reserves] = 0.0
+    write_sto(tmp, header, f)
+    if setup_template and os.path.exists(setup_template):
+        shutil.copyfile(os.path.abspath(setup_template), setup_xml)
+    from bioscout.simulate import opensim as _os
+    cwd = os.getcwd()
+    try:
+        os.chdir(wdir)
+        _os.run_jra(osim_modelPath=model_path, ik_output=ik_file, grf_xml=grf_xml,
+                    setup_xml=setup_xml, actuators=_so_force_set(forces_file, out_dir),
+                    muscle_force_path=tmp, saveFileName=sto)
+    finally:
+        os.chdir(cwd)
+    _, d0 = read_sto(sto)
+    shutil.rmtree(wdir, ignore_errors=True)
+
+    t0 = d0["time"].to_numpy()
+    base_rows = df.source.isin([NONMUSCLE_SOURCE, RESERVE_SOURCE])   # a re-split folds back first
+    rows, done = [], set()
+    for j, g in df.groupby("joint", sort=False):
+        cc = jra_columns.get(j)
+        if not cc or not all(c in d0.columns for c in cc):
+            log(f"[contrib] reserve split: {j} not in the JRA output -- left as is")
+            continue
+        b = g[g.source.isin([NONMUSCLE_SOURCE, RESERVE_SOURCE])].groupby("time")[["fx", "fy", "fz"]].sum()
+        tt = b.index.to_numpy()
+        tot = g.groupby("time").total_mag.first().loc[tt].to_numpy()
+        u = g.groupby("time")[["fx", "fy", "fz"]].sum().loc[tt].to_numpy()   # = total JCF vector
+        u = u / np.where(tot > 1e-9, tot, 1.0)[:, None]
+        b0 = np.column_stack([np.interp(tt, t0, d0[c].to_numpy()) for c in cc])
+        for src, v in ((NONMUSCLE_SOURCE, b0), (RESERVE_SOURCE, b.to_numpy() - b0)):
+            rows.append(pd.DataFrame(dict(time=tt, joint=j, source=src,
+                                          fx=v[:, 0], fy=v[:, 1], fz=v[:, 2],
+                                          along_total=(v * u).sum(1), total_mag=tot)))
+        done.add(j)
+    out = pd.concat([df[~(base_rows & df.joint.isin(done))]] + rows, ignore_index=True)
+    out.to_csv(csv_path, index=False, float_format="%.6f")
+    out.attrs["closure"] = closure
+    r = out[out.source == RESERVE_SOURCE]
+    log("[contrib] reserve split, peak |reserve along JCF| (N): " +
+        ", ".join(f"{j} {r[r.joint == j].along_total.abs().max():.0f}" for j in sorted(done)))
+    return out
 
 
 # --------------------------------------------------------------- reporting --
@@ -559,3 +662,239 @@ def plot_contribution_curves(df, save=None, body_weight=None, title=None, top=6,
         fig.savefig(save, dpi=150)
         plt.close(fig)
     return fig
+
+
+# ------------------------------------------------ contributions_<t>.sto io --
+# One wide OpenSim storage per trial instead of a folder (2026-10-12):
+#   time | <joint>/<src>/fx|fy|fz|along ... | <joint>/total_mag
+# <src> is the source name with spaces -> "_"; the exact names, the body
+# weight and the closure check live in the header.
+def write_contributions_sto(df, path, body_weight=None, closure=None):
+    names = list(dict.fromkeys(df.source))
+    key = {n: re.sub(r"\s+", "_", str(n)) for n in names}
+    wide = None
+    for (j, n), g in df.groupby(["joint", "source"], sort=False):
+        g = g.sort_values("time").set_index("time")
+        part = pd.DataFrame({f"{j}/{key[n]}/{c}": g[c if c != "along" else "along_total"]
+                             for c in ("fx", "fy", "fz", "along")})
+        wide = part if wide is None else wide.join(part, how="outer")
+    for j, g in df.groupby("joint", sort=False):
+        wide[f"{j}/total_mag"] = g.drop_duplicates("time").set_index("time").total_mag
+    wide = wide.reset_index()
+    header = [os.path.basename(path), "version=1", f"nRows={wide.shape[0]}",
+              f"nColumns={wide.shape[1]}", "inDegrees=no", "units=N",
+              f"body_weight_N={body_weight if body_weight else ''}"]
+    header += [f"source={key[n]}={n}" for n in names]
+    header += [f"closure={l}" for l in (closure or [])]
+    header.append("endheader")
+    with open(path, "w", newline="") as f:
+        f.write("\n".join(header) + "\n")
+        wide.to_csv(f, sep="\t", index=False, float_format="%.6f")
+    return path
+
+
+def read_contributions(path):
+    """contributions_<t>.sto -> (long DataFrame as decompose() returns, body
+    weight in N or None). Also accepts a legacy contributions.csv."""
+    if str(path).lower().endswith(".csv"):
+        return pd.read_csv(path), None
+    header, wide = read_sto(path)
+    names, bw = {}, None
+    for h in header:
+        if h.startswith("source="):
+            k, n = h[len("source="):].split("=", 1)
+            names[k] = n
+        elif h.startswith("body_weight_N="):
+            v = h.split("=", 1)[1].strip()
+            bw = float(v) if v else None
+    t = wide["time"].to_numpy()
+    rows = []
+    cols = [c for c in wide.columns if c.count("/") == 2]
+    for (j, k) in dict.fromkeys(tuple(c.split("/")[:2]) for c in cols):
+        rows.append(pd.DataFrame(dict(
+            time=t, joint=j, source=names.get(k, k.replace("_", " ")),
+            fx=wide[f"{j}/{k}/fx"], fy=wide[f"{j}/{k}/fy"], fz=wide[f"{j}/{k}/fz"],
+            along_total=wide[f"{j}/{k}/along"], total_mag=wide[f"{j}/total_mag"])))
+    return pd.concat(rows, ignore_index=True), bw
+
+
+# ------------------------------------------------- stacked |JCF| figure --
+# After Fig. 5 of doi:10.1038/s41598-022-13386-9 and actuators_so/plot.py
+# fig9_jcf_stack: who carries the contact force, stacked to |JCF|.
+STACK_GROUPS = {   # paper group -> group-name stems (side prefix stripped, lower case)
+    "Adductors": ["hip adductors", "adductors (l/b/gr)", "adductor magnus"],
+    "Gluteus maximus": ["glut max", "gluteus maximus"],
+    "Gluteus med+min": ["hip abductors", "gluteus medius", "gluteus minimus"],
+    "Hamstrings": ["hamstrings", "biceps femoris", "semimembranosus", "semitendinosus"],
+    "Iliopsoas": ["hip flexors", "iliopsoas"],
+    "Rectus femoris": ["rectus femoris"],
+    "Triceps surae": ["gastrocnemius", "soleus", "triceps surae"],
+    "Vasti": ["vasti"],
+}
+# per_muscle=True runs name single muscles -> match by muscle-name prefix
+STACK_MUSCLE_PREFIX = {
+    "Adductors": ["addbrev", "addlong", "addmag"], "Gluteus maximus": ["glmax"],
+    "Gluteus med+min": ["glmed", "glmin"],
+    "Hamstrings": ["bflh", "bfsh", "semimem", "semiten"], "Iliopsoas": ["iliacus", "psoas"],
+    "Rectus femoris": ["recfem"], "Triceps surae": ["soleus", "gaslat", "gasmed"],
+    "Vasti": ["vasint", "vaslat", "vasmed"],
+}
+STACK_ORDER = ["Intersegmental"] + list(STACK_GROUPS) + ["Other muscles", "Other leg (lumped)",
+                                                         "Reserve actuators"]
+
+
+def stack_group(source):
+    """Contribution source -> one of STACK_ORDER."""
+    s = str(source)
+    if s == BASELINE or s.startswith("Non-muscle"):
+        return "Intersegmental"
+    if s == RESERVE_SOURCE:
+        return "Reserve actuators"
+    base = re.sub(r"^[RL]\s+", "", s).strip().lower()
+    if base == "other leg":
+        return "Other leg (lumped)"
+    for g, stems in STACK_GROUPS.items():
+        if base in stems:
+            return g
+    for g, pre in STACK_MUSCLE_PREFIX.items():
+        if any(base.startswith(p) for p in pre):
+            return g
+    return "Other muscles"
+
+
+def _stack_colors():
+    """Fixed, qualitative colours (Okabe-Ito based, colour-blind safe) -- one
+    clearly different hue per group; same dict as actuators_so/plot.py."""
+    return dict({"Intersegmental": "#b8a27a", "Adductors": "#E69F00", "Gluteus maximus": "#D55E00",
+             "Gluteus med+min": "#F0E442", "Hamstrings": "#009E73", "Iliopsoas": "#CC79A7",
+             "Rectus femoris": "#56B4E9", "Triceps surae": "#7B3294", "Vasti": "#0072B2",
+             "Other muscles": "0.8", "Reserve actuators": "0.35", "Other leg (lumped)": "#c9d6c3"})
+
+
+def plot_contribution_stack(df, save=None, body_weight=None, title=None, n_points=101):
+    """Stacked contributions to |JCF| for ONE trial: rows = side (right/left),
+    columns = hip / knee / ankle; x = % trial, y = BW (N without body_weight).
+    Uses the along-|JCF| projection, which is additive, so the stack tops out
+    at |JCF| (black line); parts pulling against the resultant go below 0."""
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Patch
+    from matplotlib.lines import Line2D
+    s = 1.0 / body_weight if body_weight else 1.0
+    unit = "BW" if body_weight else "N"
+    d = df.assign(group=df.source.map(stack_group))
+    t0, t1 = float(d.time.min()), float(d.time.max())
+    xg = np.linspace(0, 100, n_points)
+
+    def _interp(t, v):
+        x = 100 * (np.asarray(t, float) - t0) / max(t1 - t0, 1e-12)
+        return np.interp(xg, x, np.asarray(v, float))
+
+    grid, col_titles = _grid(sorted(d.joint.unique()))
+    # transpose to side rows x joint columns (the fig9 layout)
+    rows = list(zip(*grid)) if col_titles else grid
+    side_names = col_titles or [""] * len(rows)
+    joint_names = [next((j for j in c if j), "").rsplit("_", 1)[0] for c in grid] if col_titles \
+        else [None] * (len(rows[0]) if rows else 0)
+    col = _stack_colors()
+    hatch = {"Reserve actuators": "///"}
+    nr, nc = len(rows), len(rows[0]) if rows else 1
+    fig, ax = plt.subplots(nr, nc, figsize=(4.2 * nc, 2.2 * nr + 1.6), squeeze=False,
+                           sharex=True, sharey="col")
+    used = set()
+    for r, row in enumerate(rows):
+        for c, j in enumerate(row):
+            a = ax[r][c]
+            if j is None:
+                a.set_visible(False)
+                continue
+            g = d[d.joint == j]
+            per = g.groupby(["group", "time"]).along_total.sum()
+            pos = np.zeros_like(xg)
+            neg = np.zeros_like(xg)
+            for grp in STACK_ORDER:
+                if grp not in per.index.get_level_values(0):
+                    continue
+                y = per.loc[grp]
+                v = _interp(y.index, y.values) * s
+                if not np.any(np.abs(v) > 0):
+                    continue
+                used.add(grp)
+                p, n = np.clip(v, 0, None), np.clip(v, None, 0)
+                kw = dict(color=col[grp], lw=0, hatch=hatch.get(grp),
+                          edgecolor="white" if grp in hatch else None)
+                a.fill_between(xg, pos, pos + p, **kw)
+                a.fill_between(xg, neg, neg + n, **kw)
+                pos, neg = pos + p, neg + n
+            tot = g.drop_duplicates("time").sort_values("time")
+            a.plot(xg, _interp(tot.time, tot.total_mag) * s, color="k", lw=1.1)
+            a.axhline(0, color="0.4", lw=0.5)
+            a.spines[["top", "right"]].set_visible(False)
+            a.set_xlim(0, 100)
+            a.tick_params(labelsize=7)
+            if r == 0:
+                jn = joint_names[c] if col_titles else j
+                a.set_title(f"{jn} contact force ({unit})", fontweight="bold", fontsize=10)
+            if c == 0 and side_names[r]:
+                a.set_ylabel(side_names[r], fontsize=9, fontweight="bold")
+            if r == nr - 1:
+                a.set_xlabel("% trial")
+    if title:
+        fig.suptitle(title, fontweight="bold")
+    order = [grp for grp in STACK_ORDER if grp in used]
+    h = [Patch(facecolor=col[grp], hatch=hatch.get(grp),
+               edgecolor="white" if grp in hatch else col[grp], label=grp) for grp in order]
+    h.append(Line2D([], [], color="k", lw=1.1, label="|JCF|"))
+    fig.legend(handles=h, loc="lower center", ncol=6, frameon=False, fontsize=8,
+               title_fontsize=8,
+               title="contribution = projection on the total JCF (sums to |JCF|); "
+                     "below 0 = pulls against it")
+    fig.tight_layout(rect=(0, 1.3 / (2.2 * nr + 1.6), 1, 0.97))
+    if save:
+        fig.savefig(save, dpi=170)
+        plt.close(fig)
+    return fig
+
+
+def plot_contribution_stacks(root, body_weight=None, replace=True, log=print):
+    """Draw plot_contribution_stack for every contributions_<t>.sto under `root`
+    (one .sto, a trial folder or a whole session); each figure is saved as the
+    .sto's stem + .png next to it. Returns the list of figures written."""
+    root = os.path.abspath(root)
+    pat = re.compile(r"^contributions_\w+\.sto$", re.I)
+    if os.path.isfile(root):
+        hits = [root]
+    else:
+        hits = []
+        for dp, dn, fn in os.walk(root):
+            dn[:] = [x for x in dn if not x.startswith(("_", "."))]
+            hits += [os.path.join(dp, f) for f in fn if pat.match(f)]
+    done = []
+    for sto in sorted(hits):
+        out = os.path.splitext(sto)[0] + ".png"
+        if os.path.exists(out) and not replace:
+            continue
+        try:
+            df, bw = read_contributions(sto)
+            parts = os.path.normpath(sto).split(os.sep)
+            trial = parts[-3] if len(parts) >= 3 else ""
+            kind = os.path.splitext(parts[-1])[0].replace("contributions_", "").upper()
+            plot_contribution_stack(df, save=out, body_weight=body_weight or bw,
+                                    title=f"{trial} - {kind} contributions to the joint contact force")
+            done.append(out)
+            log(f"[stack] {out}")
+        except Exception as e:
+            log(f"[stack] FAILED {sto}: {e}")
+    if not done:
+        log(f"[stack] nothing drawn under {root}")
+    return done
+
+
+if __name__ == "__main__":
+    import argparse
+    ap = argparse.ArgumentParser(description="Stacked |JCF| contribution figure per trial")
+    ap.add_argument("root", help="contributions_<t>.sto, a trial folder or a session folder")
+    ap.add_argument("--bw", type=float, default=None, help="body weight in N (default: from the .sto header)")
+    a = ap.parse_args()
+    import matplotlib
+    matplotlib.use("Agg")
+    plot_contribution_stacks(a.root, body_weight=a.bw)
