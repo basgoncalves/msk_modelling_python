@@ -98,7 +98,7 @@ def _sanitize_markerset_xml(src_path, skip_names, out_dir):
     print(f"[scale] dropped unplaceable markers from marker set: {removed} -> {os.path.basename(out)}")
     return out
 
-def scale_model(generic_opensim_model_path, static_trc_path, scaled_model_path, scale_setup_output_dir=None, mass=None, time_range=None, marker_set_file=None, linear_scaling=True, marker_placer=False, ik_weights=None, setup_xml_path=None, run=True, marker_aliases=None):
+def scale_model(generic_opensim_model_path, static_trc_path, scaled_model_path, scale_setup_output_dir=None, mass=None, time_range=None, marker_set_file=None, linear_scaling=True, marker_placer=False, ik_weights=None, setup_xml_path=None, run=True, marker_aliases=None, measurement_spec=None, scale_tool=None):
     """
     Scale an OpenSim model using the ScaleTool based on static marker data from a TRC file.
 
@@ -130,6 +130,16 @@ def scale_model(generic_opensim_model_path, static_trc_path, scaled_model_path, 
             gets NO joint centre and almost no measurements without this, which
             scales the pelvis and leaves the femurs generic — silently.
             ``bioscout scale`` works this map out by asking.
+        measurement_spec: ``[(name, [(a, b), ...], {body: axes}), ...]`` to use
+            instead of ``measurements.DEFAULT_SPEC`` (which is written for the
+            powerlifting/Vicon-CGM protocol). ``marker_aliases`` still apply to
+            it. session.yaml: ``scale_measurements`` (see
+            ``measurements.spec_from_config``).
+        scale_tool: a ScaleTool setup .xml used as the TEMPLATE: its
+            MeasurementSet, scaling order and preserve_mass_distribution are
+            used as written; its paths, mass and time range are ignored and
+            filled from the arguments here. ``measurement_spec`` is then
+            unused. session.yaml: ``iterations.<name>.scale_tool``.
         setup_xml_path: Where to write the ScaleTool setup. Defaults to
             ``<scale_setup_output_dir>/scale_setup.xml``. This file is the
             record of what was actually applied — the MeasurementSet, the
@@ -249,7 +259,17 @@ def scale_model(generic_opensim_model_path, static_trc_path, scaled_model_path, 
     osim_time_range.append(t0)
     osim_time_range.append(t1)
 
-    scaleTool = osim.ScaleTool()
+    scaleTool = osim.ScaleTool(str(scale_tool)) if scale_tool else osim.ScaleTool()
+    # A ScaleTool loaded from a template resolves every RELATIVE path against the
+    # template's folder (setupFiles/), not the cwd: the output then lands beside the
+    # template and the marker-placement pass cannot find it. Pin the subject path
+    # and hand the tool absolute paths only. (2026-10-14)
+    scaleTool.setPathToSubject("")
+    generic_for_scaling = os.path.abspath(generic_for_scaling)
+    trc_for_scaling = os.path.abspath(trc_for_scaling)
+    scaled_model_path = os.path.abspath(scaled_model_path)
+    if marker_set_for_scaling:
+        marker_set_for_scaling = os.path.abspath(marker_set_for_scaling)
     scaleTool.setName("ModelScaling")
     scaleTool.setSubjectMass(subject_mass)
 
@@ -274,16 +294,51 @@ def scale_model(generic_opensim_model_path, static_trc_path, scaled_model_path, 
     # and why verify_scaled() checks the result afterwards.
     modelScaler = scaleTool.getModelScaler()
     modelScaler.setApply(bool(linear_scaling))
-    if linear_scaling:
+    if linear_scaling and scale_tool:
+        # The template's MeasurementSet, as written -- after checking every
+        # marker it names is in the static TRC (joint centres included), since
+        # ScaleTool otherwise dies deep inside with a bare marker name.
+        _mset = modelScaler.getMeasurementSet()
+        _have = set()
+        try:
+            _md = osim.MarkerData(trc_for_scaling)
+            _have = {_md.getMarkerNames().get(i) for i in range(_md.getMarkerNames().getSize())}
+        except Exception as e:
+            print(f"[scale] [WARNING] could not list the TRC markers: {e}")
+        _al = dict(marker_aliases or {})
+        _missing = []
+        for _i in range(_mset.getSize()):
+            _m = _mset.get(_i)
+            _ps = _m.getMarkerPairSet()
+            for _j in range(_ps.getSize()):
+                _pr = _ps.get(_j)
+                for _k in (0, 1):
+                    _n = _pr.getMarkerName(_k)
+                    if _n in _al:
+                        _pr.setMarkerName(_k, _al[_n]); _n = _al[_n]
+                    if _have and _n not in _have:
+                        _missing.append(f"{_m.getName()}:{_n}")
+        if _mset.getSize() == 0:
+            raise RuntimeError(f"scale_tool {scale_tool} has an EMPTY MeasurementSet")
+        if _missing:
+            raise RuntimeError(f"scale_tool {scale_tool}: markers not in the static TRC "
+                               f"{trc_for_scaling}: {', '.join(_missing)}")
+        print(f"[scale] ScaleTool template {os.path.basename(str(scale_tool))}: "
+              f"{_mset.getSize()} measurements")
+    elif linear_scaling:
         try:
             _mset, _rep, _skip_m = _sm.build_measurement_set(
                 model, trc_for_scaling,
-                spec=_sm.resolve_spec(_sm.DEFAULT_SPEC, marker_aliases),
+                spec=_sm.resolve_spec(measurement_spec or _sm.DEFAULT_SPEC, marker_aliases),
                 model_markers=_sm.markerset_file_names(marker_set_for_scaling))
             if _mset.getSize() == 0:
                 print("[scale] [ERROR] MeasurementSet is EMPTY — ScaleTool would apply a "
                       "scale factor of 1.0 to every body and return the generic model with "
                       "the subject's mass. Check the marker names above.")
+                # Refuse instead of warning: the warning was printed for months
+                # while every 'scaled' model stayed generic size.
+                raise RuntimeError("empty MeasurementSet with linear_scaling=True "
+                                   "(see the SKIPPED lines above)")
             try:
                 modelScaler.setMeasurementSet(_mset)
             except Exception:
@@ -576,10 +631,47 @@ def place_markers_via_ik(model_path, static_trc, out_model_path,
     _quiet_osim()
     model = _quiet_model(model_path)
     if marker_set_file and os.path.exists(marker_set_file):
+        # NEVER swallow this. A rejected marker set leaves the model with the
+        # GENERIC's own markers, IK then tracks only the names that happen to
+        # exist in both the model and the TRC, and the failure surfaces three
+        # stages later as impossible kinematics. It cost a night to find once.
+        _before = model.getMarkerSet().getSize()
         try:
-            model.updateMarkerSet(osim.MarkerSet(model, marker_set_file))
-        except Exception:
-            pass
+            # OpenSim 4.x exposes MarkerSet(), MarkerSet(str) and
+            # MarkerSet(str, bool) -- there is NO MarkerSet(model, str), though
+            # older bindings had one. Calling it raised TypeError on every
+            # model and every subject; the swallowed exception left each model
+            # with the GENERIC's markers and IK tracking whatever names
+            # happened to coincide. Try the documented form first and keep the
+            # legacy one only as a fallback.
+            try:
+                _ms = osim.MarkerSet(marker_set_file)
+            except TypeError:
+                _ms = osim.MarkerSet(model, marker_set_file)
+            # updateMarkerSet APPENDS -- it does not replace. Left alone the
+            # model ends up carrying both naming conventions (43 + 48 = 91),
+            # which doubles the registration IK and registers markers that are
+            # not the ones the data uses. Empty the model's own set first.
+            _own = model.updMarkerSet()
+            for _i in range(_own.getSize() - 1, -1, -1):
+                _own.remove(_i)
+            model.updateMarkerSet(_ms)
+            model.finalizeConnections()
+            if model.getMarkerSet().getSize() != _ms.getSize():
+                print(f"[scale] [WARNING] marker set applied but the model now "
+                      f"has {model.getMarkerSet().getSize()} markers for a "
+                      f"{_ms.getSize()}-marker file -- markers were merged, "
+                      f"not replaced.")
+            print(f"[scale] marker set applied: "
+                  f"{os.path.basename(marker_set_file)} -- "
+                  f"{model.getMarkerSet().getSize()} markers (was {_before})")
+        except Exception as e:
+            print(f"[scale] [ERROR] marker set {os.path.basename(marker_set_file)} "
+                  f"was REJECTED: {type(e).__name__}: {e}")
+            print(f"[scale] [ERROR] the model keeps its own {_before} marker(s). "
+                  f"IK will track only the names present in BOTH the model and "
+                  f"the TRC -- check the marker set's parent frames against this "
+                  f"model's body names.")
     state = model.initSystem()
 
     md = osim.MarkerData(static_trc)
@@ -714,4 +806,12 @@ def place_markers_via_ik(model_path, static_trc, out_model_path,
     model.printToXML(out_model_path)
     print(f"[scale] IK-based marker registration placed {moved}/{ms.getSize()} markers "
           f"-> {os.path.basename(out_model_path)}")
+    # Registering a handful of a large marker set means the model and the data
+    # disagree on NAMES: everything downstream still runs, and IK quietly solves
+    # the pose from those few markers. Say so here, where it is still cheap.
+    if ms.getSize() and moved < max(6, 0.5 * ms.getSize()):
+        _mnames = {ms.get(i).getName() for i in range(ms.getSize())}
+        print(f"[scale] [WARNING] only {moved} of {ms.getSize()} model markers "
+              f"matched the static trial. IK cannot be trusted with this few -- "
+              f"the model's markers are: {sorted(_mnames)}")
     return out_model_path
