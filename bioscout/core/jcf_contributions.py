@@ -765,8 +765,8 @@ def stack_group(source):
 def _stack_colors():
     """Fixed, qualitative colours (Okabe-Ito based, colour-blind safe) -- one
     clearly different hue per group; same dict as actuators_so/plot.py."""
-    return dict({"Intersegmental": "#b8a27a", "Adductors": "#E69F00", "Gluteus maximus": "#a266b1",
-             "Gluteus med+min": "#5d8cb3", "Hamstrings": "#6b2f73", "Iliopsoas": "#2bb5c0",
+    return dict({"Intersegmental": "#b8a27a", "Adductors": "#2bb5c0", "Gluteus maximus": "#a266b1",
+             "Gluteus med+min": "#5d8cb3", "Hamstrings": "#6b2f73", "Iliopsoas": "#dd7036",
              "Rectus femoris": "#2f6b43", "Triceps surae": "#a41e23", "Vasti": "#6cc070",
              "Other muscles": "0.8", "Reserve actuators": "0.35", "Other leg (lumped)": "#c9d6c3"})
 
