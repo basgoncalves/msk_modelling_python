@@ -122,9 +122,11 @@ def _trial_window(trial: Path):
 
 # ------------------------------------------------------------------- poses
 def _pose_axis(fig, rect, geo, q, R_ground, R_yaw, jc, grf_vec=None, pelvis_g=None,
-               n_per_mm=0.6):
+               n_per_mm=0.6, anchor_x=None):
     """One pose: both legs, plus each loaded plate's GRF as an arrow from its
-    COP; the view is CENTRED ON THE PELVIS so the pose sits on its event line."""
+    COP. The view is centred on ``anchor_x`` (plot-x, mm from the pelvis) --
+    the event foot's COP, so THAT foot sits on its event line (2026-10-15) --
+    else on the pelvis."""
     axp = fig.add_axes(rect, projection="3d")
     axp.patch.set_visible(False)
     for kk, s2 in enumerate(("r", "l")):
@@ -148,8 +150,9 @@ def _pose_axis(fig, rect, geo, q, R_ground, R_yaw, jc, grf_vec=None, pelvis_g=No
     if pts:
         P_ = np.vstack(pts)
         lo, hi = P_.min(axis=0) - 2, P_.max(axis=0) + 2
-        hx = max(abs(lo[0]), abs(hi[0]))
-        lo[0], hi[0] = -hx, hx
+        ax0 = float(anchor_x) if anchor_x is not None else 0.0
+        hx = max(abs(lo[0] - ax0), abs(hi[0] - ax0))
+        lo[0], hi[0] = ax0 - hx, ax0 + hx
         axp.set_xlim(lo[0], hi[0]); axp.set_ylim(lo[1], hi[1]); axp.set_zlim(lo[2], hi[2])
         axp.set_box_aspect(tuple(hi - lo))
     axp.view_init(elev=0, azim=-90)
@@ -310,6 +313,7 @@ class TaskStrip:
         gv = grf_vectors(self.trial)
         row = cell.get_position(fig)
         w = min(0.16, row.width / max(len(self.pose_t), 1) * 1.3)
+        ev_side = {round(x, 6): nm[0].lower() for nm, x in (self.events or [])}
         for tt in self.pose_t:
             xf = fig.transFigure.inverted().transform(
                 ax_time.transData.transform((tt, 0)))[0]
@@ -321,8 +325,23 @@ class TaskStrip:
                 vecs = [(sd, F[i], P[i]) for sd, F, P in gv[1]]
                 pel = np.array([q_t.get("pelvis_tx", 0.0), q_t.get("pelvis_ty", 0.0),
                                 q_t.get("pelvis_tz", 0.0)], float)
+            anchor = None
+            sd_ev = ev_side.get(round(tt, 6))
+            if gv is not None and sd_ev in ("l", "r"):
+                # the event foot's COP at the nearest LOADED frame (+-0.1 s): at the
+                # strike/off frame itself the plate force is ~0 and the COP undefined
+                for sd, F, P in gv[1]:
+                    if sd != sd_ev:
+                        continue
+                    ok = np.flatnonzero((np.linalg.norm(F, axis=1) > 20.0)
+                                        & (np.abs(gv[0] - tt) < 0.1))
+                    if len(ok):
+                        j = ok[np.argmin(np.abs(gv[0][ok] - tt))]
+                        c = (self.R_yaw @ (P[j] - pel)) * 1000.0
+                        anchor = float(c[jc._TO_PLOT][0])
+                        break
             _pose_axis(fig, [xf - w / 2, row.y0, w, row.height], self.geo, q_t, Rg,
-                       self.R_yaw, jc, grf_vec=vecs, pelvis_g=pel)
+                       self.R_yaw, jc, grf_vec=vecs, pelvis_g=pel, anchor_x=anchor)
 
 
 def strip_for(trial, t_range=None, log=print):
