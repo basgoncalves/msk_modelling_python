@@ -13,6 +13,10 @@ All notable changes to BioScout are documented here.
 
 
 
+
+## 3.1.1 — 2026-10-15
+
+- README / PyPI page: the version under the logo said v2.0.0; setup.py now fills it in from `__version__` at build time.
 ## 3.1.0 — 2026-10-15 — desktop GUI removed
 
 - The tkinter/customtkinter desktop GUI (`bioscout/gui`, the `bioscout-gui` launcher) is

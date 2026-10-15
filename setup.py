@@ -11,6 +11,8 @@ __version__ = re.search(
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
+# the version under the logo always says the version being built, not whatever the README last had
+long_description = re.sub(r'(<p align="center">)v[0-9][0-9.]*', rf"\g<1>v{__version__}", long_description, count=1)
 
 setup(
     name="bioscout",

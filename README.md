@@ -4,7 +4,7 @@
 
 <h1 align="center">BioScout</h1>
 
-<p align="center">v2.0.0 &nbsp;·&nbsp; <em>beta — the API may still move</em></p>
+<p align="center">v3.1.1 &nbsp;·&nbsp; <em>beta — the API may still move</em></p>
 
 <p align="center"><strong>A Python toolbox for musculoskeletal modelling.</strong></p>
 
@@ -112,7 +112,7 @@ pip install bioscout
 
 > **2.x is a beta line.** It is a normal release — no `--pre` needed — but it is
 > marked *Development Status :: 4 - Beta* on PyPI because the session/iteration
-> API is still settling. Pin it (`bioscout==2.0.0`) if you need a run to stay
+> API is still settling. Pin it (`bioscout==3.1.1`) if you need a run to stay
 > reproducible. Coming from 1.x, see
 > [Migration from msk_modelling_python](#migration-from-msk_modelling_python);
 > note 2.x requires Python 3.9–3.11 and OpenSim.
