@@ -74,8 +74,8 @@ DEFAULT_JOINT_MARKERS = {
 EMG_FILE_FALLBACKS = ["emg_filtered_normalised.mot", "emg_filtered.mot", "emg.mot"]
 
 ENERGETICS_FILE = "energetics_ProbeReporter_probes.sto"
-SO_FORCES_FILE = "SO_StaticOptimization_force.sto"
-SO_ACT_FILE = "SO_StaticOptimization_activation.sto"
+SO_FORCES_FILE = "StaticOptimization_force.sto"          # legacy SO_ prefix via so_files.pick
+SO_ACT_FILE = "StaticOptimization_activation.sto"
 MARKER_ERR_ALL = "_ik_marker_errors_all.sto"
 
 

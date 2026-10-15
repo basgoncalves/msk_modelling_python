@@ -580,16 +580,22 @@ def fill_trc(path, out_path=None, *, max_spline_gap=MAX_SPLINE_GAP,
     return rep
 
 
-def format_report(rep: FillReport, verbose=True) -> str:
-    """Human-readable summary — one line per marker that needed work."""
-    out = [f"[gapfill] {os.path.basename(rep.path) or 'trc'}: "
-           f"{rep.n_markers} markers, {rep.n_frames} frames, "
-           f"data span {rep.span[0]}-{rep.span[1]}"]
+def format_report(rep: FillReport, verbose=False) -> str:
+    """Human-readable summary. Compact by default: one line of totals, one
+    line naming the LABELLED markers that stayed empty (with frame counts),
+    and unlabelled ``*NN`` trajectories folded into a single count -- a line
+    per marker per trial is what made the log unreadable. ``verbose`` gives
+    the old per-marker listing."""
+    head = (f"[gapfill] {os.path.basename(rep.path) or 'trc'}: "
+            f"{rep.n_markers} markers, {rep.n_frames} frames, "
+            f"data span {rep.span[0]}-{rep.span[1]}")
     touched = [m for m in rep.markers
                if m.spline_frames or m.rigid_frames or m.left_empty]
     if not touched:
-        out.append("[gapfill] no interior gaps — nothing to fill")
-        return "\n".join(out)
+        # nothing was changed, so say nothing: a line per trial claiming no
+        # work was done is what turns a log into something nobody reads
+        return ""
+    out = [head]
     if verbose:
         for m in sorted(touched, key=lambda x: -(x.rigid_frames + x.left_empty)):
             bits = []
@@ -605,10 +611,17 @@ def format_report(rep: FillReport, verbose=True) -> str:
     out.append(f"[gapfill] filled {rep.spline_frames} frame(s) by spline, "
                f"{rep.rigid_frames} by rigid cluster, "
                f"{rep.left_empty} left empty")
-    if rep.left_empty:
-        out.append("[gapfill] frames left empty are markers OpenSim will ignore — "
-                   "that is deliberate: a fabricated marker is worse than an "
-                   "absent one.")
+    if not verbose and rep.left_empty:
+        named = sorted((m for m in touched if m.left_empty
+                        and not str(m.name).startswith("*")),
+                       key=lambda m: -m.left_empty)
+        unlab = [m for m in touched if m.left_empty and str(m.name).startswith("*")]
+        if named:
+            shown = ", ".join(f"{m.name} {m.left_empty}" for m in named[:14])
+            more = f" (+{len(named) - 14} more)" if len(named) > 14 else ""
+            out.append(f"[gapfill] left empty (frames): {shown}{more}")
+        if unlab:
+            out.append(f"[gapfill] {len(unlab)} unlabelled '*' trajectories ignored")
     return "\n".join(out)
 
 

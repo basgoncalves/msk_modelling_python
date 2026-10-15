@@ -1,0 +1,261 @@
+# Which instants of a movement the figures show, per task -- the SHIPPED
+# defaults. Edit here for every project, or override per project under
+# `events:` in project.yaml, or per session under `events:` in session.yaml
+# (most specific wins; an event set to `null` is removed; a task not listed
+# here falls back to `_default`).
+#
+# One event:
+#   signal:     a column of the IK .mot (hip_flexion_{side}, knee_angle_{side},
+#               pelvis_ty ...), knee_flexion_{side} (flexion-positive whatever
+#               the model's sign convention), or grf_vertical_{side} /
+#               grf_anterior_{side}; {side} is the analysed leg. Angles in deg.
+#   derivative: 0 (default) the signal, 1 its velocity, 2 its acceleration
+#   smooth_ms:  moving-average width before differentiating (default 0)
+#   function:   max | min | first_local_max | last_local_max | start | end
+#   phase:      swing | stance | cycle (running, cut)   descent | hold |
+#               concentric | cycle (squats) -- from movement_detection.yaml
+#   window:     [from, to] as fractions of the phase (default [0, 1])
+#   optional:   true = silently absent when the data has no such instant
+#   letter:     the superscript on the figure;  label: what the key says
+#   landmark:   tibia | calcn -- which body the pose is aligned on (the
+#               swing knee, or the foot on the plate); default by phase.
+#
+# Task names are the movement detector's: running, cut, single_leg_squat,
+# squat, ...
+
+running:
+  hip drive:
+    signal: hip_flexion_{side}
+    derivative: 2
+    smooth_ms: 15
+    function: max
+    phase: swing
+    letter: a
+    label: peak hip flexion angular acceleration (swing)
+    landmark: tibia
+  mid swing:
+    signal: hip_flexion_{side}
+    function: max
+    phase: swing
+    letter: b
+    label: peak hip flexion angle
+    landmark: tibia
+  impact peak:
+    signal: grf_vertical_{side}
+    function: first_local_max
+    phase: stance
+    window: [0.0, 0.33]
+    optional: true
+    letter: c
+    label: first vGRF peak in the first third of stance
+  mid stance:
+    signal: grf_vertical_{side}
+    function: max
+    phase: stance
+    letter: d
+    label: peak vGRF (active peak)
+  push off:
+    signal: hip_flexion_{side}
+    function: min
+    phase: stance
+    letter: e
+    label: peak hip extension angle during stance
+
+walking:
+  loading response:
+    signal: grf_vertical_{side}
+    function: first_local_max
+    phase: stance
+    window: [0.0, 0.5]
+    letter: a
+    label: first vGRF peak (weight acceptance)
+  mid stance:
+    signal: grf_vertical_{side}
+    function: min
+    phase: stance
+    window: [0.25, 0.75]
+    letter: b
+    label: vGRF trough between the two peaks
+  push off:
+    signal: grf_vertical_{side}
+    function: max
+    phase: stance
+    window: [0.5, 1.0]
+    letter: c
+    label: second vGRF peak (push off)
+  mid swing:
+    signal: hip_flexion_{side}
+    function: max
+    phase: swing
+    optional: true
+    letter: d
+    label: peak hip flexion angle
+    landmark: tibia
+
+# the plant leg of a side-step cut: the approach swing is usually only partly
+# simulated, so the swing event is optional and the rest is the ground contact
+cut:
+  pre-contact:
+    signal: hip_flexion_{side}
+    function: max
+    phase: swing
+    optional: true
+    letter: a
+    label: peak hip flexion before the plant
+    landmark: tibia
+  impact peak:
+    signal: grf_vertical_{side}
+    function: first_local_max
+    phase: stance
+    window: [0.0, 0.33]
+    optional: true
+    letter: b
+    label: first vGRF peak in the first third of stance
+  peak load:
+    signal: grf_vertical_{side}
+    function: max
+    phase: stance
+    letter: c
+    label: peak vGRF
+  weight acceptance:
+    signal: knee_flexion_{side}
+    function: max
+    phase: stance
+    letter: d
+    label: peak knee flexion during the plant
+  push off:
+    signal: knee_flexion_{side}
+    derivative: 1
+    smooth_ms: 15
+    function: min
+    phase: stance
+    window: [0.5, 1.0]
+    letter: e
+    label: peak knee extension velocity (second half of the plant)
+
+single_leg_squat:
+  descent onset:
+    signal: pelvis_ty
+    function: start
+    phase: descent
+    letter: a
+    label: start of the descent
+  peak descent:
+    signal: pelvis_ty
+    derivative: 1
+    smooth_ms: 30
+    function: min
+    phase: descent
+    letter: b
+    label: peak downward pelvis velocity
+  bottom:
+    signal: pelvis_ty
+    function: min
+    phase: cycle
+    letter: c
+    label: deepest position (lowest pelvis)
+  peak load:
+    signal: grf_vertical_{side}
+    function: max
+    phase: concentric
+    letter: d
+    label: peak vGRF during the ascent
+  ascent end:
+    signal: pelvis_ty
+    function: end
+    phase: concentric
+    letter: e
+    label: end of the ascent
+
+# a bilateral squat: the same instants; the analysed leg's plate carries
+# its share of the load
+squat:
+  descent onset:
+    signal: pelvis_ty
+    function: start
+    phase: descent
+    letter: a
+    label: start of the descent
+  peak descent:
+    signal: pelvis_ty
+    derivative: 1
+    smooth_ms: 30
+    function: min
+    phase: descent
+    letter: b
+    label: peak downward pelvis velocity
+  bottom:
+    signal: pelvis_ty
+    function: min
+    phase: cycle
+    letter: c
+    label: deepest position (lowest pelvis)
+  peak load:
+    signal: grf_vertical_{side}
+    function: max
+    phase: concentric
+    letter: d
+    label: peak vGRF during the ascent
+  ascent end:
+    signal: pelvis_ty
+    function: end
+    phase: concentric
+    letter: e
+    label: end of the ascent
+
+# countermovement / squat jump: the detector gives descent, hold, concentric
+# and air_time; the landing is where air_time ends
+squat_jump:
+  descent onset:
+    signal: pelvis_ty
+    function: start
+    phase: descent
+    letter: a
+    label: start of the descent
+  bottom:
+    signal: pelvis_ty
+    function: min
+    phase: cycle
+    letter: b
+    label: deepest position (lowest pelvis)
+  peak drive:
+    signal: grf_vertical_{side}
+    function: max
+    phase: concentric
+    letter: c
+    label: peak vGRF during the push
+  take off:
+    signal: pelvis_ty
+    function: end
+    phase: concentric
+    letter: d
+    label: take-off (end of the push)
+  landing:
+    signal: pelvis_ty
+    function: end
+    phase: air_time
+    optional: true
+    letter: e
+    label: landing (end of flight)
+
+# anything the detector names that has no entry above
+_default:
+  start:
+    signal: pelvis_ty
+    function: start
+    phase: cycle
+    letter: a
+    label: start of the window
+  peak load:
+    signal: grf_vertical_{side}
+    function: max
+    phase: cycle
+    optional: true
+    letter: b
+    label: peak vGRF
+  end:
+    signal: pelvis_ty
+    function: end
+    phase: cycle
+    letter: c
+    label: end of the window

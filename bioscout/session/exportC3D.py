@@ -1137,8 +1137,17 @@ def _qc_figures(tdir):
     from bioscout import utils as _u
     trial = os.path.basename(tdir)
 
-    # ---- EMG: raw vs filtered+normalised (matches Analyse.plot_emg_processing) ----
+    # ---- EMG: task layout (bioscout.plot.emg_figure), grid as fallback ----
+    _emg_done = False
     try:
+        from bioscout.plot.emg_figure import emg_task_figure
+        emg_task_figure(tdir, log=None)
+        _emg_done = True
+    except Exception as e:
+        print(f"[export_session] {trial}: EMG task figure failed ({e}); grid instead")
+    try:
+        if _emg_done:
+            raise StopIteration
         raw = _u.load_any_data_file(os.path.join(tdir, "emg.mot"))
         # The normalised file exists only after the session-wide EMG
         # normalisation has run; a freshly exported trial has emg_filtered.mot
@@ -1185,6 +1194,8 @@ def _qc_figures(tdir):
         fig.suptitle(f"{trial} — EMG: raw vs filtered-normalised", fontsize=13)
         fig.tight_layout(rect=[0, 0.03, 1, 0.98])
         fig.savefig(os.path.join(tdir, "emg_processing.png"), dpi=130); plt.close(fig)
+    except StopIteration:
+        pass
     except Exception as e:
         print(f"[export_session] {trial}: EMG figure warn — {e}")
 

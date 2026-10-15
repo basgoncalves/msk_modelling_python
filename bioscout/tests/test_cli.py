@@ -167,7 +167,6 @@ class TestTranslation(unittest.TestCase):
     def test_init_and_gui(self):
         self.assertEqual(self.legacy(["init", "myproj"]), ["--init", "myproj"])
         self.assertEqual(self.legacy(["init"]), ["--init", "."])
-        self.assertEqual(self.legacy(["gui"]), ["--gui"])
 
     def test_session_new(self):
         """--no-gui, so the test never tries to open a window.
@@ -184,55 +183,15 @@ class TestTranslation(unittest.TestCase):
             ["--new-session", "s/022/pre", "--from-session", "s/021/pre",
              "--body-mass", "61.3"])
 
-    def test_session_new_falls_back_to_flags_when_headless(self):
-        """No display must not mean 'exit 0 having written nothing'.
-
-        Patches ``session_editor`` — the module ``cli._direct`` imports from.
-        Patching the ``new_session_dialog`` shim instead did nothing, so on a
-        machine WITH a display this test opened the editor and blocked the whole
-        suite on a modal window. ``open_session_editor`` is stubbed to raise as
-        well, so the failure mode is a red test rather than a hung run.
-        """
+    def test_gui_points_to_bioscout_web(self):
+        """The desktop GUI is gone: `bioscout gui` prints where the interface is."""
+        import io, contextlib
         import bioscout.cli as _c
-        try:
-            from bioscout.gui import session_editor as _se
-        except Exception:
-            self.skipTest("GUI module not importable here")
-        real_avail, real_open = _se.gui_available, _se.open_session_editor
-
-        def _must_not_open(*_a, **_kw):
-            raise AssertionError("the test suite must never open a window")
-
-        _se.gui_available = lambda: False
-        _se.open_session_editor = _must_not_open
-        try:
-            kind, value = _c.route(["session", "new", "s/021/pre"])
-        finally:
-            _se.gui_available, _se.open_session_editor = real_avail, real_open
-        self.assertEqual((kind, value), ("legacy", ["--new-session", "s/021/pre"]))
-
-    def test_no_verb_can_open_a_window_without_no_gui_in_tests(self):
-        """Guard: every session verb the suite routes must be window-free.
-
-        `session new` and `session edit` are the only verbs that can raise a
-        dialog. Anything routed here without --no-gui on a developer machine
-        would hang the suite instead of failing it.
-        """
-        import bioscout.cli as _c
-        try:
-            from bioscout.gui import session_editor as _se
-        except Exception:
-            self.skipTest("GUI module not importable here")
-        real_avail, real_open = _se.gui_available, _se.open_session_editor
-        _se.gui_available = lambda: False
-        _se.open_session_editor = lambda *a, **k: 0
-        try:
-            for argv in (["session", "new", "p", "--no-gui"],
-                         ["session", "edit", "p", "--no-gui"]):
-                kind, _ = _c.route(argv)
-                self.assertEqual(kind, "legacy", argv)
-        finally:
-            _se.gui_available, _se.open_session_editor = real_avail, real_open
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            kind, value = _c.route(["gui"])
+        self.assertIn("bioscout-web", buf.getvalue())
+        self.assertEqual(value, 0)
 
     def test_session(self):
         self.assertEqual(self.legacy(["session", "export", "s/021/pre"]),

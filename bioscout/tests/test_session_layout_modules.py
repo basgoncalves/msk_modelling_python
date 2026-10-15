@@ -286,6 +286,7 @@ class TestIterationKeys(unittest.TestCase):
             fh.write("implanted_side: l\n" + txt)
         s, _ = self._session()
         self.assertEqual(s.implanted_side, "l")
+        self.assertEqual(s.measured_side, "l")      # old name still read
         with self.assertRaisesRegex(AttributeError, "no top-level key 'nope'"):
             s.nope
 

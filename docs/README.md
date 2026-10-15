@@ -1,5 +1,15 @@
 # bioscout docs
 
+**Browsable site:** open `docs/site/index.html` (concepts, guides, API reference).
+Rebuild after code/docstring changes (from the repo root; ~5-10 min, imports every module):
+
+    pip install sphinx myst-parser furo
+    python -m sphinx -b html docs docs/site
+
+`concepts/` = how the pieces relate and how things are computed; `api.md` =
+generated reference (`_autosummary/` is generated, do not edit).
+
+
 Two kinds of document, kept apart on purpose.
 
 **`guide/`** — evergreen reference. Describes how something works *now*; edit

@@ -10,6 +10,11 @@ import tkinter as tk
 from tkinter import ttk
 import ctypes
 
+try:
+    from .webvideo import make_web_playable, NOT_PLAYABLE_HINT
+except ImportError:            # run directly as a script
+    from webvideo import make_web_playable, NOT_PLAYABLE_HINT
+
 
 class ScreenRecorder:
     """Screen recording tool with interactive area selection and video trimming."""
@@ -230,13 +235,21 @@ class ScreenRecorder:
                 audio_stream.stop()
                 audio_stream.close()
 
+        # OpenCV's 'mp4v' is MPEG-4 Part 2, which no browser decodes (BioScout
+        # Web: "Could not read that video"). Finish every recording as H.264.
         final_path = output_path
+        playable = False
         if audio_data:
             self.root.after(0, self._status_var.set, "Merging audio…")
             wav_path = output_dir / f"screen_record_{ts}_audio.wav"
             self._write_wav(wav_path, audio_data, audio_samplerate)
             merged_path = output_dir / f"screen_record_{ts}_final.mp4"
-            if self._merge_audio_video(output_path, wav_path, merged_path):
+            if make_web_playable(output_path, wav_path):
+                wav_path.unlink(missing_ok=True)
+                output_path.replace(merged_path)
+                final_path = merged_path
+                playable = True
+            elif self._merge_audio_video(output_path, wav_path, merged_path):
                 output_path.unlink(missing_ok=True)
                 wav_path.unlink(missing_ok=True)
                 final_path = merged_path
@@ -244,7 +257,11 @@ class ScreenRecorder:
                 # no merger available — keep WAV alongside video
                 wav_path.replace(output_dir / f"screen_record_{ts}.wav")
 
-        self.root.after(0, self._on_recording_done, final_path)
+        if not playable:
+            self.root.after(0, self._status_var.set, "Converting to H.264…")
+            playable = make_web_playable(final_path)
+
+        self.root.after(0, self._on_recording_done, final_path, playable)
 
     @staticmethod
     def _write_wav(path, audio_data, samplerate):
@@ -288,9 +305,10 @@ class ScreenRecorder:
 
         return False
 
-    def _on_recording_done(self, path):
+    def _on_recording_done(self, path, playable=True):
         """Handle completion of recording."""
-        self._status_var.set(f"Saved → {path.name}")
+        self._status_var.set(f"Saved → {path.name}" if playable
+                             else f"Saved → {path.name} ({NOT_PLAYABLE_HINT})")
         self._btn_start.config(state=tk.NORMAL)
         self._btn_stop.config(state=tk.DISABLED)
         self._show_area_overlay()   # restore red border after recording stops
@@ -589,7 +607,10 @@ class ScreenRecorder:
             cap.release()
             out.release()
 
-        self.root.after(0, status_var.set, f"Saved → {out_path.name}")
+        self.root.after(0, status_var.set, "Converting to H.264…")
+        playable = make_web_playable(out_path)
+        self.root.after(0, status_var.set, f"Saved → {out_path.name}" if playable
+                        else f"Saved → {out_path.name} ({NOT_PLAYABLE_HINT})")
         self.root.after(0, btn.config, {'state': tk.NORMAL})
 
     def _on_quit(self):

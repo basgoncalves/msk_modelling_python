@@ -70,6 +70,7 @@ except Exception:
     osim = None
 
 from bioscout import utils as _u
+from bioscout.simulate import so_files as _sof
 
 
 # ===========================================================================
@@ -88,6 +89,8 @@ LAYOUT_DIRS = {
     "ceinms": "ceinms",
     "joint_contact_forces": "joint_contact_forces",  # JRA
     "mrs": "mrs",                        # Muscle Redundancy Solver (KU Leuven)
+    "rra": "residual_reduction",         # RRA (RRATool)
+    "forward": "forward_simulation",     # CMC + open-loop ForwardTool
 }
 
 
@@ -101,6 +104,7 @@ def _default_layout_paths():
     M = LAYOUT_DIRS["muscle_analysis"]; S = LAYOUT_DIRS["static_optimisation"]
     C = LAYOUT_DIRS["ceinms"]; JCF = LAYOUT_DIRS["joint_contact_forces"]
     R = LAYOUT_DIRS["mrs"]
+    RR = LAYOUT_DIRS["rra"]
     C_CAL = j("..", "ceinms_calibration")   # session-level CEINMS calibration
     d = {
         # non-path defaults (kept for parity with the old Inputs.__init__)
@@ -118,11 +122,11 @@ def _default_layout_paths():
         "setup_ma": j(M, "setup_MA.xml"), "ma": M,
         # static optimisation
         "actuators_so": j(S, "actuators_so.xml"), "setup_so": j(S, "setup_SO.xml"),
-        "so_forces": j(S, "SO_StaticOptimization_force.sto"),
-        "so_activations": j(S, "SO_StaticOptimization_activation.sto"),
+        "so_forces": j(S, _sof.FORCE),             # names: bioscout.simulate.so_files
+        "so_activations": j(S, _sof.ACTIVATION),
         # JRA / joint contact forces
         "setup_jra": j(JCF, "setup_JRA_SO.xml"),
-        "jra": j(JCF, "Analyse_JRA_ReactionLoads_SO.sto"),
+        "jra": j(JCF, "output_so.sto"),
         # CEINMS (trial level)
         "emg_filtered_normalised": j(I, "emg_filtered_normalised.mot"),
         "ceinms_input_data": j(C, "inputData.xml"), "ceinms_exe_cfg": j(C, "ceinms_cfg.xml"),
@@ -131,7 +135,7 @@ def _default_layout_paths():
         "ceinms_optimise_cfg": j(C, "ceinms_cfg_optimise.xml"),
         "ceinms_exe_dir": j(C, "Execution"), "ceinms_optimisation_dir": j(C, "Optimised"),
         "setup_jra_ceinms": j(JCF, "setup_JRA_CEINMS.xml"),
-        "jra_ceinms": j(JCF, "Analyse_JRA_ReactionLoads_CEINMS.sto"),
+        "jra_ceinms": j(JCF, "output_ceinms.sto"),
         # CEINMS calibration (session level)
         "ceinms_uncalibrated_model": j(C_CAL, "subjectUncalibrated.xml"),
         "ceinms_calibrated_model": j(C_CAL, "subjectCalibrated.xml"),
@@ -144,6 +148,13 @@ def _default_layout_paths():
         "mrs_results": j(R, "MRS_Results.mat"),
         "mrs_activations": j(R, "MRS_genericMRS_activation.sto"),
         "mrs_forces": j(R, "MRS_genericMRS_force.sto"),
+        # Residual Reduction Algorithm (templates: setupFiles/setup_RRA.xml,
+        # actuators_RRA.xml, tasks_RRA.xml; see Analyse.run_rra)
+        "setup_rra": j(RR, "outputs", "setup_RRA.xml"),
+        "actuators_rra": j(RR, "outputs", "actuators_RRA.xml"),
+        "tasks_rra": j(RR, "outputs", "tasks_RRA.xml"), "rra_dir": RR,
+        "rra_kinematics": j(RR, "outputs", "RRA_Kinematics_q.sto"),
+        "rra_actuation": j(RR, "outputs", "RRA_Actuation_force.sto"),
     }
     d["jra_forces"] = d["so_forces"]
     d["ceinms_excitations"] = d["emg_filtered_normalised"]
@@ -164,6 +175,19 @@ def _default_layout_paths():
 # answer yes, so IK/ID start and then fail deep inside OpenSim. Detect them so
 # export can drop them and the solve steps can skip cleanly.
 _EXPORT_ARTIFACTS = ("marker_experimental.trc", "grf.mot", "GRF.xml", "grf_events.png")
+
+
+class _quiet_prints:
+    """Swallow print() for a block (the low-level run_id/run_so banners when a
+    stage already reports in its own words)."""
+    def __enter__(self):
+        import io
+        self._o = sys.stdout
+        sys.stdout = io.StringIO()
+        return self
+    def __exit__(self, *exc):
+        sys.stdout = self._o
+        return False
 
 
 def _numeric_rows(path, need=1):
@@ -1609,6 +1633,7 @@ class Analyse:
         'ceinms_optimise_cfg', 'ceinms_exe_dir', 'ceinms_optimisation_dir',
         'setup_jra_ceinms', 'jra_ceinms',
         'mrs_dir_out', 'mrs_config', 'mrs_results', 'mrs_activations', 'mrs_forces',
+        'setup_rra', 'actuators_rra', 'tasks_rra', 'rra_dir', 'rra_kinematics', 'rra_actuation',
         'ceinms_uncalibrated_model', 'ceinms_calibrated_model', 'ceinms_calibration_cfg',
         'ceinms_calibration_setup', 'ceinms_excitation_generator', 'ceinms_calibration_dir',
     )
@@ -1730,7 +1755,7 @@ class Analyse:
         # No-op for the flat layout (paths without a directory part); enables the
         # subfoldered layout automatically once Inputs uses subfolder-prefixed paths.
         _inputs_dir = LAYOUT_DIRS.get("inputs", "inputs")
-        for _k, _v in (inputs.items() if getattr(self, "_scaffold_output_dirs", True) else ()):
+        for _k, _v in (inputs.items() if getattr(self, "_scaffold_output_dirs", False) else ()):
             if _k.startswith("_") or not isinstance(_v, str):
                 continue
             _d = os.path.dirname(_v)
@@ -2122,6 +2147,19 @@ class Analyse:
         for f in self._LAYOUT_FIELDS:
             if f in layout:
                 setattr(self, f, layout[f])
+        # SO outputs lost their SO_ prefix (2026-10-01): rename a pre-change
+        # static_optimisation/ folder in place the first time the trial is opened
+        try:
+            _sof.migrate_dir(os.path.join(self.path, os.path.dirname(self.so_forces)))
+        except Exception as e:
+            self._log(f"[Warning] SO output rename failed: {e}")
+        # JRA outputs renamed (2026-10-01): Analyse_JRA_ReactionLoads_SO.sto ->
+        # output_so.sto, JRA_SO.png -> jrf_so.png, ... (bioscout.simulate.jra_files)
+        try:
+            from bioscout.simulate import jra_files as _jrf
+            _jrf.migrate_dir(os.path.join(self.path, os.path.dirname(self.jra)))
+        except Exception as e:
+            self._log(f"[Warning] JRA output rename failed: {e}")
         # Session-centric layout: raw, model-INDEPENDENT inputs live ONCE under
         # <session>/experimental/<trial>/ and are shared by every iteration. If
         # experimental_dir is set, redirect those input files there (absolute),
@@ -2160,7 +2198,7 @@ class Analyse:
         # Recreate the output subfolders referenced by the layout so setup/result
         # writes don't fail after a reset that stripped them.
         _inputs_dir = LAYOUT_DIRS.get("inputs", "inputs")
-        for _v in (list(layout.values()) if getattr(self, "_scaffold_output_dirs", True) else ()):
+        for _v in (list(layout.values()) if getattr(self, "_scaffold_output_dirs", False) else ()):
             if not isinstance(_v, str):
                 continue
             _d = os.path.dirname(_v)
@@ -2289,6 +2327,26 @@ class Analyse:
                 return self.time_range
             except Exception:
                 pass
+
+        # The movement detector's window (2_experimental/<trial>/
+        # movement_detection.yaml, written by `session classify`) is the
+        # next authority: it is the detected task, not the capture. Solving
+        # the whole capture instead put IK on frames where the runner is not
+        # yet on the plates (markers absent -> "InverseKinematicsTool Failed")
+        # and made every stage ten times slower than it needed to be.
+        try:
+            _md = os.path.join(os.path.dirname(os.path.abspath(self.markers)),
+                               "movement_detection.yaml")
+            if os.path.isfile(_md):
+                import yaml as _yaml
+                with open(_md, encoding="utf-8") as _fh:
+                    _win = (_yaml.safe_load(_fh) or {}).get("time_range")
+                if isinstance(_win, (list, tuple)) and len(_win) == 2 \
+                        and float(_win[1]) > float(_win[0]):
+                    self.time_range = [float(_win[0]), float(_win[1])]
+                    return self.time_range
+        except Exception:
+            pass
 
         # Use the trial's events (the <events> subtree in trial_settings.xml).
         # For gait-like trials this uses the schema window (first->last foot
@@ -2830,6 +2888,27 @@ class Analyse:
         given it is shown in red under each subplot title."""
         os.makedirs(self.path, exist_ok=True); os.chdir(self.path)
         raw = _u.load_any_data_file(self.emg)
+        # Task layout (poses + vGRF + hip/knee/ankle angles on top, then one row
+        # per channel coloured by the side of its emg_map muscles). The old
+        # 3-column grid below is the fallback when that cannot be drawn.
+        if save:
+            try:
+                from bioscout.plot.emg_figure import emg_task_figure
+                _exp = os.path.join(self.path, os.path.dirname(self.emg) or "")
+                try:
+                    _nrm = _u.load_any_data_file(self.emg_filtered_normalised)
+                except Exception:
+                    _nrm = None
+                out = emg_task_figure(
+                    os.path.normpath(_exp), raw=raw, norm=_nrm,
+                    emg_map=self.emg_channel_map() or None, norm_source=norm_source,
+                    iteration=os.path.basename(os.path.dirname(os.path.normpath(self.path))),
+                    channels=channels, log=self._log)
+                self._log(f'Saved EMG processing figure: {out}')
+                return out, None
+            except Exception as e:
+                self._log(f'[Warning] EMG task figure failed ({type(e).__name__}: {e}); '
+                          f'writing the grid version')
         try:
             norm = _u.load_any_data_file(self.emg_filtered_normalised)
         except Exception:
@@ -3051,7 +3130,9 @@ class Analyse:
             state = model.initSystem()
             body_mass = model.getTotalMass(state)
             _BODY_MASS_CACHE[_key] = body_mass
-            print(f"Body mass from model: {body_mass:.2f} kg  ({os.path.basename(_mp)})")
+            # NOT printed here. This fires the first time any trial asks, which
+            # lands it in the middle of the per-trial lines. iteration._stage()
+            # reports it in the stage header instead, next to the model path.
 
         if body_mass != self.body_mass:
             self.body_mass = body_mass
@@ -3380,9 +3461,33 @@ class Analyse:
                       f'— not written')
         return dropped
 
+    def _ensure_out_dir(self, *rel):
+        """Create the output subfolder(s) for the stage that is ABOUT TO RUN.
+
+        Output dirs used to be scaffolded for every trial the moment an Analyse
+        was constructed, so a session showed a full
+        {external_biomechanics, muscle_analysis, static_optimisation, ceinms,
+        mrs, joint_contact_forces} tree per trial per iteration, almost all of it
+        permanently empty. They are created on demand instead: a folder now means
+        a stage actually ran. Pass layout values (``self.ik``, ``self.ma``, ...);
+        a value with no directory part is a no-op.
+        """
+        for _r in rel:
+            if not isinstance(_r, str) or not _r:
+                continue
+            _d = os.path.dirname(_r) or (_r if not os.path.splitext(_r)[1] else "")
+            if not _d or _d.startswith("..") or os.path.isabs(_d):
+                continue
+            try:
+                os.makedirs(os.path.join(self.path, _d), exist_ok=True)
+            except Exception:
+                pass
+
     def run_ik(self, replace=None):
         self._set_replace(replace)
+        os.makedirs(self.path, exist_ok=True)
         os.chdir(os.path.abspath(self.path))
+        self._ensure_out_dir(self.ik, self.setup_ik)
         self.load_settings(self.settingsXML)
 
         # Guard: IK requires a TRC file. If marker export failed (e.g. C3D has no 3D point data),
@@ -3425,7 +3530,8 @@ class Analyse:
                                 ik_output=self.ik,
                                 taskSetPath=None,
                                 time_range=self.time_range,
-                                saveXMLPath=self.setup_ik)
+                                saveXMLPath=self.setup_ik,
+                                ik_weights=getattr(self, 'ik_weights', None))
 
         # Run IK using OpenSim API
         try:
@@ -3448,6 +3554,7 @@ class Analyse:
     def run_id(self, replace=None):
         self._set_replace(replace)
         os.makedirs(self.path, exist_ok=True); os.chdir(self.path)
+        self._ensure_out_dir(self.id, self.setup_id)
 
         # Guard: ID is external-load driven — without ground reaction forces there
         # is nothing to solve. Skip rather than building a GRF.xml around an empty
@@ -3516,12 +3623,12 @@ class Analyse:
     def run_ma(self, replace=None):
         self._set_replace(replace)
         os.makedirs(self.path, exist_ok=True); os.chdir(self.path)
+        self._ensure_out_dir(self.ma)
         # self.ma is a DIRECTORY (always exists after layout setup) — check for an
         # actual MA output file instead, or we'd always skip.
         _ma_len = os.path.join(self.path, self.ma, "_MuscleAnalysis_Length.sto")
         if os.path.exists(_ma_len) and not self.replace:
-            self._log(f'[skip] Muscle Analysis output already exists: '
-                      f'{os.path.abspath(_ma_len)}', terminal=True)
+            self._log('[MA] kept (already on disk; pass replace to redo)', terminal=True)
             return
 
         _os = self._get_openSim()
@@ -3531,16 +3638,15 @@ class Analyse:
                         grf_xml=os.path.join(self.path, self.setup_grf),
                         results_dir=os.path.join(self.path, self.ma))
             _ma_abs = os.path.abspath(os.path.join(self.path, self.ma))
-            self._log(f'[Success] Muscle Analysis completed. Results saved in:\n'
-                      f'   dir   : {_ma_abs}\n'
-                      f'   length: {os.path.abspath(_ma_len)}', terminal=True)
+            self._log(f'[MA] done -> {os.path.basename(_ma_abs)}/', terminal=True)
         except Exception as e:
             self._log(f'[Error] during Muscle Analysis: {e}')
             raise
     
-    def run_so(self, replace=None):
+    def run_so(self, replace=None, update_actuators=True):
         self._set_replace(replace)
         os.makedirs(self.path, exist_ok=True); os.chdir(self.path)
+        self._ensure_out_dir(self.so_forces, self.setup_so)
         _os = self._get_openSim()
 
         # Resolve all paths to absolute so openSim.run_so never hits a
@@ -3550,60 +3656,100 @@ class Analyse:
         grf_abs        = os.path.join(self.path, self.setup_grf)
         setup_so_abs   = os.path.join(self.path, self.setup_so)
 
-        # An iteration may name its actuator file outright, as an ABSOLUTE path
-        # in `so_actuators`. That source wins and is re-copied on EVERY run.
-        # The `if not os.path.exists` guard below is kept for the unset case,
-        # but it must not gate an explicit choice: it meant a changed actuator
-        # set silently never reached a trial that had already been solved, with
-        # --replace on, and the run then reported success using the old set.
+        # session.yaml iterations.<it>.so_actuators (absolute once resolved):
+        # set -> copied here and REPLACES the model actuators;
+        # unset -> the model's own actuators (no file passed to SO).
         _explicit = getattr(self, 'so_actuators', None)
-        if _explicit is False:
-            # so_actuators: false -- this model carries its own reserves and
-            # residuals, so SO must be given NO force-set file. Passing one as
-            # well creates every shared actuator twice (see
-            # reserve_actuator_plan), which halves the cost of using a reserve
-            # and warns about nothing. A stale copy from an earlier run counts
-            # as "passing one", so move it out of the way rather than trust it.
-            if os.path.exists(actuators_abs):
-                _aside = actuators_abs + '.unused'
-                try:
-                    shutil.move(actuators_abs, _aside)
-                    self._log(f'[SO] so_actuators=false -- moved {actuators_abs} '
-                              f'-> {_aside}; the model supplies the reserves',
-                              terminal=True)
-                except OSError:
-                    self._log(f'[SO] [Note] so_actuators=false but {actuators_abs} '
-                              f'could not be moved aside', terminal=True)
-        elif _explicit and os.path.isabs(_explicit) and os.path.exists(_explicit):
+        from bioscout.simulate import so_actuators as _soa_p
+        _pct = _soa_p.percent_spec(_explicit)
+        if _pct is not None:
+            # `so_actuators: percent_XX` -- not a file. Reserves are sized from
+            # THIS trial's own inverse dynamics (XX % of each coordinate's peak
+            # |ID moment|), so two trials of one session each get the set their
+            # own moments call for. The actuators themselves come from
+            # `so_actuators_template`.
+            _tpl = getattr(self, 'so_actuators_template', None)
+            if not (_tpl and os.path.isfile(_tpl)):
+                raise FileNotFoundError(
+                    f"so_actuators: {_explicit} needs so_actuators_template: an actuator "
+                    f".xml naming the reserves and residuals (got {_tpl!r}). Add it to "
+                    f"the iteration in session.yaml.")
+            _id_p = os.path.join(self.path, self.id)
+            if not os.path.isfile(_id_p):
+                self.run_id()
+            _pt0 = _pt1 = None
+            try:
+                _ikp = _u.load_any_data_file(ik_abs)
+                _pt0, _pt1 = float(_ikp['time'].iloc[0]), float(_ikp['time'].iloc[-1])
+            except Exception:
+                pass
+            _made = _soa_p.percent_reserves(_tpl, _id_p, _pct, actuators_abs, _pt0, _pt1)
+            self._log(f'[SO] actuators built for this trial: reserves at {_pct:g} % of '
+                      f'its peak ID moment (template {os.path.basename(_tpl)}) -> '
+                      f'{actuators_abs}', terminal=True)
+            self._log('[SO]   ' + ', '.join(
+                f"{_k[:-len('_reserve')]} {_v[1]:.1f}" + ('' if _v[0] is not None else ' (no ID column, kept)')
+                for _k, _v in _made.items()) + '  N*m', terminal=True)
+        elif _explicit and os.path.isfile(_explicit):
             os.makedirs(os.path.dirname(actuators_abs), exist_ok=True)
             shutil.copyfile(_explicit, actuators_abs)
-            self._log(f'[SO] actuators from so_actuators: {_explicit}', terminal=False)
-        elif _explicit:
-            self._log(f'[SO] [Note] so_actuators set but unusable (needs an '
-                      f'existing absolute path): {_explicit}', terminal=True)
-
-        if _explicit is not False and not os.path.exists(actuators_abs):
-            # Copy template from the global setup folder
-            template_dir = getattr(_u.settings.BatchSettings, 'setup_files_folder',
-                                   os.path.join(_u.APP_DIR, 'config'))
-            # Templates in setupFiles/ are flat — look up by BASENAME (self.actuators_so
-            # now carries the static_optimisation/ subfolder prefix).
-            template_actuators_path = os.path.join(template_dir, os.path.basename(self.actuators_so))
-            os.makedirs(os.path.dirname(actuators_abs), exist_ok=True)
-            if os.path.exists(template_actuators_path):
-                shutil.copyfile(template_actuators_path, actuators_abs)
-            else:
-                # Not fatal any more. The reserve actuators may be in the model
-                # instead, in which case no force-set file is wanted at all.
-                # openSim.reserve_actuator_plan() raises if neither has them.
-                self._log(f'[Note] no actuators template at '
-                          f'{template_actuators_path} -- expecting the reserve '
-                          f'actuators to be in the model itself', terminal=True)
+            self._log(f'[SO] actuators from so_actuators: {_explicit}', terminal=True)
+        else:
+            if _explicit:
+                self._log(f'[SO] [WARNING] so_actuators not found: {_explicit} '
+                          '-- using the model actuators', terminal=True)
+            actuators_abs = None
 
         if os.path.exists(os.path.join(self.path, self.so_forces)) and not self.replace:
             self._log(f'Static Optimization output already exists: '
                       f'{os.path.abspath(os.path.join(self.path, self.so_forces))}', terminal=True)
             return
+
+        # Before solving: can the pelvis residual actuators actually CARRY the
+        # residual this trial needs? Static optimisation bounds control at 1, so
+        # an actuator whose optimal_force is below the peak |ID residual| cannot
+        # express it, and the shortfall is pushed into the muscles instead --
+        # which is one way a hip contact force ends up implausibly large. Each
+        # residual is raised to 10% above its own peak, the file is rewritten,
+        # and the change is announced. `update_actuators=False` leaves the file
+        # exactly as written (for a deliberately hand-tuned actuator set).
+        _margin = 1.1
+        if update_actuators or getattr(self, 'so_residuals_from_id', False):
+            from bioscout.simulate import so_actuators as _soa
+            _dst = os.path.join(self.path, self.actuators_so)
+            os.makedirs(os.path.dirname(_dst), exist_ok=True)
+            if actuators_abs is None:
+                if not _soa.actuator_names(self.model_dir):
+                    self._log('[SO] [WARNING] no actuators in the model or '
+                              'so_actuators -- residuals cannot be checked',
+                              terminal=True)
+                else:
+                    _soa.extract_actuators(self.model_dir, _dst)
+                    actuators_abs = _dst
+            if actuators_abs is not None:
+                _id = os.path.join(self.path, self.id)
+                if not os.path.isfile(_id):
+                    self.run_id()
+                _t0 = _t1 = None
+                try:
+                    _ik = _u.load_any_data_file(ik_abs)
+                    _t0, _t1 = float(_ik['time'].iloc[0]), float(_ik['time'].iloc[-1])
+                except Exception:
+                    pass
+                _chg = _soa.scale_residuals(actuators_abs, _id, _t0, _t1,
+                                            margin=_margin)
+                if _chg:
+                    self._log(
+                        f'[SO] [WARNING] {len(_chg)} pelvis residual actuator(s) '
+                        f'could not carry this trial\'s ID residual and were '
+                        f'raised to {(_margin - 1) * 100:.0f}% above its peak: '
+                        + ', '.join(f'{k} {o:g}->{n:g}' for k, (o, n) in _chg.items())
+                        + f'  (written to {os.path.basename(actuators_abs)}; '
+                          'pass update_actuators=False to keep your own values)',
+                        terminal=True)
+                else:
+                    self._log(f'[SO] pelvis residual actuators are all >= '
+                              f'{_margin:g}x their peak ID residual', terminal=True)
 
         try:
             # SO outputs belong in the static_optimisation/ subfolder (dir of
@@ -3618,16 +3764,6 @@ class Analyse:
                     actuators=actuators_abs,
                     resultsDir=so_results_dir)
             
-            def _abs(rel):
-                try:
-                    return os.path.abspath(os.path.join(self.path, rel)) if rel else "(n/a)"
-                except Exception:
-                    return str(rel)
-            self._log(
-                "[Success] Static Optimization completed. Results saved in:\n"
-                f"   dir        : {os.path.abspath(so_results_dir)}\n"
-                f"   forces     : {_abs(self.so_forces)}\n"
-                f"   activations: {_abs(self.so_activations)}", terminal=True)
         except Exception as e:
             self._log(f'[Error] during Static Optimization: {e}')
             raise
@@ -3635,13 +3771,13 @@ class Analyse:
         # Plot SO results
         try:
             self.plot_so()
-            self._log(f'   plots      : {os.path.abspath(so_results_dir)}', terminal=True)
+            self._log(f'[SO] plots -> {os.path.basename(so_results_dir)}/', terminal=True)
         except Exception as e:
             self._log(f'[Error] during SO plotting: {e}')
         try:
-            self.plot_so_reserves()
+            self.plot_muscle_moments()
         except Exception as e:
-            self._log(f'[Warning] SO reserves plot failed: {e}')
+            self._log(f'[Warning] SO muscle-moments plot failed: {e}')
 
     def run_mrs(self, replace=None, dofs=None, muscles=None, calibrate=None,
                 emg=False, **kw):
@@ -3697,7 +3833,7 @@ class Analyse:
         Wraps utils.openSim.run_energetics, which attaches an Umberger (2010)
         metabolic-energy probe set to the scaled model and runs a ProbeReporter.
         Needs the IK coordinates (kinematics) and, ideally, the Static
-        Optimization activations (SO_StaticOptimization_activation.sto) so the
+        Optimization activations (StaticOptimization_activation.sto) so the
         probe evaluates real per-frame muscle activations.
 
         Output: energetics_ProbeReporter_probes.sto in the trial folder.
@@ -3733,9 +3869,974 @@ class Analyse:
             self._log(f'[Error] during Energetics: {e}')
             raise
 
+    # ------------------------------------------------------------------ RRA
+    #: residual_reduction/ layout (relative to the trial folder)
+    RRA_LAYOUT = {
+        "outputs": os.path.join("residual_reduction", "outputs"),
+        "extbio":  os.path.join("residual_reduction", "external_biomechanics"),
+        "so":      os.path.join("residual_reduction", "static_optimisation"),
+        "jcf":     os.path.join("residual_reduction", "joint_contact_forces"),
+    }
+
+    def rra_paths(self):
+        """Absolute paths of everything the RRA stage reads and writes."""
+        r = os.path.join(self.path, self.rra_dir)
+        o = os.path.join(self.path, self.RRA_LAYOUT["outputs"])
+        e = os.path.join(self.path, self.RRA_LAYOUT["extbio"])
+        s = os.path.join(self.path, self.RRA_LAYOUT["so"])
+        jc = os.path.join(self.path, self.RRA_LAYOUT["jcf"])
+        _mb = os.path.splitext(os.path.basename(self.model_dir))[0]
+        return dict(
+            root=r, outputs=o, extbio=e, so=s, jcf=jc,
+            setup_jra=os.path.join(jc, "setup_JRA_SO.xml"),
+            jra=os.path.join(jc, "Analyse_JRA_ReactionLoads_SO.sto"),
+            fig_jcf=os.path.join(r, "rra_jcf.png"),
+            setup=os.path.join(o, "setup_RRA.xml"),
+            kinematics=os.path.join(o, "RRA_Kinematics_q.sto"),
+            actuation=os.path.join(o, "RRA_Actuation_force.sto"),
+            out_log=os.path.join(o, "out.log"),
+            model=os.path.join(o, f"{_mb}_rra_adjusted.osim"),
+            ik=os.path.join(e, "joint_angles.mot"),
+            setup_id=os.path.join(e, "setup_ID.xml"),
+            id=os.path.join(e, "inverse_dynamics.sto"),
+            setup_so=os.path.join(s, "setup_SO.xml"),
+            actuators_so=os.path.join(s, "actuators_so.xml"),
+            so_forces=os.path.join(s, _sof.FORCE),
+            so_activations=os.path.join(s, _sof.ACTIVATION),
+            # figures
+            fig_moments=os.path.join(r, "rra_moments.png"),
+            fig_kinematics=os.path.join(r, "rra_kinematics.png"),
+            fig_masses=os.path.join(r, "rra_masses.png"),
+            fig_so=os.path.join(r, "rra_so_forces.png"),
+        )
+
+    def rra_grf_window(self, threshold=20.0):
+        """Longest span of this trial with ground reaction force on at least
+        one plate (total vertical GRF > ``threshold`` N), as (t0, t1), or None.
+        RRA (unlike ID) must not see frames where a foot is on the ground
+        without a measured force: it then carries body weight on the pelvis
+        residuals and shifts the COM / tracks the pelvis to compensate."""
+        try:
+            g = _u.load_any_data_file(os.path.join(self.path, self.grf_mot))
+            t = pd.to_numeric(g['time'], errors='coerce').to_numpy(float)
+            vy = [c for c in g.columns if str(c).lower().endswith('vy')]
+            if not vy:
+                return None
+            f = g[vy].apply(pd.to_numeric, errors='coerce').fillna(0).sum(axis=1).to_numpy(float)
+        except Exception:
+            return None
+        on = f > threshold
+        best, start = None, None
+        for i, o in enumerate(list(on) + [False]):
+            if o and start is None:
+                start = i
+            elif not o and start is not None:
+                if best is None or (i - 1 - start) > (best[1] - best[0]):
+                    best = (start, i - 1)
+                start = None
+        if best is None:
+            return None
+        return float(t[best[0]]), float(t[best[1]])
+
+    @staticmethod
+    def _write_rra_kinematics_mot(rra_kin, ik_mot, out_mot):
+        """RRA_Kinematics_q.sto resampled onto the IK file's time grid (within
+        the RRA span), written as an OpenSim Coordinates .mot (inDegrees=yes)."""
+        kin = _u.load_any_data_file(rra_kin)
+        ikd = _u.load_any_data_file(ik_mot)
+        tk = pd.to_numeric(kin['time'], errors='coerce').to_numpy(float)
+        tik = pd.to_numeric(ikd['time'], errors='coerce').to_numpy(float)
+        tnew = tik[(tik >= tk[0] - 1e-9) & (tik <= tk[-1] + 1e-9)]
+        if len(tnew) < 2:
+            tnew = tk
+        cols = [c for c in kin.columns if c != 'time']
+        out = pd.DataFrame({'time': tnew})
+        for c in cols:
+            out[c] = np.interp(tnew, tk, pd.to_numeric(kin[c], errors='coerce').to_numpy(float))
+        os.makedirs(os.path.dirname(out_mot), exist_ok=True)
+        with open(out_mot, 'w', newline='') as f:
+            f.write("Coordinates\nversion=1\n"
+                    f"nRows={len(out)}\nnColumns={out.shape[1]}\ninDegrees=yes\n\n"
+                    "Units are S.I. units (second, meters, Newtons, ...)\n"
+                    "RRA kinematics (bioscout) resampled to the IK time grid\n\n"
+                    "endheader\n")
+            f.write("\t".join(out.columns) + "\n")
+            np.savetxt(f, out.to_numpy(float), fmt="%.8f", delimiter="\t")
+        return len(out)
+
+    def run_rra(self, replace=None, adjust_com=True, adjusted_com_body="torso",
+                lowpass_cutoff=6.0, actuators=None, tasks=None, template=None,
+                time_range=None, window="grf", rerun=("id", "so", "jra"), plots=True):
+        """Residual Reduction Algorithm for this trial, then the downstream
+        pipeline re-run on its result, for comparison with the plain IK/ID/SO::
+
+            <trial>/residual_reduction/
+                outputs/                 RRATool: RRA_Kinematics_q.sto, RRA_Actuation_force.sto,
+                                         <model>_rra_adjusted.osim, setup/actuators/tasks, out.log
+                external_biomechanics/   ID re-run: joint_angles.mot (= RRA kinematics),
+                                         inverse_dynamics.sto           [rerun has "id"]
+                static_optimisation/     SO re-run on the adjusted model  [rerun has "so"]
+                joint_contact_forces/    JRA on that SO                     [rerun has "jra"]
+                rra_moments.png          pelvis residuals + joint moments: ID vs RRA actuators
+                rra_kinematics.png       IK vs RRA kinematics per DOF (+ RMS diff)
+                rra_masses.png           segment masses / COM (on the torso mesh), original vs adjusted
+                rra_so_forces.png        SO muscle forces, original vs after RRA
+                rra_jcf.png              joint contact forces, SO vs SO-after-RRA (+ in vivo when present)
+
+        ``time_range`` defaults to the trial window narrowed to the span with
+        GRF on a plate (``window="grf"``; ``window=None`` keeps the full
+        window). ``lowpass_cutoff`` filters the tracked kinematics (6 Hz, as
+        ID does; None = the template's setting).
+
+        Templates come from the session setup folder (``setup_dir``):
+        ``setup_RRA.xml``, ``actuators_RRA.xml``, ``tasks_RRA.xml``; the
+        keyword arguments override them. Nothing outside residual_reduction/
+        is touched: to adopt the RRA result for an iteration, point its
+        ``model_scaled`` at the adjusted model and copy the RRA kinematics
+        over joint_angles.mot yourself.
+        """
+        self._set_replace(replace)
+        os.makedirs(self.path, exist_ok=True); os.chdir(self.path)
+        _os = self._get_openSim()
+        P = self.rra_paths()
+        for _d in (P["outputs"], P["extbio"], P["so"], P["jcf"]):
+            os.makedirs(_d, exist_ok=True)
+
+        ik_abs  = os.path.join(self.path, self.ik)
+        grf_abs = os.path.join(self.path, self.setup_grf)
+        if not _numeric_rows(ik_abs):
+            self._log(f'[SKIP] RRA skipped -- no IK output: {ik_abs}', terminal=True)
+            return None
+        if not os.path.exists(grf_abs):
+            self._log(f'[SKIP] RRA skipped -- GRF.xml not found: {grf_abs}', terminal=True)
+            return None
+
+        _tn = os.path.basename(self.path)
+        _line = lambda m: self._log('      ' + m, terminal=True)
+        _win_note = None
+        if time_range is None:
+            try:
+                t0, t1 = self.get_time_range()
+                time_range = (float(t0), float(t1))
+            except Exception:
+                time_range = None
+            if window == "grf":
+                _g = self.rra_grf_window()
+                if _g and time_range and (_g[0] > time_range[0] + 0.01 or _g[1] < time_range[1] - 0.01):
+                    _win_note = (f"window {time_range[0]:.3f}-{time_range[1]:.3f} s narrowed to "
+                                 f"{_g[0]:.3f}-{_g[1]:.3f} s = span with GRF on a plate "
+                                 f"(pass window=None or time_range=(t0, t1) to override)")
+                    time_range = _g
+                elif _g and not time_range:
+                    time_range = _g
+
+        # ---- 1. RRATool ----------------------------------------------------
+        res = None
+        if os.path.exists(P["kinematics"]) and not self.replace:
+            self._log(f'[RRA] {_tn}: kept outputs/ (pass replace to redo)', terminal=True)
+        else:
+            sd = self.setup_dir or ""
+            template  = template  or os.path.join(sd, "setup_RRA.xml")
+            actuators = actuators or os.path.join(sd, "actuators_RRA.xml")
+            tasks     = tasks     or os.path.join(sd, "tasks_RRA.xml")
+            for _n, _p in (("setup_RRA.xml", template), ("actuators_RRA.xml", actuators),
+                           ("tasks_RRA.xml", tasks)):
+                if not os.path.isfile(_p):
+                    raise FileNotFoundError(f'[RRA] template {_n} not found at {_p} '
+                                            f'(setup_dir={sd!r})')
+            _tr = f'{time_range[0]:.3f}-{time_range[1]:.3f} s' if time_range else 'IK span'
+            _lp = f'{lowpass_cutoff:g} Hz' if lowpass_cutoff else 'none'
+            self._log(f'[RRA] {_tn}: model {os.path.basename(self.model_dir)}, {_tr}, '
+                      f'kinematics filter {_lp} -- running RRATool '
+                      f'(OpenSim output -> outputs/out.log) ...', terminal=True)
+            if _win_note:
+                _line(_win_note)
+            try:
+                res = _os.run_rra(osim_modelPath=self.model_dir, ik_output=ik_abs,
+                                  grf_xml=grf_abs, actuators=actuators, tasks=tasks,
+                                  setup_xml=P["setup"], results_dir=P["outputs"],
+                                  template_xml=template, adjust_com=adjust_com,
+                                  adjusted_com_body=adjusted_com_body,
+                                  lowpass_cutoff=lowpass_cutoff, time_range=time_range)
+            except Exception as e:
+                self._log(f'[RRA ERROR] {_tn}: {e}', terminal=True)
+                raise
+            _line(f"actuators: {res['n_residuals']} pelvis residuals + {res['n_reserves']} "
+                  f"reserves; tasks: {res['n_tasks']} tracked coordinates")
+            if res['dropped_actuators'] or res['dropped_tasks']:
+                _line(f"dropped (not in model / locked): "
+                      f"{sorted(set(res['dropped_actuators']) | set(res['dropped_tasks']))}")
+            if adjust_com:
+                _mc = res.get('mass_change')
+                _line(f"{adjusted_com_body} COM adjusted -> outputs/{os.path.basename(P['model'])}"
+                      + (f"; recommended total mass change {_mc:+.2f} kg" if _mc is not None else '')
+                      + ' (details in outputs/out.log)')
+
+        # ---- 2. re-run ID / SO on the RRA kinematics + adjusted model ------
+        _model_rra = P["model"] if os.path.isfile(P["model"]) else self.model_dir
+        rerun = tuple(r.lower() for r in (rerun or ()))
+        if rerun:
+            # RRA kinematics -> joint_angles.mot. RRATool writes a row per
+            # integrator step (~1300 rows for 1.3 s against ~220 in the IK
+            # file), which made the ID file 27 MB and SO six times slower.
+            # Resample onto the IK's own time grid inside the RRA window.
+            if not os.path.exists(P["ik"]) or self.replace or \
+               os.path.getmtime(P["ik"]) < os.path.getmtime(P["kinematics"]):
+                self._write_rra_kinematics_mot(P["kinematics"], ik_abs, P["ik"])
+        if "id" in rerun:
+            if os.path.exists(P["id"]) and not self.replace and \
+               os.path.getmtime(P["id"]) >= os.path.getmtime(P["ik"]):
+                _line('ID after RRA: kept')
+            else:
+                try:
+                    with _quiet_prints():
+                        _os.run_id(osimModelPath=_model_rra, ikOutputPath=P["ik"],
+                                   grfXmlPath=grf_abs, setupXmlPath=P["setup_id"])
+                    _line(f"ID after RRA -> {os.path.relpath(P['id'], P['root'])}")
+                except Exception as e:
+                    self._log(f'      [RRA] ID re-run failed: {e}', terminal=True)
+        if "so" in rerun:
+            if os.path.exists(P["so_forces"]) and not self.replace and \
+               os.path.getmtime(P["so_forces"]) >= os.path.getmtime(P["ik"]):
+                _line('SO after RRA: kept')
+            else:
+                try:
+                    _act = os.path.join(self.path, self.actuators_so)
+                    _act_rra = None
+                    if os.path.isfile(_act):
+                        shutil.copyfile(_act, P["actuators_so"])
+                        _act_rra = P["actuators_so"]
+                    with _quiet_prints():
+                        _os.run_so(osim_modelPath=_model_rra, ik_output=P["ik"],
+                                   grf_xml=grf_abs, setup_xml=P["setup_so"],
+                                   actuators=_act_rra, resultsDir=P["so"])
+                    _line(f"SO after RRA -> {os.path.relpath(P['so'], P['root'])}/")
+                except Exception as e:
+                    self._log(f'      [RRA] SO re-run failed: {e}', terminal=True)
+
+        if "jra" in rerun and os.path.isfile(P["so_forces"]):
+            if os.path.exists(P["jra"]) and not self.replace and \
+               os.path.getmtime(P["jra"]) >= os.path.getmtime(P["so_forces"]):
+                _line('JRA after RRA: kept')
+            else:
+                try:
+                    if not os.path.exists(P["setup_jra"]):
+                        shutil.copyfile(os.path.join(self.setup_dir, "setup_JRA.xml"), P["setup_jra"])
+                    _jm, _ja = _model_rra, None
+                    if os.path.isfile(P["actuators_so"]):
+                        from bioscout.simulate import so_actuators as _soa
+                        _jm, _fs, _ = _soa.plan(_model_rra, P["actuators_so"])
+                        _ja = [os.path.abspath(_fs)] if _fs else None
+                    with _quiet_prints():
+                        _os.run_jra(osim_modelPath=_jm, ik_output=P["ik"], grf_xml=grf_abs,
+                                    setup_xml=P["setup_jra"], actuators=_ja,
+                                    muscle_force_path=P["so_forces"], saveFileName=P["jra"])
+                    _line(f"JRA after RRA -> {os.path.relpath(P['jra'], P['root'])}")
+                except Exception as e:
+                    self._log(f'      [RRA] JRA re-run failed: {e}', terminal=True)
+
+        # ---- 3. figures ----------------------------------------------------
+        if plots:
+            for _name, _fn in (("moments", self.plot_rra_moments),
+                               ("kinematics", self.plot_rra_kinematics),
+                               ("masses", self.plot_rra_masses),
+                               ("so_forces", self.plot_rra_so_forces),
+                               ("jcf", self.plot_rra_jcf)):
+                try:
+                    _r = _fn()
+                    if isinstance(_r, dict) and _r.get("note"):
+                        _line(_r["note"])
+                except Exception as e:
+                    self._log(f'      [RRA] rra_{_name}.png failed: {type(e).__name__}: {e}',
+                              terminal=True)
+        _line(f"-> {P['root']}")
+        return res
+
+    # -- RRA figures ---------------------------------------------------------
+    def plot_rra_moments(self, dofs=None):
+        """Task-vertical figure (poses + vGRF on top, as kinematics_moments.png):
+        the six pelvis residuals -- ID (solid) vs the RRA residual actuators
+        (dashed) -- then one row per summary DOF with the ID joint moment
+        (solid) vs the RRA reserve-actuator moment (dashed); right red, left
+        blue, midline black. -> rra_moments.png, rra_residuals.csv,
+        rra_tracking_error.csv."""
+        P = self.rra_paths()
+        from bioscout.plot.task_figure import TaskStrip, SIDE_COLOR
+        idm = _u.load_any_data_file(os.path.join(self.path, self.id))
+        act = _u.load_any_data_file(P["actuation"])
+        ikd = _u.load_any_data_file(os.path.join(self.path, self.ik))
+        kin = _u.load_any_data_file(P["kinematics"])
+        tr = pd.to_numeric(act['time'], errors='coerce').to_numpy(float)
+        ti = pd.to_numeric(idm['time'], errors='coerce').to_numpy(float)
+        _in = (ti >= tr[0] - 1e-6) & (ti <= tr[-1] + 1e-6)     # ID within the RRA window
+
+        def _st(x):
+            x = x[np.isfinite(x)] if x is not None else None
+            return (float(np.sqrt(np.mean(x ** 2))), float(np.max(np.abs(x)))) \
+                if x is not None and len(x) else (np.nan, np.nan)
+
+        mom_map = {}
+        for c in idm.columns:
+            if c == 'time':
+                continue
+            mom_map[c[:-7] if c.endswith('_moment') else (c[:-6] if c.endswith('_force') else c)] = c
+
+        # -- rows 1-6: pelvis residuals
+        pairs = [('pelvis_tx_force', 'FX'), ('pelvis_ty_force', 'FY'), ('pelvis_tz_force', 'FZ'),
+                 ('pelvis_list_moment', 'MX'), ('pelvis_rotation_moment', 'MY'),
+                 ('pelvis_tilt_moment', 'MZ')]
+        rows, csv_rows = [], []
+        for idc, rc in pairs:
+            before = pd.to_numeric(idm[idc], errors='coerce').to_numpy(float) if idc in idm.columns else None
+            after = pd.to_numeric(act[rc], errors='coerce').to_numpy(float) if rc in act.columns else None
+            rb, pb = _st(before[_in] if before is not None else None); ra, pa = _st(after)
+            csv_rows.append(dict(residual=rc, id_rms=rb, id_peak=pb, rra_rms=ra, rra_peak=pa))
+            unit = 'N' if rc.startswith('F') else 'N·m'
+
+            def _draw(a_, before_=before, after_=after, unit_=unit):
+                a_.axhline(0, color='0.75', lw=0.5)
+                if before_ is not None:
+                    a_.plot(ti, before_, color='tab:purple', lw=1.3)
+                if after_ is not None:
+                    a_.plot(tr, after_, color='tab:purple', lw=1.3, ls='--')
+                a_.set_ylabel(unit_, fontsize=7)
+            rows.append(dict(draw=_draw,
+                             title=f"residual {rc}   RMS {rb:.0f} -> {ra:.0f} {unit}, "
+                                   f"peak {pb:.0f} -> {pa:.0f} {unit}"))
+
+        # -- rows 7+: joint moments, ID vs RRA reserve actuators
+        if dofs is None:
+            dofs = list(getattr(_u.settings.SummarySettings, 'dofs', []))
+        groups, order = {}, []
+        for d in dofs:
+            if d.startswith('pelvis'):
+                continue
+            base, side = self._split_side(d)
+            groups.setdefault(base, {})
+            if base not in order:
+                order.append(base)
+            groups[base][side] = d
+        side_col = {'r': SIDE_COLOR['r'], 'l': SIDE_COLOR['l'], None: 'k'}
+        for base in order:
+            notes = []
+
+            def _draw(a_, base_=base):
+                a_.axhline(0, color='0.75', lw=0.5)
+                for side, dof in groups[base_].items():
+                    c = side_col.get(side, 'k')
+                    mc = mom_map.get(dof)
+                    if mc is not None:
+                        a_.plot(ti, pd.to_numeric(idm[mc], errors='coerce'), color=c, lw=1.3)
+                    if dof in act.columns:
+                        a_.plot(tr, pd.to_numeric(act[dof], errors='coerce'), color=c, lw=1.3, ls='--')
+                a_.set_ylabel('N·m', fontsize=7)
+            for side, dof in groups[base].items():
+                mc = mom_map.get(dof)
+                if mc is not None and dof in act.columns:
+                    m_id = pd.to_numeric(idm[mc], errors='coerce').to_numpy(float)
+                    m_rra = np.interp(ti[_in], tr, pd.to_numeric(act[dof], errors='coerce').to_numpy(float))
+                    e = m_rra - m_id[_in]
+                    notes.append(f"{(side or 'mid').upper()} RMS diff {np.sqrt(np.nanmean(e ** 2)):.1f}")
+            rows.append(dict(draw=_draw, title=base + ('   ' + ', '.join(notes) if notes else '')))
+
+        h = [plt.Line2D([], [], color='tab:purple', lw=1.3, label='pelvis residual'),
+             plt.Line2D([], [], color='0.3', lw=1.3, label='ID (before RRA)'),
+             plt.Line2D([], [], color='0.3', lw=1.3, ls='--', label='RRA actuator (after)')]
+        TaskStrip(self.path, t_range=(float(tr[0]), float(tr[-1])), log=self._log).figure(
+            rows, P["fig_moments"], legend=h, row_height=1.1, legend_loc="top")
+        pd.DataFrame(csv_rows).to_csv(os.path.join(P["root"], 'rra_residuals.csv'), index=False)
+
+        # tracking error (every coordinate both files share)
+        tk = pd.to_numeric(kin['time'], errors='coerce').to_numpy(float)
+        tik = pd.to_numeric(ikd['time'], errors='coerce').to_numpy(float)
+        err_rows = []
+        for c in [c for c in ikd.columns if c != 'time' and c in kin.columns]:
+            ik_i = np.interp(tk, tik, pd.to_numeric(ikd[c], errors='coerce').to_numpy(float))
+            e = pd.to_numeric(kin[c], errors='coerce').to_numpy(float) - ik_i
+            err_rows.append(dict(coordinate=c, rms_err=float(np.sqrt(np.nanmean(e ** 2))),
+                                 peak_err=float(np.nanmax(np.abs(e)))))
+        pd.DataFrame(err_rows).to_csv(os.path.join(P["root"], 'rra_tracking_error.csv'),
+                                      index=False)
+        _f = {r['residual']: r for r in csv_rows}
+        note = ('residuals RMS before -> after: ' + ', '.join(
+            f"{k} {_f[k]['id_rms']:.0f}->{_f[k]['rra_rms']:.0f}" for k in ('FX', 'FY', 'FZ'))
+            + ' N; ' + ', '.join(
+            f"{k} {_f[k]['id_rms']:.0f}->{_f[k]['rra_rms']:.0f}" for k in ('MX', 'MY', 'MZ'))
+            + ' N·m')
+        return {"residuals": csv_rows, "tracking": err_rows, "note": note}
+
+    def plot_rra_kinematics(self, dofs=None):
+        """IK vs RRA joint angles, one task-vertical row per DOF (right red,
+        left blue, midline black; RRA dashed) with the RMS difference in the
+        row title -> rra_kinematics.png."""
+        P = self.rra_paths()
+        from bioscout.plot.task_figure import TaskStrip, SIDE_COLOR
+        if dofs is None:
+            dofs = list(getattr(_u.settings.SummarySettings, 'dofs', []))
+        ikd = _u.load_any_data_file(os.path.join(self.path, self.ik))
+        kin = _u.load_any_data_file(P["kinematics"])
+        dofs = [d for d in dofs if d in ikd.columns and d in kin.columns] or \
+               [c for c in ikd.columns if c != 'time' and c in kin.columns]
+        tik = pd.to_numeric(ikd['time'], errors='coerce').to_numpy(float)
+        tk = pd.to_numeric(kin['time'], errors='coerce').to_numpy(float)
+        side_col = {'r': SIDE_COLOR['r'], 'l': SIDE_COLOR['l'], None: 'k'}
+        groups, order = {}, []
+        for d in dofs:
+            base, side = self._split_side(d)
+            groups.setdefault(base, {})
+            if base not in order:
+                order.append(base)
+            groups[base][side] = d
+
+        def _draw(a, base):
+            for side, dof in groups[base].items():
+                c = side_col.get(side, 'k')
+                a.plot(tik, pd.to_numeric(ikd[dof], errors='coerce'), color=c, lw=1.2)
+                a.plot(tk, pd.to_numeric(kin[dof], errors='coerce'), color=c, lw=1.2, ls='--')
+            a.axhline(0, color='0.75', lw=0.5)
+            a.set_ylabel('m' if base.startswith('pelvis_t') and base[-1] in 'xyz' else 'deg',
+                         fontsize=7)
+
+        rows = []
+        for base in order:
+            errs = []
+            for side, dof in groups[base].items():
+                ik_i = np.interp(tk, tik, pd.to_numeric(ikd[dof], errors='coerce').to_numpy(float))
+                e = pd.to_numeric(kin[dof], errors='coerce').to_numpy(float) - ik_i
+                errs.append(f"{(side or 'mid').upper()} {np.sqrt(np.nanmean(e ** 2)):.2f}")
+            rows.append(dict(draw=lambda a, b_=base: _draw(a, b_),
+                             title=f"{base}   RMS diff: {', '.join(errs)}"))
+        h = [plt.Line2D([], [], color='0.3', lw=1.2, label='IK'),
+             plt.Line2D([], [], color='0.3', lw=1.2, ls='--', label='RRA')]
+        TaskStrip(self.path, t_range=(float(tk[0]), float(tk[-1])), log=self._log).figure(
+            rows, P["fig_kinematics"], legend=h, row_height=1.1, legend_loc="top")
+        return {"png": P["fig_kinematics"]}
+
+    def _mesh_search_dirs(self):
+        """Where a model's .vtp/.stl may live: beside the model, its Geometry/,
+        every models/generic/*/Geometry of the project, bioscout's bundled set."""
+        from pathlib import Path as _P
+        md = _P(os.path.abspath(self.model_dir)).parent
+        dirs = [md, md / 'Geometry', md.parent / 'Geometry']
+        try:
+            gen = _P(str(getattr(_u, 'MODELS_DIR', md.parent))) / 'generic'
+            if gen.is_dir():
+                dirs += [gen] + sorted(gen.glob('*/Geometry')) + sorted(gen.glob('*/*/Geometry'))
+        except Exception:
+            pass
+        try:
+            from bioscout.model.geometry import bundled_geometry_dir
+            bd = bundled_geometry_dir()
+            if bd:
+                dirs.append(_P(bd))
+        except Exception:
+            pass
+        return [d for d in dirs if d.is_dir()]
+
+    def _draw_body_mesh_com(self, ax_sag, ax_front, body, mesh_list, com0, com1):
+        """Project a body's meshes (body frame) onto the sagittal (x-y) and
+        frontal (z-y) planes with the original (grey) and adjusted (green)
+        mass centre and the shift arrow."""
+        from matplotlib.collections import PolyCollection
+        from bioscout.model.io import read_vtp
+        dirs = self._mesh_search_dirs()
+        found = []
+        for f, sc in mesh_list:
+            for d in dirs:
+                c = d / os.path.basename(f)
+                if c.is_file():
+                    found.append((c, sc)); break
+        if not found:
+            raise FileNotFoundError(f"no mesh of {body} ({[f for f, _ in mesh_list]}) in "
+                                    f"{[str(d) for d in dirs]}")
+        polys_sag, polys_fro = [], []
+        for c, sc in found:
+            if c.suffix.lower() == '.stl':
+                try:
+                    from stl import mesh as _stlm         # numpy-stl, optional
+                    _m = _stlm.Mesh.from_file(str(c))
+                    v = _m.vectors.reshape(-1, 3); tri = np.arange(len(v)).reshape(-1, 3)
+                except ImportError:
+                    continue
+            else:
+                v, tri = read_vtp(c)
+            v = np.asarray(v, float) * np.asarray(sc, float)
+            tri = np.asarray(tri, int)
+            if len(tri) > 6000:                            # thin for drawing speed
+                tri = tri[np.random.RandomState(0).choice(len(tri), 6000, replace=False)]
+            polys_sag.append(v[tri][:, :, [0, 1]])
+            polys_fro.append(v[tri][:, :, [2, 1]])
+        for ax, polys, (i, j), lab in ((ax_sag, polys_sag, (0, 1), 'sagittal (x-y)'),
+                                       (ax_front, polys_fro, (2, 1), 'frontal (z-y)')):
+            for pp in polys:
+                ax.add_collection(PolyCollection(pp, facecolors='0.82', edgecolors='0.72',
+                                                 linewidths=0.1, alpha=0.9))
+            c0 = (com0[i], com0[j]); c1 = (com1[i], com1[j])
+            ax.annotate('', xy=c1, xytext=c0,
+                        arrowprops=dict(arrowstyle='->', color='tab:green', lw=1.6))
+            ax.plot(*c0, 'o', color='0.3', ms=7, label='COM original')
+            ax.plot(*c1, 'o', color='tab:green', ms=7, label='COM adjusted')
+            d = (np.asarray(c1) - np.asarray(c0)) * 1000
+            ax.set_title(f'{body} {lab}\nCOM shift {d[0]:+.1f}, {d[1]:+.1f} mm', fontsize=8)
+            ax.set_aspect('equal'); ax.autoscale_view()
+            ax.tick_params(labelsize=6); ax.set_xlabel('m', fontsize=7)
+            if ax is ax_sag:
+                ax.legend(fontsize=7, frameon=False, loc='lower right')
+
+    def plot_rra_masses(self):
+        """Segment masses and mass centres, original vs RRA-adjusted model ->
+        rra_masses.png + rra_masses.csv."""
+        import xml.etree.ElementTree as ET
+        P = self.rra_paths()
+        if not os.path.isfile(P["model"]):
+            return {"note": "no adjusted model (adjust_com=False) -- rra_masses.png skipped"}
+
+        meshes = {}                      # body -> [(mesh_file, scale[3])]
+        def _read(p):
+            out = {}
+            for b in ET.parse(p).getroot().iter('Body'):
+                try:
+                    m = float(b.findtext('mass') or 'nan')
+                    com = [float(x) for x in (b.findtext('mass_center') or '').split()]
+                except ValueError:
+                    continue
+                out[b.get('name')] = (m, com if len(com) == 3 else [np.nan] * 3)
+                if b.get('name') not in meshes:
+                    _l = []
+                    for mm in b.iter('Mesh'):
+                        _f = (mm.findtext('mesh_file') or '').strip()
+                        try:
+                            _sc = [float(x) for x in (mm.findtext('scale_factors') or '1 1 1').split()]
+                        except ValueError:
+                            _sc = [1.0, 1.0, 1.0]
+                        if _f:
+                            _l.append((_f, _sc if len(_sc) == 3 else [1.0, 1.0, 1.0]))
+                    meshes[b.get('name')] = _l
+            return out
+
+        a, b = _read(self.model_dir), _read(P["model"])
+        names = [n for n in a if n in b and a[n][0] > 1e-3]
+        # RRA only APPLIES the COM shift; the mass changes it recommends are
+        # printed to its log ("<body>: orig mass = X, new mass = Y") and left
+        # for the user. Show them as a third bar when the log has them.
+        rec = {}
+        try:
+            import re as _re
+            with open(P["out_log"], encoding="utf-8", errors="ignore") as fh:
+                for ln in fh:
+                    m = _re.search(r"^\s*(\w+)\s*:\s*orig mass\s*=\s*([-\d.eE+]+)\s*,\s*new mass\s*=\s*([-\d.eE+]+)", ln)
+                    if m:
+                        rec[m.group(1)] = float(m.group(3))
+        except OSError:
+            pass
+        rows = []
+        for n in names:
+            dm = b[n][0] - a[n][0]
+            dc = [b[n][1][i] - a[n][1][i] for i in range(3)]
+            rows.append(dict(body=n, mass_orig=a[n][0], mass_rra=b[n][0], dmass=dm,
+                             mass_recommended=rec.get(n, np.nan),
+                             dcom_x=dc[0], dcom_y=dc[1], dcom_z=dc[2]))
+        df = pd.DataFrame(rows)
+        df.to_csv(os.path.join(P["root"], 'rra_masses.csv'), index=False)
+        tot_a, tot_b = sum(a[n][0] for n in a), sum(b[n][0] for n in b)
+
+        fig = plt.figure(figsize=(17, 5.5))
+        gs = fig.add_gridspec(1, 4, width_ratios=[2.2, 1, 1, 1], wspace=0.35)
+        ax1, ax2 = fig.add_subplot(gs[0]), fig.add_subplot(gs[1])
+        ax3, ax4 = fig.add_subplot(gs[2]), fig.add_subplot(gs[3])
+        x = np.arange(len(names))
+        _has_rec = bool(rec)
+        w = 0.27 if _has_rec else 0.4
+        ax1.bar(x - w, df['mass_orig'], w, color='0.6', label='original')
+        ax1.bar(x, df['mass_rra'], w, color='tab:green', label='RRA-adjusted model (COM only)')
+        if _has_rec:
+            ax1.bar(x + w, df['mass_recommended'], w, color='tab:orange', hatch='//',
+                    label='RRA recommended mass (not applied)')
+            for i, r in df.iterrows():
+                if np.isfinite(r['mass_recommended']) and abs(r['mass_recommended'] - r['mass_orig']) > 1e-3:
+                    ax1.annotate(f"{r['mass_recommended'] - r['mass_orig']:+.2f}",
+                                 (x[i] + w, r['mass_recommended']), ha='center', va='bottom', fontsize=7)
+        ax1.set_xticks(x); ax1.set_xticklabels(names, rotation=90, fontsize=7)
+        ax1.set_ylabel('mass (kg)'); ax1.legend(fontsize=8, frameon=False)
+        ax1.set_title(f'segment masses   total {tot_a:.2f} -> {tot_b:.2f} kg '
+                      f'({tot_b - tot_a:+.2f})', fontsize=9)
+        moved = df[(df[['dcom_x', 'dcom_y', 'dcom_z']].abs() > 1e-6).any(axis=1)]
+        if len(moved):
+            xm = np.arange(len(moved))
+            for k, (lab, col) in enumerate((('x', 'tab:red'), ('y', 'tab:green'), ('z', 'tab:blue'))):
+                ax2.bar(xm + (k - 1) * 0.25, moved[f'dcom_{lab}'] * 1000, 0.25, color=col, label=lab)
+            ax2.set_xticks(xm); ax2.set_xticklabels(moved['body'], rotation=90, fontsize=7)
+            ax2.axhline(0, color='0.5', lw=0.6)
+            ax2.set_ylabel('COM shift (mm)'); ax2.legend(fontsize=8, frameon=False)
+            ax2.set_title('mass-centre shift (adjusted - original)', fontsize=9)
+        else:
+            ax2.text(0.5, 0.5, 'no COM change', ha='center', va='center'); ax2.axis('off')
+        # -- the adjusted body's mesh with the COM before/after, sagittal + frontal
+        _body = moved['body'].iloc[0] if len(moved) else 'torso'
+        try:
+            self._draw_body_mesh_com(ax3, ax4, _body, meshes.get(_body, []),
+                                     a[_body][1], b[_body][1])
+        except Exception as e:                                   # noqa: BLE001
+            for _ax in (ax3, ax4):
+                _ax.text(0.5, 0.5, f'{_body} mesh not drawn:\n{type(e).__name__}: {e}',
+                         ha='center', va='center', fontsize=7, wrap=True); _ax.axis('off')
+        fig.suptitle(f'RRA model adjustment -- {os.path.basename(self.path)}', fontsize=11)
+        fig.savefig(P["fig_masses"], dpi=150, bbox_inches='tight'); plt.close(fig)
+        _mv = '; '.join(f"{r['body']} COM ({r['dcom_x'] * 1000:+.1f}, {r['dcom_y'] * 1000:+.1f}, "
+                        f"{r['dcom_z'] * 1000:+.1f}) mm" for _, r in moved.iterrows())
+        return {"note": f"model: total mass {tot_a:.2f} -> {tot_b:.2f} kg"
+                        + (f"; {_mv}" if _mv else '')}
+
+    def plot_rra_jcf(self):
+        """Joint contact forces: SO (solid) vs SO after RRA (dashed), with the
+        in-vivo implant force when the trial has one -> rra_jcf.png."""
+        P = self.rra_paths()
+        if not os.path.isfile(P["jra"]):
+            return {"note": "no JRA after RRA -- rra_jcf.png skipped"}
+        with _quiet_prints():
+            self.plot_jra_comparison(compare=P["jra"], labels=("SO", "SO after RRA"),
+                                     save_path=P["fig_jcf"],
+                                     title="Joint contact forces: SO vs SO after RRA")
+        return {"png": P["fig_jcf"]}
+
+    def plot_rra_so_forces(self, top=16):
+        """SO muscle forces original vs after RRA for the ``top`` muscles by
+        peak force, plus the residual/reserve actuator totals -> rra_so_forces.png."""
+        P = self.rra_paths()
+        if not os.path.isfile(P["so_forces"]):
+            return {"note": "no SO after RRA -- rra_so_forces.png skipped"}
+        from bioscout.simulate.so_files import pick as _pick
+        f0 = _u.load_any_data_file(_pick(os.path.join(self.path, self.so_forces)))
+        f1 = _u.load_any_data_file(_pick(P["so_forces"]))
+        try:
+            muscles = [m for m in self.get_muscle_list() if m in f0.columns and m in f1.columns]
+        except Exception:
+            muscles = [c for c in f0.columns if c != 'time' and c in f1.columns]
+        others = [c for c in f0.columns if c != 'time' and c in f1.columns and c not in muscles]
+        peak = {m: float(pd.to_numeric(f0[m], errors='coerce').abs().max()) for m in muscles}
+        sel = sorted(muscles, key=lambda m: -peak[m])[:top]
+        t0 = pd.to_numeric(f0['time'], errors='coerce').to_numpy(float)
+        t1 = pd.to_numeric(f1['time'], errors='coerce').to_numpy(float)
+        n = len(sel) + (1 if others else 0)
+        ncol = 4; nrow = int(np.ceil(n / ncol))
+        fig, axes = plt.subplots(nrow, ncol, figsize=(14, 2.4 * nrow), squeeze=False)
+        for k, m in enumerate(sel):
+            a = axes.flat[k]
+            a.plot(t0, pd.to_numeric(f0[m], errors='coerce'), color='0.4', lw=1.1, label='original')
+            a.plot(t1, pd.to_numeric(f1[m], errors='coerce'), color='tab:green', lw=1.1, label='after RRA')
+            a.set_title(m, fontsize=8); a.tick_params(labelsize=6)
+            if k == 0:
+                a.legend(fontsize=7, frameon=False)
+        if others:
+            a = axes.flat[len(sel)]
+            s0 = f0[others].apply(pd.to_numeric, errors='coerce').abs().sum(axis=1)
+            s1 = f1[others].apply(pd.to_numeric, errors='coerce').abs().sum(axis=1)
+            a.plot(t0, s0, color='0.4', lw=1.1); a.plot(t1, s1, color='tab:green', lw=1.1)
+            a.set_title(f'sum |reserves + residuals| ({len(others)})', fontsize=8)
+            a.tick_params(labelsize=6)
+        for a in axes.flat[n:]:
+            a.axis('off')
+        fig.suptitle(f'SO muscle forces (N), original vs after RRA -- '
+                     f'{os.path.basename(self.path)}', fontsize=11)
+        fig.tight_layout(); fig.savefig(P["fig_so"], dpi=150); plt.close(fig)
+        return {"png": P["fig_so"]}
+
+    # ------------------------------------------------------- forward simulation
+    def forward_paths(self):
+        """Absolute paths of everything the forward-simulation stage reads/writes."""
+        r = os.path.join(self.path, LAYOUT_DIRS["forward"])
+        c = os.path.join(r, "cmc"); f = os.path.join(r, "forward")
+        jc = os.path.join(r, "joint_contact_forces")
+        return dict(
+            root=r, cmc=c, forward=f, jcf=jc,
+            setup_cmc=os.path.join(c, "setup_CMC.xml"),
+            cmc_force=os.path.join(c, "CMC_Actuation_force.sto"),
+            cmc_kinematics=os.path.join(c, "CMC_Kinematics_q.sto"),
+            cmc_states=os.path.join(c, "CMC_states.sto"),
+            cmc_controls=os.path.join(c, "CMC_controls.xml"),
+            forward_states=os.path.join(f, "forward_states.sto"),
+            setup_jra=os.path.join(jc, "setup_JRA_CMC.xml"),
+            jra=os.path.join(jc, "Analyse_JRA_ReactionLoads_CMC.sto"),
+            tracking_csv=os.path.join(r, "forward_tracking.csv"),
+            fig_kinematics=os.path.join(r, "forward_kinematics.png"),
+            fig_forces=os.path.join(r, "forward_muscle_forces.png"),
+            fig_jcf=os.path.join(r, "forward_jcf.png"),
+        )
+
+    def run_forward(self, replace=None, kinematics="rra", model="rra", actuators=None,
+                    tasks=None, time_range=None, window="grf", lowpass_cutoff=6.0,
+                    cmc_time_window=0.01, replay=True, jra=True, plots=True):
+        """Muscle-driven forward simulation of this trial::
+
+            <trial>/forward_simulation/
+                cmc/                    CMCTool: tracks the kinematics by forward-
+                                        integrating the muscle-driven model ->
+                                        CMC_controls.xml (excitations), CMC_states.sto,
+                                        CMC_Actuation_force.sto, CMC_pErr.sto, out.log
+                forward/                ForwardTool: CMC excitations replayed open-loop
+                                        from CMC's initial state -> forward_states.sto
+                joint_contact_forces/   JRA on the CMC muscle forces          [jra=True]
+                forward_tracking.csv    RMS / peak |error| per coordinate: CMC and
+                                        open-loop forward vs the tracked kinematics
+                forward_kinematics.png  tracked vs CMC vs open-loop per DOF
+                forward_muscle_forces.png  SO vs CMC muscle forces
+                forward_jcf.png         joint contact forces SO vs CMC (+ in vivo)
+
+        ``kinematics`` / ``model``: "rra" uses residual_reduction/ outputs when
+        they exist (RRA kinematics, COM-adjusted model -- the standard
+        RRA -> CMC -> forward chain), falling back to IK / the scaled model;
+        "ik" forces the plain ones; or pass a path. ``actuators`` defaults to the
+        trial's SO actuators (residuals + reserves, appended to the muscles) so
+        CMC forces compare 1:1 with SO; ``tasks`` to setupFiles/tasks_CMC.xml,
+        else tasks_RRA.xml. Window as run_rra (``window="grf"``).
+        Nothing outside forward_simulation/ is touched.
+        """
+        self._set_replace(replace)
+        os.makedirs(self.path, exist_ok=True); os.chdir(self.path)
+        _os = self._get_openSim()
+        from bioscout.simulate import so_actuators as _soa
+        P = self.forward_paths(); R = self.rra_paths()
+        for _d in (P["cmc"], P["forward"], P["jcf"]):
+            os.makedirs(_d, exist_ok=True)
+        _tn = os.path.basename(self.path)
+        _line = lambda m: self._log('      ' + m, terminal=True)
+
+        ik_abs = os.path.join(self.path, self.ik)
+        grf_abs = os.path.join(self.path, self.setup_grf)
+        if kinematics == "rra":
+            kinematics = R["ik"] if _numeric_rows(R["ik"]) else ik_abs
+        elif kinematics == "ik":
+            kinematics = ik_abs
+        if model == "rra":
+            model = R["model"] if os.path.isfile(R["model"]) else self.model_dir
+        elif model in (None, "scaled"):
+            model = self.model_dir
+        if not _numeric_rows(kinematics):
+            self._log(f'[SKIP] forward skipped -- no kinematics: {kinematics}', terminal=True)
+            return None
+        if actuators is None:
+            # the trial's SO copy, else the iteration's so_actuators (session.yaml)
+            _a = os.path.join(self.path, self.actuators_so)
+            _it = getattr(self, 'so_actuators', None)
+            actuators = (_a if os.path.isfile(_a) else
+                         _it if _it and os.path.isfile(_it) else None)
+        _model_run, _fs, _ = _soa.plan(model, actuators)
+        # CMC with muscles only cannot balance the pelvis (6 unactuated DOFs)
+        # and fails at the first step with "Infeasible problem" -- say why now.
+        _names = set(_soa.actuator_names(_fs) if _fs else _soa.actuator_names(_model_run))
+        if not _names & {"FX", "FY", "FZ", "MX", "MY", "MZ"}:
+            raise RuntimeError(
+                f"[forward] no pelvis residual actuators (FX..MZ) for CMC: trial has no "
+                f"{self.actuators_so}, the iteration has no so_actuators, and the model "
+                f"({os.path.basename(model)}) carries none. Run SO first, set so_actuators "
+                f"in session.yaml, or pass run_forward(actuators=<file>).")
+        sd = self.setup_dir or ""
+        if tasks is None:
+            tasks = next((p for p in (os.path.join(sd, "tasks_CMC.xml"),
+                                      os.path.join(sd, "tasks_RRA.xml")) if os.path.isfile(p)), None)
+        if not tasks:
+            raise FileNotFoundError(f'[forward] no tasks_CMC.xml / tasks_RRA.xml in {sd!r}')
+
+        if time_range is None:
+            try:
+                time_range = tuple(float(x) for x in self.get_time_range())
+            except Exception:
+                time_range = None
+            if window == "grf":
+                _g = self.rra_grf_window()
+                if _g:
+                    time_range = (max(_g[0], time_range[0]), min(_g[1], time_range[1])) \
+                        if time_range else _g
+            # never outside the tracked kinematics (RRA kinematics are shorter)
+            try:
+                _k = _u.load_any_data_file(kinematics)
+                _tk = pd.to_numeric(_k['time'], errors='coerce').to_numpy(float)
+                time_range = (max(time_range[0], _tk[0]), min(time_range[1], _tk[-1])) \
+                    if time_range else (_tk[0], _tk[-1])
+            except Exception:
+                pass
+
+        res = None
+        if os.path.exists(P["cmc_force"]) and not self.replace:
+            self._log(f'[FORWARD] {_tn}: kept cmc/ (pass replace to redo)', terminal=True)
+        else:
+            self._log(f'[FORWARD] {_tn}: model {os.path.basename(model)}, kinematics '
+                      f'{os.path.relpath(kinematics, self.path)}, '
+                      f'{time_range[0]:.3f}-{time_range[1]:.3f} s -- running CMC + '
+                      f'open-loop forward (OpenSim output -> cmc/out.log, forward/out.log) ...',
+                      terminal=True)
+            res = _os.run_forward(osim_modelPath=_model_run, kinematics=kinematics,
+                                  grf_xml=grf_abs, actuators=_fs, tasks=tasks,
+                                  results_dir=P["root"], time_range=time_range,
+                                  lowpass_cutoff=lowpass_cutoff,
+                                  cmc_time_window=cmc_time_window, replay=replay)
+            _line(f"CMC: {res['n_tasks']} tracked coordinates, reached "
+                  f"{res['cmc_reached']:.3f} of {time_range[1]:.3f} s in {res['cmc_seconds']:.0f} s")
+            if res['dropped_tasks']:
+                _line(f"tasks dropped (not in model / locked): {res['dropped_tasks']}")
+            if replay:
+                _line("open-loop forward: " + ("ok" if res['ok_forward'] else
+                      "FAILED (see forward/out.log)"))
+
+        if jra and os.path.isfile(P["cmc_force"]):
+            if os.path.exists(P["jra"]) and not self.replace and \
+               os.path.getmtime(P["jra"]) >= os.path.getmtime(P["cmc_force"]):
+                _line('JRA on CMC: kept')
+            else:
+                try:
+                    if not os.path.exists(P["setup_jra"]):
+                        shutil.copyfile(os.path.join(sd, "setup_JRA.xml"), P["setup_jra"])
+                    with _quiet_prints():
+                        _os.run_jra(osim_modelPath=_model_run, ik_output=P["cmc_kinematics"],
+                                    grf_xml=grf_abs, setup_xml=P["setup_jra"],
+                                    actuators=[os.path.abspath(_fs)] if _fs else None,
+                                    muscle_force_path=P["cmc_force"], saveFileName=P["jra"])
+                    _line(f"JRA on CMC -> {os.path.relpath(P['jra'], P['root'])}")
+                except Exception as e:
+                    self._log(f'      [FORWARD] JRA on CMC failed: {e}', terminal=True)
+
+        if plots:
+            for _name, _fn in (("kinematics", lambda: self.plot_forward_kinematics(kinematics)),
+                               ("muscle_forces", self.plot_forward_muscle_forces),
+                               ("jcf", self.plot_forward_jcf)):
+                try:
+                    _r = _fn()
+                    if isinstance(_r, dict) and _r.get("note"):
+                        _line(_r["note"])
+                except Exception as e:
+                    self._log(f'      [FORWARD] forward_{_name}.png failed: '
+                              f'{type(e).__name__}: {e}', terminal=True)
+        _line(f"-> {P['root']}")
+        return res
+
+    @staticmethod
+    def _coords_deg(path):
+        """Coordinates file (.mot/.sto, IK/CMC style OR a states file with
+        /jointset/<j>/<coord>/value columns in rad) -> DataFrame time + coords
+        (rotations in degrees, translations in m)."""
+        d = _u.load_any_data_file(path)
+        out = pd.DataFrame({'time': pd.to_numeric(d['time'], errors='coerce')})
+        states = any(str(c).endswith('/value') for c in d.columns)
+        for c in d.columns:
+            if c == 'time':
+                continue
+            if states:
+                if not str(c).endswith('/value'):
+                    continue
+                n = str(c).split('/')[-2]
+                v = pd.to_numeric(d[c], errors='coerce')
+                out[n] = v if n.endswith(('_tx', '_ty', '_tz')) else np.degrees(v)
+            else:
+                out[c] = pd.to_numeric(d[c], errors='coerce')
+        return out
+
+    def plot_forward_kinematics(self, kinematics=None, dofs=None):
+        """Tracked (black) vs CMC (blue) vs open-loop forward (red dashed) per
+        DOF -> forward_kinematics.png, and forward_tracking.csv."""
+        P = self.forward_paths()
+        if not os.path.isfile(P["cmc_kinematics"]):
+            return {"note": "no CMC kinematics -- forward_kinematics.png skipped"}
+        if kinematics is None:
+            R = self.rra_paths()
+            kinematics = R["ik"] if os.path.isfile(R["ik"]) else os.path.join(self.path, self.ik)
+        ref = self._coords_deg(kinematics); cmc = self._coords_deg(P["cmc_kinematics"])
+        fwd = self._coords_deg(P["forward_states"]) if os.path.isfile(P["forward_states"]) else None
+        tc = cmc['time'].to_numpy(float)
+        ref = ref[(ref['time'] >= tc[0] - 1e-9) & (ref['time'] <= tc[-1] + 1e-9)]
+        tr = ref['time'].to_numpy(float)
+        cols = dofs or [c for c in cmc.columns if c != 'time' and c in ref.columns
+                        and np.nanstd(ref[c].to_numpy(float)) > 1e-6]
+        rows = []
+        for c in cols:
+            y = ref[c].to_numpy(float)
+            ec = np.interp(tr, tc, cmc[c].to_numpy(float)) - y
+            r = {"coordinate": c, "unit": "m" if c.endswith(('_tx', '_ty', '_tz')) else "deg",
+                 "cmc_rms": float(np.sqrt(np.nanmean(ec ** 2))), "cmc_peak": float(np.nanmax(np.abs(ec)))}
+            if fwd is not None and c in fwd.columns:
+                tf = fwd['time'].to_numpy(float); m = tr <= tf[-1] + 1e-9
+                ef = np.interp(tr[m], tf, fwd[c].to_numpy(float)) - y[m]
+                r.update(forward_rms=float(np.sqrt(np.nanmean(ef ** 2))),
+                         forward_peak=float(np.nanmax(np.abs(ef))),
+                         forward_end=float(ef[-1]) if len(ef) else np.nan)
+            rows.append(r)
+        pd.DataFrame(rows).to_csv(P["tracking_csv"], index=False, float_format="%.4f")
+        ncol = 4; nrow = int(np.ceil(len(cols) / ncol))
+        fig, axes = plt.subplots(nrow, ncol, figsize=(14, 2.2 * nrow), squeeze=False, sharex=True)
+        for k, c in enumerate(cols):
+            a = axes.flat[k]
+            a.plot(tr, ref[c], color='k', lw=1.4, label='tracked')
+            a.plot(tc, cmc[c], color='tab:blue', lw=1.1, label='CMC')
+            if fwd is not None and c in fwd.columns:
+                a.plot(fwd['time'], fwd[c], color='tab:red', lw=1.1, ls='--', label='forward (open loop)')
+            a.set_title(f"{c} [{rows[k]['unit']}]  CMC rms {rows[k]['cmc_rms']:.2f}", fontsize=8)
+            a.tick_params(labelsize=6)
+            if k == 0:
+                a.legend(fontsize=6, frameon=False)
+        for a in axes.flat[len(cols):]:
+            a.axis('off')
+        fig.suptitle(f'Forward simulation kinematics -- {os.path.basename(self.path)}', fontsize=11)
+        fig.tight_layout(); fig.savefig(P["fig_kinematics"], dpi=150); plt.close(fig)
+        return {"png": P["fig_kinematics"], "csv": P["tracking_csv"]}
+
+    def plot_forward_muscle_forces(self, top=16):
+        """SO (grey) vs CMC (blue) muscle forces for the ``top`` muscles by SO
+        peak, plus |reserves + residuals| -> forward_muscle_forces.png."""
+        P = self.forward_paths()
+        if not os.path.isfile(P["cmc_force"]):
+            return {"note": "no CMC forces -- forward_muscle_forces.png skipped"}
+        from bioscout.simulate.so_files import pick as _pick
+        f0 = _u.load_any_data_file(_pick(os.path.join(self.path, self.so_forces)))
+        f1 = _u.load_any_data_file(P["cmc_force"])
+        try:
+            muscles = [m for m in self.get_muscle_list() if m in f0.columns and m in f1.columns]
+        except Exception:
+            muscles = []
+        if not muscles:
+            muscles = [c for c in f0.columns if c != 'time' and c in f1.columns
+                       and not c.endswith('_reserve') and c not in ('FX', 'FY', 'FZ', 'MX', 'MY', 'MZ')
+                       and not c.startswith('lumbar')]
+        others = [c for c in f0.columns if c != 'time' and c in f1.columns and c not in muscles]
+        peak = {m: float(pd.to_numeric(f0[m], errors='coerce').abs().max()) for m in muscles}
+        sel = sorted(muscles, key=lambda m: -peak[m])[:top]
+        t1 = pd.to_numeric(f1['time'], errors='coerce').to_numpy(float)
+        f0 = f0[(pd.to_numeric(f0['time']) >= t1[0] - 1e-9) & (pd.to_numeric(f0['time']) <= t1[-1] + 1e-9)]
+        t0 = pd.to_numeric(f0['time'], errors='coerce').to_numpy(float)
+        n = len(sel) + (1 if others else 0)
+        ncol = 4; nrow = int(np.ceil(n / ncol))
+        fig, axes = plt.subplots(nrow, ncol, figsize=(14, 2.4 * nrow), squeeze=False, sharex=True)
+        for k, m in enumerate(sel):
+            a = axes.flat[k]
+            a.plot(t0, pd.to_numeric(f0[m], errors='coerce'), color='0.4', lw=1.1, label='SO')
+            a.plot(t1, pd.to_numeric(f1[m], errors='coerce'), color='tab:blue', lw=1.1, label='CMC')
+            a.set_title(m, fontsize=8); a.tick_params(labelsize=6)
+            if k == 0:
+                a.legend(fontsize=7, frameon=False)
+        if others:
+            a = axes.flat[len(sel)]
+            a.plot(t0, f0[others].apply(pd.to_numeric, errors='coerce').abs().sum(axis=1), color='0.4', lw=1.1)
+            a.plot(t1, f1[others].apply(pd.to_numeric, errors='coerce').abs().sum(axis=1), color='tab:blue', lw=1.1)
+            a.set_title(f'sum |reserves + residuals| ({len(others)})', fontsize=8); a.tick_params(labelsize=6)
+        for a in axes.flat[n:]:
+            a.axis('off')
+        fig.suptitle(f'Muscle forces (N), SO vs CMC -- {os.path.basename(self.path)}', fontsize=11)
+        fig.tight_layout(); fig.savefig(P["fig_forces"], dpi=150); plt.close(fig)
+        return {"png": P["fig_forces"]}
+
+    def plot_forward_jcf(self):
+        """Joint contact forces SO (solid) vs CMC (dashed), with in vivo -> forward_jcf.png."""
+        P = self.forward_paths()
+        if not os.path.isfile(P["jra"]):
+            return {"note": "no JRA on CMC -- forward_jcf.png skipped"}
+        with _quiet_prints():
+            self.plot_jra_comparison(compare=P["jra"], labels=("SO", "CMC"),
+                                     save_path=P["fig_jcf"],
+                                     title="Joint contact forces: SO vs CMC (forward simulation)")
+        return {"png": P["fig_jcf"]}
+
     def run_jra(self, replace=None):
         self._set_replace(replace)
         os.makedirs(self.path, exist_ok=True); os.chdir(self.path)
+        self._ensure_out_dir(self.setup_jra, self.jra)
         self.load_settings(self.settingsXML)
         _os = self._get_openSim()
 
@@ -3746,12 +4847,30 @@ class Analyse:
              
         if os.path.exists(self.jra) and not self.replace:
             return
+        # The JointReaction must see the SAME actuator set SO solved with: the
+        # SO force file carries a column per reserve/residual, and an actuator
+        # missing from the JRA model silently drops that force. SO's set is the
+        # trial copy static_optimisation/actuators_so.xml whenever it exists
+        # (so_actuators, or the model's own extracted for the residual check);
+        # plan() gives the matching model (muscles-only when the model also
+        # carries actuators, so none is applied twice).
+        _jra_model, _jra_act = self.model_dir, None
         try:
-            _os.run_jra(osim_modelPath=self.model_dir,
+            _act = os.path.join(self.path, self.actuators_so)
+            if os.path.isfile(_act):
+                from bioscout.simulate import so_actuators as _soa
+                _jra_model, _fs, _ = _soa.plan(self.model_dir, _act)
+                _jra_act = [os.path.abspath(_fs)] if _fs else None
+        except Exception as e:                                   # noqa: BLE001
+            self._log(f'[JRA] [WARNING] actuator set not resolved ({e}); '
+                      f'using the model\'s own')
+            _jra_model, _jra_act = self.model_dir, None
+        try:
+            _os.run_jra(osim_modelPath=_jra_model,
                      ik_output=self.ik,
                      grf_xml=self.setup_grf,
                      setup_xml=self.setup_jra,
-                     actuators=None,
+                     actuators=_jra_act,
                      muscle_force_path=self.jra_forces,
                      saveFileName=self.jra)
         
@@ -3763,10 +4882,15 @@ class Analyse:
         # after SO's JRA — independent of whether CEINMS runs.
         try:
             self.plot_jra_comparison(
-                so_only=True, save_name="JRA_SO.png",
+                so_only=True, save_name="jrf_so.png",
                 title="Joint Reaction (Contact) Forces: Static Optimisation")
         except Exception as e:
             self._log(f'[Warning] SO JRA figure failed: {e}')
+
+        # Contact-loading figure: where those forces land on the bones, by gait
+        # event. Same folder as jrf_so.png, so a reader sees the magnitudes and
+        # the locations side by side.
+        self.plot_jcf_coverage(labels=("SO",))
 
         # Concise SO RESULT line for the run log (peak joint contact forces) — this
         # is bioscout-logged, so it survives opensim_log_level='off' when OpenSim's
@@ -3880,7 +5004,7 @@ class Analyse:
                       'residual/reserve/GRF columns could not be added, so the '
                       'contact force would be unbalanced (~100x) and identical '
                       'whatever the muscle forces. Copy '
-                      'static_optimisation/SO_StaticOptimization_force.sto into '
+                      'static_optimisation/StaticOptimization_force.sto into '
                       'this trial, or set jra_allow_unbalanced=True if you '
                       'really want the unbalanced number.', terminal=True)
             return
@@ -3904,21 +5028,61 @@ class Analyse:
         except Exception as e:
             self._log(f'[Warning] JRA comparison figure failed: {e}')
 
+        # Same contact-coverage figures as the SO stage makes, for the CEINMS
+        # contact forces (jrf_ceinms_coverage_{sagittal,frontal}.png).
+        self.plot_jcf_coverage(labels=("CEINMS",))
+
+    def plot_jcf_coverage(self, labels=None, planes=("sagittal", "frontal")):
+        """Contact-loading figures: where the JRA forces land on the bones, by
+        gait event, one png per ``plane`` and per JRA source (``labels``: "SO",
+        "CEINMS"; default every JRA .sto found in joint_contact_forces/). Writes
+        ``joint_contact_forces/jrf_<label>_coverage_<plane>.png``. Best-effort:
+        a failure is logged, never raised."""
+        try:
+            from bioscout.plot.jcf_coverage import discover, jcf_coverage_figure
+            _info = discover(os.path.dirname(os.path.dirname(self.jra)))
+        except Exception as e:
+            self._log(f'[Warning] contact coverage figure failed: {e}')
+            return
+        for _label in (labels or list(_info["sources"])):
+            if _label not in _info["sources"]:
+                self._log(f'[Warning] contact coverage: no {_label} JRA .sto found, skipped')
+                continue
+            for _plane in planes:
+                try:
+                    _m = jcf_coverage_figure(_info, _label, plane=_plane)
+                    self._log(f"contact coverage figure: {_m['figure']} "
+                              f"({_m['cycle_name']}, {_m['cycle']})")
+                except Exception as e:
+                    self._log(f'[Warning] contact coverage figure ({_label}, {_plane}) failed: {e}')
+
     def _invivo_jcf(self):
         """In-vivo joint contact force for this trial, when the subject carries an
         instrumented implant: ``<experimental>/invivo_jcf.mot`` (written by
         orthoload_to_bioscout). Returns {"<joint>_<side>": (time, |F| N)} or None.
 
         The file does not record WHICH side is instrumented, so the side comes
-        from `self.invivo_side` if set, else the OrthoLoad trial id of a sibling
-        `.akf` (`h9l_...` = left), else `self.side`."""
+        from `self.invivo_side` / `implanted_side` if set, else session.yaml's
+        `measured_side` (formerly `implanted_side`), else the OrthoLoad trial id of a sibling `.akf`
+        (`h9l_...` = left), else `self.side`."""
         import glob as _g, re as _re
         from . import jcf_contributions as _jc
         exp = getattr(self, "experimental_dir", None)
         path = os.path.join(exp, "invivo_jcf.mot") if exp else None
         if not path or not os.path.exists(path):
             return None
-        side = getattr(self, "invivo_side", None)
+        side = getattr(self, "invivo_side", None) or getattr(self, "implanted_side", None)
+        if not side:                   # session.yaml `implanted_side: l|r`
+            try:
+                import yaml as _yaml
+                _sy = os.path.join(os.path.dirname(os.path.dirname(
+                    os.path.dirname(os.path.abspath(self.path)))), "session.yaml")
+                from bioscout.session.config import measured_side_of as _ms
+                with open(_sy) as _f:
+                    side = _ms(_yaml.safe_load(_f) or {})   # measured_side (was implanted_side)
+                side = side if side in ("l", "r") else None
+            except Exception:
+                side = None
         if not side:
             ids = [os.path.basename(x) for x in _g.glob(os.path.join(exp, "*.akf"))]
             m = next((_re.match(r"[a-z]+\d+([lr])", i, _re.I) for i in ids
@@ -3934,7 +5098,8 @@ class Analyse:
         return meas
 
     def run_jra_contributions(self, forces_type="both", per_muscle=False,
-                              replace=None, keep_sto=False, plot=True, n_jobs=None):
+                              replace=None, keep_sto=False, plot=True, n_jobs=None,
+                              groups=None):
         """Muscle contributions to this trial's joint contact forces.
 
         The JointReaction is linear in the applied forces, so the JCF splits
@@ -3943,8 +5108,11 @@ class Analyse:
         ``bioscout.core.jcf_contributions`` and docs/JCF_CONTRIBUTIONS.md.
 
         forces_type: 'so' | 'ceinms' | 'both'.
-        Writes joint_contact_forces/contributions_<type>/contributions.csv,
-        closure.txt and contributions.png. Returns {type: DataFrame}.
+        groups: {source name: [muscle columns]} to decompose by; default
+        settings.BatchSettings.MUSCLE_GROUPS (+ jcf_contributions.EXTRA_GROUPS).
+        Writes joint_contact_forces/contributions_<type>.sto (closure check
+        and body weight in its header) and contributions_<type>.png (stacked
+        |JCF| figure) -- no folder. keep_sto is ignored. Returns {type: DataFrame}.
         """
         from . import jcf_contributions as _jc
         self._set_replace(replace)
@@ -3987,57 +5155,85 @@ class Analyse:
                 self._log(f'[Warning] contributions: no {t.upper()} forces file ({forces})')
                 continue
 
-            out_dir = os.path.join(os.path.dirname(self.jra) or ".", f"contributions_{t}")
-            try:
-                df = _jc.decompose(
-                    model_path=self.model_dir, ik_file=self.ik, grf_xml=self.setup_grf,
-                    forces_file=forces, out_dir=out_dir, jra_columns=jcols,
-                    per_muscle=per_muscle, keep_sto=keep_sto, replace=self.replace,
-                    n_jobs=n_jobs,
-                    setup_template=os.path.join(self.setup_dir, "setup_JRA.xml"),
-                    # terminal=True: the progress, the closure check and the
-                    # "already done, skipping" line are the whole point of
-                    # watching this run — self._log alone is file-only.
-                    log=lambda m: self._log(m, terminal=True))
-            except Exception as e:
-                self._log(f'[Error] during JCF contributions ({t}): {e}', terminal=True)
-                continue
-            out[t] = df
+            # Output is ONE storage + ONE figure next to the JRA (2026-10-12):
+            #   joint_contact_forces/contributions_<t>.sto / .png
+            # The per-group JRA runs happen in a scratch folder at the same
+            # depth (so _so_force_set still finds ../../static_optimisation)
+            # that is removed afterwards.
+            jcf_dir = os.path.dirname(os.path.abspath(self.jra))
+            sto_out = os.path.join(jcf_dir, f"contributions_{t}.sto")
+            png_out = os.path.join(jcf_dir, f"contributions_{t}.png")
             bw = (float(self.body_mass) * 9.81) if getattr(self, "body_mass", None) else None
-            df_sum = _jc.summarise(df, bw)
-            df_sum.to_csv(os.path.join(out_dir, "summary.csv"), index=False)
+            if os.path.exists(sto_out) and not self.replace:
+                self._log(f'[contrib] SKIPPED - {sto_out} already exists '
+                          f'(replace=True to redo it)', terminal=True)
+                df, _bw = _jc.read_contributions(sto_out)
+                bw = bw or _bw
+            else:
+                work = os.path.join(jcf_dir, f"_contrib_work_{t}")
+                shutil.rmtree(work, ignore_errors=True)
+                try:
+                    df = _jc.decompose(
+                        model_path=self.model_dir, ik_file=self.ik, grf_xml=self.setup_grf,
+                        forces_file=forces, out_dir=work, jra_columns=jcols,
+                        per_muscle=per_muscle, keep_sto=False, replace=True,
+                        groups=groups,          # {source: [muscle columns]}; None = settings
+                        n_jobs=n_jobs,
+                        setup_template=os.path.join(self.setup_dir, "setup_JRA.xml"),
+                        log=lambda m: self._log(m, terminal=True))
+                    closure = df.attrs.get("closure")
+                    # Reserves out of the non-muscle baseline (one extra JRA).
+                    try:
+                        _df = _jc.split_reserves(
+                            model_path=self.model_dir, ik_file=self.ik, grf_xml=self.setup_grf,
+                            forces_file=forces, out_dir=work, jra_columns=jcols,
+                            setup_template=os.path.join(self.setup_dir, "setup_JRA.xml"),
+                            replace=True, log=lambda m: self._log(m, terminal=True))
+                        if _df is not None:
+                            df = _df
+                    except Exception as e:
+                        self._log(f'[Warning] reserve split of the JCF contributions ({t}) failed: {e}',
+                                  terminal=True)
+                    _jc.write_contributions_sto(df, sto_out, body_weight=bw, closure=closure)
+                except Exception as e:
+                    self._log(f'[Error] during JCF contributions ({t}): {e}', terminal=True)
+                    continue
+                finally:
+                    shutil.rmtree(work, ignore_errors=True)
+            out[t] = df
             if plot:
-                _ttl = f"{self.trial} - {t.upper()} muscle contributions to JCF"
                 try:
-                    _jc.plot_contributions(df, save=os.path.join(out_dir, "contributions.png"),
-                                           body_weight=bw, title=_ttl)
+                    _jc.plot_contribution_stack(
+                        df, save=png_out, body_weight=bw,
+                        title=f"{self.trial} - {t.upper()} contributions to the joint contact force")
                 except Exception as e:
-                    self._log(f'[Warning] contributions figure failed: {e}')
-                try:
-                    _jc.plot_contribution_curves(
-                        df, save=os.path.join(out_dir, "contributions_curves.png"),
-                        body_weight=bw, title=_ttl + " (over time)",
-                        measured=self._invivo_jcf())
-                except Exception as e:
-                    self._log(f'[Warning] contributions curve figure failed: {e}')
-            self._log(f'JCF contributions ({t}) written to {os.path.abspath(out_dir)}')
+                    self._log(f'[Warning] contributions stack figure failed: {e}')
+            self._log(f'JCF contributions ({t}) written to {sto_out}')
         return out
 
     def plot_jra_comparison(self, so_only=False,
-                            save_name="JRA_SO_vs_CEINMS.png",
-                            title="Joint Reaction (Contact) Forces: SO vs CEINMS"):
+                            save_name="jrf_so_vs_ceinms.png",
+                            title="Joint Reaction (Contact) Forces: SO vs CEINMS",
+                            compare=None, labels=("SO", "CEINMS"), save_path=None):
         """SO vs CEINMS joint reaction (contact) forces for the joints in
-        settings.BatchSettings.JRA_COLUMNS. Layout: one JOINT per row showing its
-        Fx/Fy/Fz across columns, plus a final row of each joint's |resultant|.
-        Saved into joint_contact_forces/.
+        settings.BatchSettings.JRA_COLUMNS, in the vertical task layout (poses +
+        vGRF on top), one row per joint with its |resultant| per leg. Saved into
+        joint_contact_forces/ as ``jrf_so.png`` / ``jrf_so_vs_ceinms.png``.
 
         so_only=True ignores any CEINMS output and produces an SO-only figure
         (used right after run_jra so a JCF plot exists even when CEINMS has not
-        run / produced no output)."""
+        run / produced no output).
+
+        ``compare`` is a path to any second JRA .sto to draw dashed against the
+        SO one instead of CEINMS (e.g. the JRA after RRA); ``labels`` names the
+        two; ``save_path`` overrides the output file."""
         os.makedirs(self.path, exist_ok=True); os.chdir(self.path)
         so = _u.load_any_data_file(self.jra) if os.path.exists(self.jra) else None
-        ce = (None if so_only else
-              (_u.load_any_data_file(self.jra_ceinms) if os.path.exists(self.jra_ceinms) else None))
+        if compare:
+            ce = _u.load_any_data_file(compare) if os.path.exists(compare) else None
+        else:
+            ce = (None if so_only else
+                  (_u.load_any_data_file(self.jra_ceinms) if os.path.exists(self.jra_ceinms) else None))
         if so is None and ce is None:
             # terminal=True: a silent return here leaves joint_contact_forces/
             # holding the .sto with no figure and no explanation anywhere the
@@ -4220,97 +5416,108 @@ class Analyse:
         except Exception:
             pass
 
-        # Layout: one JOINT per row; columns = Fx, Fy, Fz, |resultant|.
-        _axis = ['Fx', 'Fy', 'Fz']
-        nrows = len(joints)
-        ncols = 4
-        fig, axg = plt.subplots(nrows, ncols, figsize=(ncols * 5.4, nrows * 3.8),
-                                squeeze=False)
-        _legtxt = ("both legs (R solid, L dashed)" if len(_sides) > 1
-                   else ("left leg" if _sides[0][0] == "l" else "right leg"))
-        fig.suptitle(f"{title}  —  {_legtxt}", fontsize=18)
-        if _stale:
-            fig.text(0.5, 0.955,
-                     f"NOT COMPARABLE — different time windows:  {_stale}",
-                     ha='center', va='top', fontsize=11, color='#b00020',
-                     bbox=dict(boxstyle='round,pad=0.35', fc='#fdecef',
-                               ec='#b00020', lw=1.0))
-        for r in range(nrows):
-            for c in range(ncols):
-                axg[r][c].axis('off')
+        # Vertical task layout (bioscout.plot.task_figure): poses + vGRF on top,
+        # then one row per JOINT with its |resultant| -- right leg red, left
+        # blue (the pose/GRF colours); SO solid, CEINMS dashed. The components
+        # stay in output_<origin>.sto.
+        from bioscout.plot.task_figure import TaskStrip, SIDE_COLOR
+        _src = [(lbl, df, ls) for lbl, df, ls in ((labels[0], so, "-"), (labels[1], ce, "--"))
+                if df is not None]
 
-        for r, j in enumerate(joints):
-            # columns 0..2: Fx/Fy/Fz — one line per side (leg) x source (SO/CEINMS)
-            for c in range(3):
-                ax = axg[r][c]; ax.axis('on')
-                _ser = []
-                for sd, lsty, slab in _sides:
-                    col = jcols_by[sd][j][c]
-                    sfx = f" {slab}" if slab else ""
-                    s, e = _norm(_get(so, col)), _norm(_get(ce, col))
-                    if s is not None: ax.plot(so['time'].values, s, color='tab:blue', ls=lsty, label=f'SO{sfx}'); _ser.append(s)
-                    if e is not None: ax.plot(ce['time'].values, e, color='tab:red', ls=lsty, label=f'CEINMS{sfx}'); _ser.append(e)
-                ax.set_title(f"{j} {_axis[c]}"); ax.set_xlabel("time normalised (s)"); ax.set_ylabel(f"Force ({_unit})")
-                _robust_ylim(ax, _ser)
-                ax.legend(fontsize=8)
+        def _mag(df, cols3):
+            comps = [_get(df, col) for col in cols3]
+            return (np.sqrt(comps[0]**2 + comps[1]**2 + comps[2]**2)
+                    if all(x is not None for x in comps) else None)
 
-            # column 3: |resultant| = sqrt(Fx^2+Fy^2+Fz^2) — per side
-            ax = axg[r][3]; ax.axis('on')
-            def _mag(df, cols3):
-                comps = [_get(df, col) for col in cols3]
-                return (np.sqrt(comps[0]**2 + comps[1]**2 + comps[2]**2)
-                        if all(x is not None for x in comps) else None)
+        def _peak(a):
+            a = np.asarray(a, float)
+            a = a[_edge:a.size - _edge] if a.size > 2 * _edge else a
+            return float(np.nanmax(a)) if np.isfinite(a).any() else np.nan
+
+        _t_all = (so if so is not None else ce)['time'].values
+        _win = (float(_t_all[0]), float(_t_all[-1]))
+        _cyc = _win[1] - _win[0]
+        _offs = [m for m in _marks if _win[0] < m < _win[0] + 0.9 * _cyc]
+        _stance_win = (_win[0], max(_offs) if _offs else _win[0] + 0.62 * _cyc)
+
+        # in-vivo contact force (instrumented implant), when the trial has one:
+        # {"<joint>_<side>": (time, |F| N)} -> black dashed on that joint's row
+        try:
+            _meas = self._invivo_jcf() or {}
+        except Exception as _e:
+            self._log(f'[Warning] in-vivo JCF not loaded: {_e}')
+            _meas = {}
+
+        def _meas_for(j):
+            return [(k.rsplit('_', 1)[-1], tt, ff) for k, (tt, ff) in _meas.items()
+                    if k.rsplit('_', 1)[0].lower() in j.lower()]
+
+        def _draw(ax, j):
             _ser = []
-            for sd, lsty, slab in _sides:
-                _cols3 = jcols_by[sd][j][:3]
-                sfx = f" {slab}" if slab else ""
-                sm, em = _norm(_mag(so, _cols3)), _norm(_mag(ce, _cols3))
-                if sm is not None: ax.plot(so['time'].values, sm, color='tab:blue', ls=lsty, label=f'SO{sfx}'); _ser.append(sm)
-                if em is not None: ax.plot(ce['time'].values, em, color='tab:red', ls=lsty, label=f'CEINMS{sfx}'); _ser.append(em)
-            ax.set_title(f"{j} |resultant|"); ax.set_xlabel("time normalised (s)"); ax.set_ylabel(f"|F| ({_unit})")
+            for _sd, tt, ff in _meas_for(j):
+                mv = _norm(np.asarray(ff, float))
+                ax.plot(tt, mv, color='k', ls='--', lw=1.8, zorder=4)
+                _ser.append(mv[(np.asarray(tt) >= _win[0]) & (np.asarray(tt) <= _win[1])])
+            for sd, _, _ in _sides:
+                for lbl, df, ls in _src:
+                    m = _norm(_mag(df, jcols_by[sd][j][:3]))
+                    if m is not None:
+                        ax.plot(df['time'].values, m, color=SIDE_COLOR.get(sd, 'k'),
+                                ls=ls, lw=1.4, zorder=3)
+                        _ser.append(m)
             _robust_ylim(ax, _ser)
+            # literature contact-force bands (x BW), gait-like trials only
+            _jl = j.lower()
+            _entity = next((e for e in ('hip', 'knee', 'ankle') if e in _jl), None)
+            if _bw and _entity and _gait_like and getattr(self, 'overlay_literature_jcf', True):
+                try:
+                    from bioscout.model.inspect import literature_jcf as _ljcf
+                    _S = _u.settings.BatchSettings
+                    _ljcf.overlay_joint_contact_force(
+                        ax, entity=_entity, gait_window=_win,
+                        stance_window=_stance_win, central=False,
+                        band_alpha=getattr(_S, 'literature_band_alpha', 0.18),
+                        line_alpha=getattr(_S, 'literature_line_alpha', 0.60),
+                        line_width=getattr(_S, 'literature_line_width', 1.8))
+                except Exception as _e:
+                    self._log(f'[Warning] literature JCF overlay failed: {_e}')
+            if ax.get_legend() is not None:
+                ax.get_legend().remove()
 
-            # Overlay literature joint-contact-force bands (xBW) on the resultant
-            # subplot when the model is normalised to body weight and a matching
-            # literature entity exists (hip/knee/ankle). Literature 0-100 % gait
-            # cycle is mapped onto the EXACT plotted data span so the two share an
-            # identical time axis. Shade only (no central line), extra transparent.
-            # Event marks (toe-off etc.) drawn as vertical dashed lines.
-            if _bw and getattr(self, 'overlay_literature_jcf', True):
-                _jl = j.lower()
-                _entity = next((e for e in ('hip', 'knee', 'ankle') if e in _jl), None)
-                _t = (so['time'].values if so is not None else ce['time'].values)
-                _win = (float(_t[0]), float(_t[-1]))   # == data span (one gait cycle)
-                for _m in _marks:
-                    if _win[0] <= _m <= _win[1]:
-                        ax.axvline(_m, color='0.4', ls=':', lw=1, zorder=0)
-                # Stance sub-window (heel-strike -> ipsilateral toe-off) for
-                # stance-only literature curves. Toe-off = the last foot-off mark
-                # before ~90% of the cycle (ipsilateral); fallback ~62% of cycle.
-                _cyc = _win[1] - _win[0]
-                _offs = [m for m in _marks if _win[0] < m < _win[0] + 0.9 * _cyc]
-                _stance_win = (_win[0], max(_offs) if _offs else _win[0] + 0.62 * _cyc)
-                if _entity is not None and _gait_like:
-                    try:
-                        from bioscout.model.inspect import literature_jcf as _ljcf
-                        _S = _u.settings.BatchSettings
-                        _ljcf.overlay_joint_contact_force(
-                            ax, entity=_entity, gait_window=_win,
-                            stance_window=_stance_win, central=False,
-                            band_alpha=getattr(_S, 'literature_band_alpha', 0.18),
-                            line_alpha=getattr(_S, 'literature_line_alpha', 0.60),
-                            line_width=getattr(_S, 'literature_line_width', 1.8))
-                    except Exception as _e:
-                        self._log(f'[Warning] literature JCF overlay failed: {_e}')
-            ax.legend(fontsize=7)
-
-        fig.tight_layout(rect=[0, 0, 1, 0.97])
-        _dir = os.path.join(self.path, os.path.dirname(self.jra) or "")
-        os.makedirs(_dir, exist_ok=True)
-        save_path = os.path.join(_dir, save_name)
-        plt.savefig(save_path, dpi=150)
-        print(f"    JRA comparison figure saved: {save_path}", flush=True)
-        return fig, axg
+        rows = []
+        for j in joints:
+            pk = []
+            for sd, _, _ in _sides:
+                for lbl, df, _ls in _src[:1]:
+                    m = _norm(_mag(df, jcols_by[sd][j][:3]))
+                    if m is not None:
+                        pk.append(f"{sd.upper()} {_peak(m):.2f}")
+            for _sd, tt, ff in _meas_for(j):
+                tt, mv = np.asarray(tt, float), _norm(np.asarray(ff, float))
+                w = (tt >= _win[0]) & (tt <= _win[1])
+                if w.any():
+                    pk.append(f"in vivo {_sd.upper()} {np.nanmax(mv[w]):.2f}")
+            ttl = f"{j} |resultant|" + (f"   peak ({_src[0][0]}): " + ", ".join(pk)
+                                         + f" {_unit}" if pk else "")
+            rows.append(dict(draw=lambda a, j_=j: _draw(a, j_), title=ttl,
+                             ylabel=f"|F| ({_unit})"))
+        if _stale and rows:
+            rows[0]['title'] += f"   NOT COMPARABLE: {_stale}"
+            rows[0]['title_color'] = '#b00020'
+        h = [plt.Line2D([], [], color=SIDE_COLOR[sd], lw=1.4,
+                        label='right' if sd == 'r' else 'left') for sd, _, _ in _sides]
+        h += [plt.Line2D([], [], color='0.3', lw=1.4, ls=ls, label=lbl) for lbl, _df, ls in _src]
+        if _meas:
+            h.append(plt.Line2D([], [], color='k', lw=1.8, ls='--', label='in vivo (implant)'))
+        if _bw and _gait_like and getattr(self, 'overlay_literature_jcf', True):
+            h.append(plt.Line2D([], [], color='0.6', lw=6, alpha=0.3, label='literature'))
+        if save_path is None:
+            _dir = os.path.join(self.path, os.path.dirname(self.jra) or "")
+            save_path = os.path.join(_dir, save_name)
+        TaskStrip(self.path, t_range=_win, log=self._log).figure(
+            rows, save_path, legend=h, row_height=1.5)
+        print(f"[JRA] figure -> {os.path.basename(save_path)}", flush=True)
+        return save_path, None
 
     def run_emg_filter(self):
         """Per-trial: filter raw EMG -> emg_filtered.mot."""
@@ -4556,8 +5763,10 @@ class Analyse:
             moments_file_path = os.path.join(self.path, self.ma, f"_MuscleMoments_{dof_name}_{forces_type}.sto")
             _u.write_sto_file(muscle_moments, moments_file_path)
             _done.append(dof_name)
-            print(f"Muscle moments saved to: {os.path.abspath(moments_file_path)}")
 
+        if _done:
+            print(f"[{forces_type.upper()}] muscle moments -> muscle_analysis/_MuscleMoments_<dof>_{forces_type}.sto "
+                  f"({len(_done)} coordinates)")
         if not _done:
             raise FileNotFoundError(
                 f"[calculate_muscle_moments] no moment-arm files under "
@@ -5138,14 +6347,19 @@ class Analyse:
         print(f"    IK+ID summary figure saved: {save_path}", flush=True)
         return fig, axg
 
-    def plot_kin_mom_summary(self, dofs=None):
+    def plot_kin_mom_summary(self, dofs=None, compare=None, save_path=None):
         """Compact kinematics+moments figure for the summary DOFs only.
 
-        Two rows: TOP = joint angles (deg), BOTTOM = ID moments (Nm). One column
-        per DOF base (left/right merged onto the same column: right=blue, left=red).
+        Vertical task layout (poses + vGRF on top), then one row per DOF base:
+        ID moment solid (left axis) and joint angle dotted (right axis), left and
+        right merged in one row (right red, left blue, midline black).
         DOFs come from SummarySettings.dofs unless overridden. Saved to the
         external_biomechanics folder as ``kinematics_moments.png``. Replaces the
-        old joint_angles.png / inverse_dynamics.png / inverse_dynamics_summary.png."""
+        old joint_angles.png / inverse_dynamics.png / inverse_dynamics_summary.png.
+
+        ``compare=(ik_path, id_path, label)`` overlays a second IK/ID pair
+        (dashed, same colours) -- e.g. the RRA re-run; ``save_path`` overrides
+        the output file."""
         os.makedirs(self.path, exist_ok=True); os.chdir(self.path)
         # Name the model this figure describes. Four printBasicInfo blocks used
         # to sit here saying it in 52 lines; one line says it better, and says
@@ -5171,6 +6385,12 @@ class Analyse:
 
         ang = _u.load_any_data_file(self.ik)
         mom = _u.load_any_data_file(self.id)
+        ang2 = mom2 = None
+        if compare:
+            ang2 = _u.load_any_data_file(compare[0])
+            mom2 = _u.load_any_data_file(compare[1])
+            ta2 = pd.to_numeric(ang2['time'], errors='coerce').to_numpy(float)
+            tm2 = pd.to_numeric(mom2['time'], errors='coerce').to_numpy(float)
 
         # moment column lookup keyed by coordinate name
         mom_map = {}
@@ -5245,63 +6465,70 @@ class Analyse:
         except Exception as _e:
             self._log(f'[plot_kin_mom_summary] marker-error annotation skipped: {_e}')
 
-        ncols = len(order)
-        fig, axes = plt.subplots(2, ncols, figsize=(max(3.0 * ncols, 6), 6),
-                                 squeeze=False)
-        fig.suptitle('Kinematics (top) & Moments (bottom)', fontsize=15)
-        side_style = {'r': ('tab:blue', 'right'), 'l': ('tab:red', 'left'),
-                      'none': ('black', None)}
+        # Vertical task layout (bioscout.plot.task_figure): poses + vGRF on top,
+        # then ONE ROW PER DOF -- ID moment solid (left axis, N·m) and joint
+        # angle dotted (right axis, deg); right leg red, left blue, midline black
+        # (same colours as the poses and the GRF).
+        from bioscout.plot.task_figure import TaskStrip, SIDE_COLOR
+        side_col = {'r': SIDE_COLOR['r'], 'l': SIDE_COLOR['l'], 'none': 'k'}
         ta = ang['time'].values
         tm = mom['time'].values
-        for j, base in enumerate(order):
-            ax_ang, ax_mom = axes[0][j], axes[1][j]
+
+        def _draw(a, base):
+            a2 = a.twinx()
             for side, dof in groups[base].items():
-                color, lab = side_style.get(side, ('black', None))
-                if dof in ang.columns:
-                    ax_ang.plot(ta, pd.to_numeric(ang[dof], errors='coerce'),
-                                color=color, label=lab)
+                c = side_col.get(side, 'k')
                 mcol = mom_map.get(dof)
                 if mcol is not None:
-                    ax_mom.plot(tm, pd.to_numeric(mom[mcol], errors='coerce'),
-                                color=color, label=lab)
-            ax_ang.set_title(base, fontsize=10)
-            # marker-error text box (per-joint RMS if available, else global)
-            jk = base.split('_')[0]
-            note = None
-            if jk in marker_err:
-                parts = [f"{s.upper()} {marker_err[jk][s]:.1f}"
-                         for s in ('r', 'l') if s in marker_err[jk]]
-                if parts:
-                    note = 'mk err (mm): ' + ', '.join(parts)
-            elif global_rms is not None:
-                note = f'IK RMS(all mk): {global_rms:.1f} mm'
-            if note:
-                ax_ang.text(0.02, 0.97, note, transform=ax_ang.transAxes,
-                            fontsize=6.5, va='top', ha='left',
-                            bbox=dict(boxstyle='round,pad=0.25', fc='white',
-                                      ec='0.6', alpha=0.85))
-            ax_ang.set_ylabel('Angle (deg)', fontsize=9)
-            ax_mom.set_ylabel('Moment (Nm)', fontsize=9)
-            ax_mom.set_xlabel('Time (s)', fontsize=9)
-            for ax in (ax_ang, ax_mom):
-                ax.tick_params(labelsize=8)
-            if any(s in groups[base] for s in ('r', 'l')):
-                ax_ang.legend(fontsize=7)
+                    a.plot(tm, pd.to_numeric(mom[mcol], errors='coerce'), color=c,
+                           lw=1.4, zorder=3)
+                if dof in ang.columns:
+                    a2.plot(ta, pd.to_numeric(ang[dof], errors='coerce'), color=c,
+                            lw=1.0, ls=':', zorder=2)
+                if mom2 is not None:
+                    if mcol is not None and mcol in mom2.columns:
+                        a.plot(tm2, pd.to_numeric(mom2[mcol], errors='coerce'), color=c,
+                               lw=1.4, ls='--', alpha=0.8, zorder=3)
+                    if dof in ang2.columns:
+                        a2.plot(ta2, pd.to_numeric(ang2[dof], errors='coerce'), color=c,
+                                lw=1.0, ls=(0, (1, 1)), alpha=0.6, zorder=2)
+            a.axhline(0, color='0.75', lw=0.5)
+            a.set_ylabel('force (N)' if str(mom_map.get(next(iter(groups[base].values())), ''))
+                         .endswith('_force') else 'N·m', fontsize=7)
+            a2.set_ylabel('angle (°)', fontsize=7, color='0.45')
+            a2.tick_params(labelsize=6, colors='0.45')
 
-        fig.tight_layout(rect=[0, 0, 1, 0.96])
-        save_path = os.path.join(self.path, os.path.dirname(self.ik),
-                                 'kinematics_moments.png')
-        fig.savefig(save_path, dpi=140)
+        rows = []
+        for base in order:
+            jk = base.split('_')[0]
+            note = ''
+            if jk in marker_err:
+                parts = [f"{s_.upper()} {marker_err[jk][s_]:.1f}"
+                         for s_ in ('r', 'l') if s_ in marker_err[jk]]
+                if parts:
+                    note = '   marker error (mm): ' + ', '.join(parts)
+            elif global_rms is not None:
+                note = f'   IK RMS (all markers): {global_rms:.1f} mm'
+            rows.append(dict(draw=lambda a, b_=base: _draw(a, b_), title=base + note))
+        h = [plt.Line2D([], [], color=SIDE_COLOR['r'], lw=1.4, label='right'),
+             plt.Line2D([], [], color=SIDE_COLOR['l'], lw=1.4, label='left'),
+             plt.Line2D([], [], color='0.3', lw=1.4, label='ID moment (left axis)'),
+             plt.Line2D([], [], color='0.3', lw=1.0, ls=':', label='joint angle (right axis)')]
+        if compare:
+            h += [plt.Line2D([], [], color='0.3', lw=1.4, ls='--', alpha=0.8,
+                             label=f'ID moment, {compare[2]}'),
+                  plt.Line2D([], [], color='0.3', lw=1.0, ls=(0, (1, 1)), alpha=0.6,
+                             label=f'joint angle, {compare[2]}')]
+        if save_path is None:
+            save_path = os.path.join(self.path, os.path.dirname(self.ik),
+                                     'kinematics_moments.png')
+        _t = getattr(self, 'time_range', None)
+        _t = (tuple(map(float, _t)) if isinstance(_t, (list, tuple)) and len(_t) == 2
+              else (float(tm[0]), float(tm[-1])))
+        TaskStrip(self.path, t_range=_t, log=self._log).figure(
+            rows, save_path, legend=h, row_height=1.25)
         print(f"    kinematics+moments summary saved: {save_path}", flush=True)
-        # Drop it from pyplot's global registry. This runs once per trial per
-        # iteration; at ~22 MB retained per figure an unclosed one costs about
-        # a gigabyte per 48 trials, which is what makes long runs crawl. The
-        # returned Figure stays usable -- close() only unregisters it.
-        try:
-            plt.close(fig)
-        except Exception:
-            pass
-        return fig, axes
+        return save_path, None
 
     def plot_so(self):
         """Static-Optimization results — one figure, one subplot per muscle.
@@ -5310,7 +6537,7 @@ class Analyse:
         and — for muscles with a measured EMG channel (via
         CEINMSSettings.emg_muscle_mapping) — the normalised EMG shaded grey in the
         background. Uses the model's real muscle set, so pelvis residuals
-        (FX/FY/..) and reserve actuators are excluded. Saved as SO_results.png
+        (FX/FY/..) and reserve actuators are excluded. Saved as muscle_individual.png
         (no trial name) next to the SO results."""
         os.makedirs(self.path, exist_ok=True); os.chdir(self.path)
         so_forces = _u.load_any_data_file(self.so_forces)
@@ -5389,7 +6616,7 @@ class Analyse:
         fig.tight_layout(rect=[0, 0.02, 1, 0.985])
         _so_dir = os.path.join(self.path, os.path.dirname(self.so_forces) or "")
         os.makedirs(_so_dir, exist_ok=True)
-        out = os.path.join(_so_dir, "SO_results.png")
+        out = os.path.join(_so_dir, _sof.FIG_INDIVIDUAL)
         fig.savefig(out, dpi=130)
         self._log(f'Saved SO results figure: {out}')
 
@@ -5397,7 +6624,7 @@ class Analyse:
         try:
             self._plot_muscle_groups(
                 [('SO', so_forces, so_activations, '-')], emg,
-                os.path.join(_so_dir, 'SO_muscle_groups.png'),
+                os.path.join(_so_dir, _sof.FIG_GROUPS),
                 'Static Optimization — muscle groups (EMG-mapped)')
         except Exception as _e:
             self._log(f'[Warning] SO muscle-groups plot failed: {_e}')
@@ -5468,11 +6695,8 @@ class Analyse:
             self._log('[muscle_groups] no EMG-mapped groups to plot.')
             return None
 
-        ncol = min(5, len(panels))
-        nrow = int(np.ceil(len(panels) / ncol))
-        fig, axg = plt.subplots(nrow, ncol, figsize=(3.0 * ncol, 2.2 * nrow), squeeze=False)
-        for i, (gname, mm, ch) in enumerate(panels):
-            a = axg[i // ncol][i % ncol]; a2 = a.twinx()
+        def _draw(a, gname, mm, ch):
+            a2 = a.twinx()
             emg_y = emg_t = None
             if emg_df is not None and ch and ch in emg_df.columns:
                 emg_y = pd.to_numeric(emg_df[ch], errors='coerce').to_numpy(float)
@@ -5502,117 +6726,59 @@ class Analyse:
             a2.set_ylim(0, 1.05)
             a.tick_params(axis='y', labelsize=6, colors='tab:red')
             a2.tick_params(axis='y', labelsize=6, colors='0.35')
-            a.set_title(gname, fontsize=8); a.set_xlim(t0, t1)
-            a.tick_params(axis='x', labelsize=6); a.margins(x=0)
+            a.set_title(gname, fontsize=7.5, loc='left')
             if _stats:
                 # single source: compact title suffix; multiple: stacked text box
                 if len(_stats) == 1:
                     _, r2, rm = _stats[0]
-                    a.set_title(f"{gname}  R²={r2:.2f}  RMSE={rm:.2f}", fontsize=7)
+                    a.set_title(f"{gname}   R²={r2:.2f}  RMSE={rm:.2f}", fontsize=7.5, loc='left')
                 else:
                     txt = "\n".join(f"{l}: R²={r2:.2f} RMSE={rm:.2f}"
                                     for l, r2, rm in _stats)
                     a.text(0.03, 0.97, txt, transform=a.transAxes, fontsize=5.5,
                            va='top', ha='left',
                            bbox=dict(boxstyle='round', fc='white', ec='0.7', alpha=0.7))
-        for j in range(len(panels), nrow * ncol):
-            axg[j // ncol][j % ncol].axis('off')
-
         handles = [plt.Line2D([], [], color='tab:red', lw=1.5, label='∑ force (N, left)'),
                    plt.Line2D([], [], color='0.35', lw=1.5, label='mean activation (right)'),
                    plt.Line2D([], [], color='0.6', lw=6, alpha=0.4, label='EMG (shaded)'),
                    plt.Line2D([], [], color='none', label='R²/RMSE = EMG vs activation')]
         if len(sources) > 1:
             handles += [plt.Line2D([], [], color='0.2', lw=1.3, ls=s[3], label=s[0]) for s in sources]
-        fig.legend(handles=handles, loc='lower center', ncol=len(handles), fontsize=9, frameon=False)
-        fig.suptitle(title, fontsize=13)
-        fig.tight_layout(rect=[0, 0.05, 1, 0.96])
-        os.makedirs(os.path.dirname(out_path), exist_ok=True)
-        fig.savefig(out_path, dpi=130); plt.close(fig)
+        from bioscout.plot.task_figure import TaskStrip
+        rows = [dict(draw=lambda a, g=g, m=m, c=c: _draw(a, g, m, c), ylabel='force (N)')
+                for g, m, c in panels]
+        TaskStrip(self.path, t_range=(t0, t1), log=self._log).figure(
+            rows, out_path, legend=handles, row_height=1.2)
         self._log(f'Saved muscle-groups figure: {out_path}')
         return out_path
 
-    def plot_so_reserves(self):
-        """Reserve-actuator inspection for Static Optimization.
+    def plot_muscle_moments(self):
+        """ID moment vs the moment the muscles carry, per reserved coordinate.
 
-        One panel per coordinate that has a ``<coord>_reserve`` column in the SO
-        force file. Each reserve is plotted as a PERCENTAGE of that coordinate's
-        Inverse-Dynamics moment (100·reserve/ID_moment), with green (±10%) and
-        gold (±25%) shaded acceptance bands — small reserves mean the muscles are
-        carrying the joint moment. Saved to the SO folder as
-        ``SO_reserves_inspection.png``."""
-        os.makedirs(self.path, exist_ok=True); os.chdir(self.path)
-        so = _u.load_any_data_file(self.so_forces)
-        idm = _u.load_any_data_file(self.id)
-        t0, t1 = self.get_time_range()
+        ``static_optimisation/muscle_moments_<side>.png`` (+ ``muscle_moments.csv``):
+        poses and vGRF on top, then one row per reserved coordinate of that leg --
+        ID (black), muscles = ID - reserve (blue), reserve (purple), joint angle
+        (grey); errors as % of the ID moment's RANGE. See
+        bioscout.simulate.so_files.plot_muscle_moments."""
+        so_f = _sof.pick(os.path.join(self.path, self.so_forces))
+        id_f = os.path.join(self.path, self.id)
+        try:
+            t_range = self.get_time_range()
+        except Exception:
+            t_range = None
+        return _sof.plot_muscle_moments(so_f, id_f, t_range=t_range,
+                                        order=list(_ID_PROX_DISTAL), log=self._log)
 
-        reserves = [c for c in so.columns if str(c).endswith('_reserve')]
-        if not reserves:
-            self._log('[plot_so_reserves] no reserve columns in SO force file.')
-            return None, None
-
-        ts = pd.to_numeric(so['time'], errors='coerce').to_numpy(float)
-        ti = pd.to_numeric(idm['time'], errors='coerce').to_numpy(float)
-        # order proximal->distal where known
-        def _key(c):
-            base = c[:-len('_reserve')]
-            return (_ID_PROX_DISTAL.index(base) if base in _ID_PROX_DISTAL
-                    else len(_ID_PROX_DISTAL), c)
-        reserves.sort(key=_key)
-
-        ncol = min(5, len(reserves))
-        nrow = int(np.ceil(len(reserves) / ncol))
-        fig, axg = plt.subplots(nrow, ncol, figsize=(3.0 * ncol, 2.3 * nrow),
-                                squeeze=False)
-        for i, rc in enumerate(reserves):
-            a = axg[i // ncol][i % ncol]
-            base = rc[:-len('_reserve')]
-            res = pd.to_numeric(so[rc], errors='coerce').to_numpy(float)
-            mcol = base + '_moment'
-            a.axhspan(-10, 10, color='green', alpha=0.12, zorder=0)
-            a.axhspan(10, 25, color='gold', alpha=0.12, zorder=0)
-            a.axhspan(-25, -10, color='gold', alpha=0.12, zorder=0)
-            if mcol in idm.columns:
-                mom = pd.to_numeric(idm[mcol], errors='coerce').to_numpy(float)
-                mom_i = np.interp(ts, ti, mom)
-                with np.errstate(divide='ignore', invalid='ignore'):
-                    pct = np.where(np.abs(mom_i) > 1e-6, 100.0 * res / mom_i, np.nan)
-                a.plot(ts, pct, color='tab:purple', lw=1.1, zorder=3)
-                mp = np.nanmax(np.abs(pct)) if np.isfinite(pct).any() else 30.0
-                peak = f"  peak={mp:.0f}%"
-                # show the FULL curve — symmetric limit at least ±30 (so the
-                # ±10/±25% bands stay visible) but expand to the data peak.
-                _lim = max(30.0, float(mp) * 1.1)
-                a.set_ylim(-_lim, _lim)
-            else:
-                a.plot(ts, res, color='tab:purple', lw=1.1, zorder=3)
-                peak = "  (no ID moment)"   # absolute reserve; let it auto-scale
-            a.axhline(0, color='0.5', lw=0.6)
-            a.set_title(base + peak, fontsize=7)
-            a.set_xlim(t0, t1); a.tick_params(labelsize=6); a.margins(x=0)
-            a.set_ylabel('reserve (% of ID moment)', fontsize=6)
-        for j in range(len(reserves), nrow * ncol):
-            axg[j // ncol][j % ncol].axis('off')
-
-        h = [plt.Line2D([], [], color='tab:purple', lw=1.5, label='reserve (% of ID moment)'),
-             plt.Line2D([], [], color='green', lw=6, alpha=0.3, label='±10%'),
-             plt.Line2D([], [], color='gold', lw=6, alpha=0.3, label='±25%')]
-        fig.legend(handles=h, loc='lower center', ncol=3, fontsize=9, frameon=False)
-        fig.suptitle('SO reserve actuators — % of Inverse-Dynamics moment', fontsize=13)
-        fig.tight_layout(rect=[0, 0.05, 1, 0.96])
-        _so_dir = os.path.join(self.path, os.path.dirname(self.so_forces) or "")
-        os.makedirs(_so_dir, exist_ok=True)
-        out = os.path.join(_so_dir, 'SO_reserves_inspection.png')
-        fig.savefig(out, dpi=130); plt.close(fig)
-        self._log(f'Saved SO reserves inspection figure: {out}')
-        return fig, axg
+    #: back-compat name
+    plot_so_reserves = plot_muscle_moments
 
     def plot_residuals(self):
         """Pelvis residual inspection for Inverse Dynamics.
 
-        Six panels: the three pelvis residual FORCES (pelvis_tx/ty/tz_force) and
-        three residual MOMENTS (pelvis_tilt/list/rotation_moment), each plotted as
-        a PERCENTAGE of the instantaneous resultant |GRF| (forces) or |GRF|·h
+        Vertical task layout (poses + vGRF on top, bioscout.plot.task_figure),
+        then six rows: the three pelvis residual FORCES (pelvis_tx/ty/tz_force)
+        and three residual MOMENTS (pelvis_tilt/list/rotation_moment), each
+        absolute (left axis) and as a PERCENTAGE of the instantaneous resultant |GRF| (forces) or |GRF|·h
         proxy (moments use |GRF| too), with green (±10%) and gold (±25%) shaded
         bands — the standard residual-acceptance thresholds. Saved to the
         external_biomechanics folder as ``residuals.png``."""
@@ -5640,53 +6806,52 @@ class Analyse:
                   ('pelvis_tilt_moment', 'tilt residual moment'),
                   ('pelvis_list_moment', 'list residual moment'),
                   ('pelvis_rotation_moment', 'rotation residual moment')]
-        fig, axg = plt.subplots(2, 3, figsize=(13, 6.4), squeeze=False)
-        for i, (col, label) in enumerate(panels):
-            a = axg[i // 3][i % 3]                      # LEFT axis: absolute (N / Nm)
+        def _draw(a, col):
             is_force = col.endswith('_force')
             a.axhline(0, color='0.5', lw=0.6, zorder=1)
-            present = col in idm.columns
-            if present:
+            if col in idm.columns:
                 res = pd.to_numeric(idm[col], errors='coerce').to_numpy(float)
-                a.plot(ti, res, color='tab:purple', lw=1.3, zorder=3)  # absolute (left)
-            a.set_ylabel('Residual force (N)' if is_force else 'Residual moment (Nm)',
+                a.plot(ti, res, color='tab:purple', lw=1.3, zorder=3)   # absolute (left)
+            a.set_ylabel('force (N)' if is_force else 'moment (N·m)',
                          fontsize=7, color='tab:purple')
             a.tick_params(axis='y', labelsize=6, colors='tab:purple')
-            a.tick_params(axis='x', labelsize=6); a.set_xlim(t0, t1); a.margins(x=0)
-
-            # RIGHT axis: % of instantaneous |GRF| — shaded ±10 / ±25 % bands here.
+            # RIGHT axis: % of instantaneous |GRF| -- shaded ±10 / ±25 % bands.
             a2 = a.twinx()
             a2.axhspan(-10, 10, color='green', alpha=0.12, zorder=0)
             a2.axhspan(10, 25, color='gold', alpha=0.12, zorder=0)
             a2.axhspan(-25, -10, color='gold', alpha=0.12, zorder=0)
             a2.set_ylim(-30, 30); a2.set_ylabel('% of |GRF|', fontsize=7, color='0.4')
             a2.tick_params(axis='y', labelsize=6, colors='0.4')
-            if present and grf_mag is not None:
+            if col in idm.columns and grf_mag is not None:
+                a2.plot(ti, _pct[col], color='0.45', ls='--', lw=0.9, zorder=2)
+
+        _pct, rows = {}, []
+        for col, label in panels:
+            if col not in idm.columns:
+                rows.append(dict(draw=lambda a, c=col: _draw(a, c),
+                                 title=f"{label} (missing)"))
+                continue
+            title = f"{label} (no GRF for %)"
+            if grf_mag is not None:
+                res = pd.to_numeric(idm[col], errors='coerce').to_numpy(float)
                 gm = np.interp(ti, grf_t, grf_mag)
                 with np.errstate(divide='ignore', invalid='ignore'):
-                    pct = np.where(np.abs(gm) > 1e-6, 100.0 * res / gm, np.nan)
-                a2.plot(ti, pct, color='0.45', ls='--', lw=0.9, zorder=2)  # % (right)
-                mp = np.nanmax(np.abs(pct)) if np.isfinite(pct).any() else 0.0
-                a.set_title(f"{label}  peak={mp:.0f}% |GRF|", fontsize=8)
-            elif present:
-                a.set_title(f"{label} (no GRF for %)", fontsize=8)
-            else:
-                a.set_title(f"{label} (missing)", fontsize=8)
+                    _pct[col] = np.where(np.abs(gm) > 1e-6, 100.0 * res / gm, np.nan)
+                mp = np.nanmax(np.abs(_pct[col])) if np.isfinite(_pct[col]).any() else 0.0
+                title = f"{label}   peak {mp:.0f} % |GRF|"
+            rows.append(dict(draw=lambda a, c=col: _draw(a, c), title=title))
 
-        h = [plt.Line2D([], [], color='tab:purple', lw=1.5, label='residual (N/Nm, left axis)'),
+        h = [plt.Line2D([], [], color='tab:purple', lw=1.5, label='residual (N / N·m, left axis)'),
              plt.Line2D([], [], color='0.45', lw=1.3, ls='--', label='% of |GRF| (right axis)'),
-             plt.Line2D([], [], color='green', lw=6, alpha=0.3, label='±10%'),
-             plt.Line2D([], [], color='gold', lw=6, alpha=0.3, label='±25%')]
-        fig.legend(handles=h, loc='lower center', ncol=4, fontsize=9, frameon=False)
-        fig.suptitle('Inverse-Dynamics pelvis residuals — absolute (left) & % of |GRF| (right)',
-                     fontsize=13)
-        fig.tight_layout(rect=[0, 0.05, 1, 0.96])
+             plt.Line2D([], [], color='green', lw=6, alpha=0.3, label='±10 %'),
+             plt.Line2D([], [], color='gold', lw=6, alpha=0.3, label='±25 %')]
         _e_dir = os.path.join(self.path, os.path.dirname(self.id) or "")
-        os.makedirs(_e_dir, exist_ok=True)
         out = os.path.join(_e_dir, 'residuals.png')
-        fig.savefig(out, dpi=130); plt.close(fig)
+        from bioscout.plot.task_figure import TaskStrip
+        TaskStrip(self.path, t_range=(t0, t1), log=self._log).figure(
+            rows, out, legend=h, row_height=1.2)
         self._log(f'Saved residuals figure: {out}')
-        return fig, axg
+        return out
 
     def muscle_inspect(self, motion=None, coordinate_names=None, muscle_filter=None,
                        filter_freq=6.0, max_iterations=3, min_jump_mm=1.0,
@@ -6774,8 +7939,6 @@ class Analyse:
         start_time = _u.time.time()
         os.makedirs(self.path, exist_ok=True); os.chdir(self.path)
 
-        if os.path.exists(self.ceinms_uncalibrated_model):
-            _u.ceinms.plot_ceinms_model_parameters(self.ceinms_uncalibrated_model)
 
         calibrationSetupPath = os.path.abspath(self.ceinms_calibration_setup)
 
@@ -6818,7 +7981,6 @@ class Analyse:
         mod_time = os.path.getmtime(self.ceinms_calibrated_model)
         if mod_time >= start_time:
             self._log(f'CEINMS calibration completed successfully in {mod_time - start_time:.2f} seconds.')
-            _u.ceinms.plot_ceinms_model_parameters(self.ceinms_calibrated_model)
             
             # plot moments vs ceinms results
             try:
@@ -6830,10 +7992,10 @@ class Analyse:
             
             # plot emg vs ceinms excitations using uncalibrated model as reference
             try:
-                _u.ceinms.plot_compare_ceinms_models(uncalibratedModelPath=self.ceinms_uncalibrated_model,calibratedModelPath=self.ceinms_calibrated_model)
-                self._log(f'[Success] Plotted EMG vs CEINMS results for calibrated model: {self.ceinms_calibrated_model}')
-            except:
-                self._log(f'[ERROR] Could not plot EMG vs CEINMS results for calibrated model: {self.ceinms_calibrated_model}')
+                _u.ceinms.plot_calibration_parameters(self.ceinms_uncalibrated_model, self.ceinms_calibrated_model)
+                self._log(f'[Success] Plotted calibration parameters for: {self.ceinms_calibrated_model}')
+            except Exception as _e:
+                self._log(f'[ERROR] Could not plot calibration parameters: {_e}')
         else:
             self._log(f'[WARNING] CEINMS calibration may have failed: calibrated model not updated.')
             
@@ -7137,7 +8299,7 @@ class Analyse:
         return True
 
     def plot_ceinms_execution_comparison(self):
-        """CEINMS-vs-SO muscle results in the SO_results.png layout.
+        """CEINMS-vs-SO muscle results in the muscle_individual.png layout.
 
         One subplot per muscle: FORCE in red (CEINMS solid, SO dashed; N on the
         left axis) and ACTIVATION in grey (CEINMS solid, SO dashed; 0-1 on the

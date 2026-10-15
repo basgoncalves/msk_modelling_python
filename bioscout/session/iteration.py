@@ -30,7 +30,7 @@ from .config import (
     yaml_bool, load_session_yaml, body_mass_from_static,
     _iteration_blocks, calibration_trial_names, normalisation_trial_names,
     emg_map_name_for, resolve_emg_map, resolve_emg_gain,
-    calibration_name_for, resolve_calibration, iteration_is_calibrated,
+    calibration_name_for, resolve_calibration, iteration_is_calibrated, ceinms_for,
     ITERATION_KEYS, ITERATION_FILE_KEYS, normalise_iterations, IterationKeys,
 )
 
@@ -93,7 +93,16 @@ class Iteration(IterationKeys):
         self.session_dir = os.path.abspath(session_dir)
         self.iteration = iteration
         self.name = os.path.basename(self.session_dir)      # session id, e.g. "25_03_31"
-        self._cfg = self._read_yaml(os.path.join(self.session_dir, "session.yaml"))
+        cfg = self._read_yaml(os.path.join(self.session_dir, "session.yaml"))
+        # An iteration may carry its own body_mass (a prescaled model built for
+        # a known mass). Overlaid on the SESSION view this iteration reads, so
+        # scaling, the per-trial configs and JRA's BW normalisation all use it
+        # -- which the session-level key alone could not express.
+        _bm = ((_iteration_blocks(cfg).get(iteration) or {}).get("body_mass")
+               if isinstance(cfg, dict) else None)
+        if _bm is not None:
+            cfg = dict(cfg, body_mass=float(_bm))
+        self._cfg = cfg
         self._setup_dir = self._resolve_setup_dir()
 
     @staticmethod
@@ -148,8 +157,16 @@ class Iteration(IterationKeys):
             root = self._project_dir()
         except Exception:
             root = None
+        _c = getattr(self, "_cfg", None) or {}
+        if root and _c.get("setup_dir"):
+            # session.yaml's setup_dir is THE answer when it is set: no fallbacks
+            sd = str(_c["setup_dir"])
+            sd = os.path.abspath(sd if os.path.isabs(sd) else os.path.join(root, sd))
+            if not os.path.isdir(sd):
+                print(f"[session.yaml WARNING] setup_dir does not exist: {sd}")
+            return sd
         if root:
-            sf = (getattr(self, "_cfg", None) or {}).get("setup_folder")
+            sf = _c.get("setup_folder")
             if sf:
                 cands.append(str(sf) if os.path.isabs(str(sf))
                              else os.path.join(root, str(sf)))
@@ -187,6 +204,12 @@ class Iteration(IterationKeys):
         for key, rel, path in rows:
             if not rel:
                 continue
+            if key == "so_actuators":
+                from bioscout.simulate.so_actuators import percent_spec as _pct
+                if _pct(path) is not None:
+                    log(f"  {key:<14}: ok       {path}  (built per trial: every reserve at "
+                        f"{_pct(path):g} % of that trial's peak ID moment)")
+                    continue
             ok = bool(path) and os.path.exists(str(path))
             try:                              # shown project-relative when inside it
                 where = os.path.relpath(str(path), self._project_dir())
@@ -285,6 +308,19 @@ class Iteration(IterationKeys):
         # (reported 2026-08-17, FAIS 022).
         _norm_only = (name in set(normalisation_trial_names(self._cfg))
                       and name not in set(calibration_trial_names(self._cfg)))
+        # Same for any trial with NO markers in experimental/: MVIC captures not
+        # listed under emg_normalisation, static-EMG captures, anything exported
+        # for EMG only. Without a .trc there is no IK, so no stage can ever write
+        # into this iteration -- the folder would stay empty for good. Judged on
+        # the shared experimental inputs, not on this iteration's folder, so the
+        # verdict is the same for every iteration.
+        if not _norm_only:
+            try:
+                _exp = t.experimental_dir
+                _norm_only = os.path.isdir(_exp) and not any(
+                    f.lower().endswith(".trc") for f in os.listdir(_exp))
+            except Exception:
+                pass
         t._scaffold_output_dirs = not _norm_only
         t._apply_inputs_layout()
         self._apply_session_config(t, name, force_type)     # session.yaml is the source of truth
@@ -317,7 +353,7 @@ class Iteration(IterationKeys):
 
           * ``kinematics_moments.png``     — plot_kin_mom_summary (IK angles + ID moments)
           * ``summary``                    — plot_summary (angles + SO/CEINMS muscle moments)
-          * ``JRA_SO_vs_CEINMS.png``       — plot_jra_comparison (joint contact forces)
+          * ``jrf_so_vs_ceinms.png``       — plot_jra_comparison (joint contact forces)
 
         Defaults come from ``settings.SummarySettings`` (dofs, analysis_leg,
         algorithms, joints, ...). ``figures`` selects which to make — any of
@@ -448,7 +484,7 @@ class Iteration(IterationKeys):
         session.yaml). Which model a trial loads: :meth:`model_file`.
         """
         meta = (self._cfg.get("trials") or {}).get(name) or {}
-        ce = (self._cfg.get("ceinms") or {})
+        ce = ceinms_for(self._cfg, self.iteration)      # iteration's over the session's
         cfg = {}
         tr = meta.get("time_range")
         if isinstance(tr, (list, tuple)) and len(tr) == 2:
@@ -471,6 +507,12 @@ class Iteration(IterationKeys):
             cfg["trial_type"] = str(meta["type"])
         if self._cfg.get("body_mass") is not None:
             cfg["body_mass"] = self._cfg["body_mass"]
+        # IK marker weights: {marker or body: weight}, session-wide then this
+        # iteration's on top (a marker name beats its body; 0 = not tracked).
+        _ikw = dict(self._cfg.get("ik_weights") or {})
+        _ikw.update((_iteration_blocks(self._cfg).get(self.iteration) or {}).get("ik_weights") or {})
+        if _ikw:
+            cfg["ik_weights"] = {str(k): float(v) for k, v in _ikw.items()}
         # Channel -> muscles for THIS session's electrode set. Sessions captured
         # months apart label and place channels differently, so the session file
         # outranks the project-wide settings.BatchSettings.emg_muscle_mapping.
@@ -533,6 +575,12 @@ class Iteration(IterationKeys):
         # separate copied session for the control would reintroduce exactly the
         # drift `emg_map` and `calibration:` were moved into the file to end.
         _itb = _iteration_blocks(self._cfg).get(self.iteration) or {}
+        if getattr(self, "so_actuators", None):
+            cfg["so_actuators"] = self.so_actuators
+        if getattr(self, "so_actuators_template", None):
+            cfg["so_actuators_template"] = self.so_actuators_template
+        if _itb.get("so_residuals_from_id") is not None:
+            cfg["so_residuals_from_id"] = yaml_bool(_itb["so_residuals_from_id"])
         if _itb.get("calibrated") is not None:
             cfg["ceinms_calibrated"] = yaml_bool(_itb["calibrated"])
         for k in ("gamma_bounds", "alpha_range", "beta_range", "gamma_range",
@@ -560,10 +608,15 @@ class Iteration(IterationKeys):
                   f"(iterations.{self.iteration}) for {trial or force_type}")
             return None
         if not os.path.exists(m):
-            print(f"[Session] {self.tag}: [warn] model_scaled not found: {m} "
-                  f"(iterations.{self.iteration}.model_scaled = "
-                  f"{self.config.get('model_scaled')!r}, relative to {self.path}). "
-                  f"Scale first: it.scale_model()")
+            # Said ONCE per iteration, not once per trial: every trial object
+            # goes through here (the export too, which needs no model at all),
+            # and 64 copies of the same line buried everything else in the log.
+            if not getattr(self, "_warned_no_model", False):
+                self._warned_no_model = True
+                print(f"[Session] {self.tag}: model_scaled not found yet: "
+                      f"{os.path.relpath(m, self.session_dir) if os.path.isabs(m) else m} "
+                      f"-- fine for export/classify; scale before IK/ID/MA/SO/CEINMS "
+                      f"(Session.run(do_scale=True))")
             return m
         if str(force_type).upper().startswith("C"):
             return m
@@ -629,28 +682,40 @@ class Iteration(IterationKeys):
     # experimental/ inputs. They used to live on a combined god-class; they are
     # Iteration methods now (the pipeline in run()/scale_model() calls them
     # directly — no session_layout indirection).
-    @property
-    def calibration_trials(self):
-        """CEINMS calibration trial names (settings.CEINMSSettings) present here."""
+    def _wanted_calibration_trials(self):
+        """Calibration trial names, in priority order: the session's own
+        ``session.yaml`` (per-trial ``calibration: true`` flags, or the legacy
+        top-level ``calibration_trials:`` list) first; only when the session
+        says nothing, the project-level ``settings.CEINMSSettings``
+        (``project.yaml``). The session is the source of truth at run time, so
+        a project default naming a trial that does not exist here (e.g.
+        ``Run_baselineA1`` in a pre session) must not override it."""
+        wanted = list(calibration_trial_names(self._cfg) or [])
+        if wanted:
+            return wanted, "session.yaml"
         from bioscout import utils
         cs = getattr(getattr(utils, "settings", None), "CEINMSSettings", None)
-        names = getattr(cs, "calibration_trial_names", None) or []
+        return list(getattr(cs, "calibration_trial_names", None) or []), "project settings"
+
+    @property
+    def calibration_trials(self):
+        """CEINMS calibration trial names (session.yaml, else settings) present here."""
+        names, _ = self._wanted_calibration_trials()
         here = set(self._trial_names())
         return [n for n in names if n in here]
 
     def _resolve_calibration_trials(self):
-        """Calibration trial folders for THIS session: settings names matched to
-        real folders (case-insensitive); falls back to squats, then all trials."""
+        """Calibration trial folders for THIS session: session.yaml names (else
+        project settings) matched to real folders (case-insensitive); falls
+        back to squats, then all trials."""
         here = self._trial_names()
         lower = {t.lower(): t for t in here}
-        from bioscout import utils
-        cs = getattr(getattr(utils, "settings", None), "CEINMSSettings", None)
-        wanted = list(getattr(cs, "calibration_trial_names", None) or [])
+        wanted, src = self._wanted_calibration_trials()
         matched = [lower[w.lower()] for w in wanted if w.lower() in lower]
         if matched:
             return matched
         if wanted:
-            print(f"[Session] {self.tag}: calibration trials {wanted} not found; falling back.")
+            print(f"[Session] {self.tag}: calibration trials {wanted} ({src}) not found; falling back.")
         squats = [t for t in here if "squat" in t.lower()]
         return squats or here
 
@@ -701,8 +766,27 @@ class Iteration(IterationKeys):
         from bioscout import utils as _u
         _wset = ({write_trials} if isinstance(write_trials, str)
                  else set(write_trials)) if write_trials else None
-        envelopes = {}
+        # The session-max reference is written to 2_experimental/maxemg.txt
+        # (channel, max, the trial and instant that set it). It is REUSED
+        # when it is newer than every trial's raw emg.mot: filtering 60+
+        # trials again just to re-derive the same maxima was most of the cost
+        # of every export and every CEINMS re-run.
+        _maxfile = os.path.join(os.path.dirname(experimental_dir(self.session_dir, "_")),
+                                "maxemg.txt")
+        _raw_paths = []
         for t in self.trials:
+            for cand in (getattr(t, "emg", None), os.path.join("inputs", "emg.mot"), "emg.mot"):
+                if cand and os.path.exists(os.path.join(t.path, cand)):
+                    _raw_paths.append(os.path.join(t.path, cand))
+                    break
+        _cached = self._read_maxemg(_maxfile) if not replace else None
+        if _cached and _raw_paths and os.path.getmtime(_maxfile) < max(
+                os.path.getmtime(x) for x in _raw_paths):
+            _cached = None                 # a trial changed since: recompute
+        _need = ([t for t in self.trials if os.path.basename(t.path) in _wset]
+                 if (_wset is not None and _cached) else list(self.trials))
+        envelopes = {}
+        for t in _need:
             try:
                 env = t._emg_envelope()
             except Exception as e:
@@ -717,6 +801,8 @@ class Iteration(IterationKeys):
         chans = set()
         for env in envelopes.values():
             chans |= {c for c in env.columns if c != 'time'}
+        if _cached:
+            chans |= set(_cached)
 
         # -- VALIDATE the emg_map against the labels that actually exist.
         # The FAIS trap: every electrode exported twice (bare Voltage_N + the
@@ -752,16 +838,27 @@ class Iteration(IterationKeys):
                         f"{'...' if len(chans) > 12 else ''}. Fix "
                         f"session.yaml's emg_map; refusing to normalise "
                         f"against columns that do not exist.")
-        session_max, session_max_trial = {}, {}
-        for c in chans:
-            best_m, best_t = 0.0, None
-            for t, env in envelopes.items():
-                if c in env:
-                    m = float(env[c].max())
-                    if m > best_m:
-                        best_m, best_t = m, os.path.basename(t.path)
-            session_max[c] = best_m if best_m > 1e-9 else 1.0
-            session_max_trial[c] = best_t
+        session_max, session_max_trial, session_max_time = {}, {}, {}
+        if _cached:
+            for c, (m, tn, tt) in _cached.items():
+                session_max[c], session_max_trial[c], session_max_time[c] = m, tn, tt
+            print(f"[Session] {self.tag}: EMG session-max reference reused from "
+                  f"{os.path.relpath(_maxfile, self.session_dir)} "
+                  f"({len(_cached)} channels; delete it or pass replace to recompute)")
+        else:
+            for c in chans:
+                best_m, best_t, best_tt = 0.0, None, float("nan")
+                for t, env in envelopes.items():
+                    if c in env:
+                        i = int(env[c].values.argmax())
+                        m = float(env[c].values[i])
+                        if m > best_m:
+                            best_m, best_t = m, os.path.basename(t.path)
+                            best_tt = float(env["time"].values[i]) if "time" in env else float("nan")
+                session_max[c] = best_m if best_m > 1e-9 else 1.0
+                session_max_trial[c] = best_t
+                session_max_time[c] = best_tt
+            self._write_maxemg(_maxfile, session_max, session_max_trial, session_max_time)
         done = []
         chans_sorted = sorted(chans)      # canonical EMG order for CEINMS
         # session.yaml `emg_gain`, applied AFTER the session-max division --
@@ -771,11 +868,21 @@ class Iteration(IterationKeys):
         if gains:
             print(f"[Session] {self.tag}: emg_gain "
                   + ", ".join(f"{c} x{g:g}" for c, g in sorted(gains.items())))
+        _up_to_date = []
         for t, env in envelopes.items():
             if _wset is not None and os.path.basename(t.path) not in _wset:
                 continue                  # reference-only: feeds session-max, not (re)written
             if replace is not None:
                 t.update_trial_attribute("replace", replace)
+            _exc_abs = os.path.join(t.path, t.emg_filtered_normalised)
+            _raw = next((os.path.join(t.path, c) for c in
+                         (getattr(t, "emg", None), os.path.join("inputs", "emg.mot"), "emg.mot")
+                         if c and os.path.exists(os.path.join(t.path, c))), None)
+            if (not replace and os.path.exists(_exc_abs) and _raw
+                    and os.path.getmtime(_exc_abs) >= os.path.getmtime(_raw)
+                    and os.path.getmtime(_exc_abs) >= os.path.getmtime(_maxfile)):
+                _up_to_date.append(t)     # same reference, same raw signal: same file
+                continue
             out = env[['time']].copy()
             for c in chans_sorted:
                 if c in env:
@@ -796,7 +903,8 @@ class Iteration(IterationKeys):
                 print(f"[Session] {self.tag}: EMG normalise failed for "
                       f"{os.path.basename(t.path)}: {e}")
         print(f"[Session] {self.tag}: wrote emg_filtered_normalised.mot for "
-              f"{len(done)} trials (session-max normalised, [0,1]).")
+              f"{len(done)} trials (session-max normalised, [0,1])"
+              + (f"; {len(_up_to_date)} already up to date" if _up_to_date else "") + ".")
         for t in done:
             try:
                 if os.environ.get("BIOSCOUT_QC_PLOTS", "1").strip().lower() not in ("0", "false", "off", "no"):   # BIOSCOUT_QC_PLOTS=0 skips the per-trial png
@@ -804,6 +912,51 @@ class Iteration(IterationKeys):
             except Exception as e:
                 print(f"[Session] EMG figure failed for {os.path.basename(t.path)}: {e}")
         return done
+
+    @staticmethod
+    def _read_maxemg(path):
+        """{channel: (max, trial, time)} from maxemg.txt, or None."""
+        if not os.path.isfile(path):
+            return None
+        out = {}
+        try:
+            with open(path, encoding="utf-8") as fh:
+                for line in fh:
+                    if not line.strip() or line.startswith("#"):
+                        continue
+                    parts = line.rstrip("\n").split("\t")
+                    if len(parts) < 3:
+                        continue
+                    tt = float(parts[3]) if len(parts) > 3 and parts[3] not in ("", "nan") else float("nan")
+                    out[parts[0]] = (float(parts[1]), parts[2] or None, tt)
+        except Exception:                                      # noqa: BLE001
+            return None
+        return out or None
+
+    def _write_maxemg(self, path, session_max, trial_of, time_of):
+        """The session-max reference, one channel per line, tab-separated:
+        channel, max (envelope units), trial that set it, time in that trial,
+        and the muscles the channel drives (from emg_map)."""
+        try:
+            _map = resolve_emg_map(self._cfg, getattr(self, "iteration", None),
+                                   strict=False) or {}
+        except Exception:                                      # noqa: BLE001
+            _map = {}
+        try:
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write("# EMG session-max reference (rectified linear envelope), "
+                         f"written by bioscout {time.strftime('%Y-%m-%d %H:%M')}\n")
+                fh.write("# every trial's emg_filtered_normalised.mot = envelope / max, "
+                         "clipped to [0, 1]. Delete this file to recompute.\n")
+                fh.write("channel\tmax\ttrial\ttime_s\tmuscles\n")
+                for c in sorted(session_max):
+                    mus = _map.get(c) or []
+                    mus = ", ".join(mus) if isinstance(mus, (list, tuple)) else str(mus)
+                    tt = time_of.get(c, float("nan"))
+                    fh.write(f"{c}\t{session_max[c]:.6g}\t{trial_of.get(c) or ''}\t"
+                             f"{'' if tt != tt else f'{tt:.3f}'}\t{mus}\n")
+        except Exception as e:                                 # noqa: BLE001
+            print(f"[Session] {self.tag}: could not write {path}: {e}")
 
     # clean alias
     def normalise_emg(self, replace=None, write_trials=None):
@@ -1133,7 +1286,7 @@ class Iteration(IterationKeys):
             m = self.model_scaled
             if m and os.path.exists(m):
                 print(f"[Session] {self.tag}: no model_generic -- model_scaled is used as "
-                      f"given ({self.relpath(m)}); nothing to scale.")
+                      f"given ({self.relpath(m, 'model_scaled')}); nothing to scale.")
                 return self._ensure_model_so()
             print(f"[Session] [ERROR] {self.tag}: iterations.{self.iteration} has no "
                   f"model_generic to scale, and model_scaled "
@@ -1224,11 +1377,11 @@ class Iteration(IterationKeys):
             target = os.path.join(_mdir, f"{self.iteration}_scaled.osim")
             print(f"[Session] {self.tag}: no model_scaled in session.yaml -- writing "
                   f"{target}. Add under iterations.{self.iteration}:\n"
-                  f"    model_scaled: {self.relpath(target)}")
+                  f"    model_scaled: {self.relpath(target, 'model_scaled')}")
         _stem, _ext = os.path.splitext(target)
         so_path = target if mvic_factor == 1.0 else f"{_stem}_mvicx{mvic_factor:.2f}{_ext}"
         if os.path.exists(target) and os.path.exists(so_path) and not replace:
-            print(f"[Session] {self.tag}: model exists: {self.relpath(target)} (replace=True rebuilds)")
+            print(f"[Session] {self.tag}: model exists: {self.relpath(target, 'model_scaled')} (replace=True rebuilds)")
             return so_path
 
         # 1) ScaleTool -> scaled.osim (marker registration; dimensional scaling only
@@ -1255,10 +1408,26 @@ class Iteration(IterationKeys):
             print(f"[Session] {self.tag}: marker aliases from session.yaml: "
                   + ", ".join(f"{k}->{v}" for k, v in sorted(_aliases.items())))
 
+        _spec = None
+        _tool = self.scale_tool
+        if _tool:
+            if not os.path.exists(_tool):
+                raise FileNotFoundError(f"{self.tag}: scale_tool not found: {_tool} "
+                                        f"({self.source('scale_tool')})")
+            print(f"[Session] {self.tag}: ScaleTool template: {_tool}")
+            if self.scale_measurements:
+                print(f"[session.yaml WARNING] {self.tag}: scale_measurements ignored -- "
+                      f"scale_tool sets the MeasurementSet. Delete scale_measurements.")
+        elif self.scale_measurements:
+            from bioscout.model.scale.measurements import spec_from_config
+            _spec = spec_from_config(self.scale_measurements)
+            print(f"[Session] {self.tag}: MeasurementSet from session.yaml: "
+                  + ", ".join(n for n, _p, _b in _spec))
         scale_model(generic, trc, scaled, scale_setup_output_dir=_mdir,
                     mass=(float(mass) if mass else None), marker_set_file=markerset,
                     linear_scaling=linear, marker_placer=mplace,
-                    marker_aliases=_aliases or None)
+                    marker_aliases=_aliases or None, measurement_spec=_spec,
+                    scale_tool=_tool)
 
         # Name the model after what it IS. OpenSim's ScaleTool names its output
         # after the tool, and openSim.scale_model calls the tool "ModelScaling",
@@ -1318,6 +1487,28 @@ class Iteration(IterationKeys):
         if os.path.abspath(target) != os.path.abspath(base):
             shutil.copyfile(base, target)
 
+        # 3b) Optional allometric strength (session.yaml `fmax_scaling`): max
+        #     isometric force from Handsfield 2014 total muscle volume (height x
+        #     mass; mass only when no `height`), / optimal-fibre-length ratio,
+        #     x Handsfield 2017 sprinter % for "handsfield_sprinter". Applied to
+        #     model_scaled itself, so CEINMS and SO (x mvic_factor) both carry it.
+        fmax = (it.get("fmax_scaling") or "").lower()
+        if fmax:
+            from bioscout.model import scale_muscle_forces as _smf
+            if fmax not in ("handsfield", "handsfield_sprinter"):
+                print(f"[Session] [ERROR] {self.tag}: fmax_scaling {fmax!r} unknown "
+                      f"(handsfield | handsfield_sprinter) -- not applied.")
+            else:
+                _h = it.get("height") or self._cfg.get("height")
+                _fac = _smf.scale_max_isometric_force(
+                    target, target, float(mass), float(_h) if _h else None,
+                    method="height_mass" if _h else "mass", generic_model=generic,
+                    athlete="sprinter" if fmax.endswith("sprinter") else None)
+                _v = sorted(_fac.values())
+                print(f"[Session] {self.tag}: fmax_scaling={fmax} "
+                      f"(mass {float(mass):.1f} kg, height {_h or 'n/a'}) -> "
+                      f"{len(_v)} muscles x {_v[0]:.2f}..{_v[-1]:.2f}")
+
         # 4) SO model = model_scaled with isometric force x mvic_factor, beside it.
         #    increase_isometric_force writes <target>_increased_X.osim.
         if mvic_factor != 1.0:
@@ -1325,6 +1516,29 @@ class Iteration(IterationKeys):
             produced = target.replace(".osim", f"_increased_{mvic_factor:.2f}.osim")
             if os.path.exists(produced) and os.path.abspath(produced) != os.path.abspath(so_path):
                 shutil.move(produced, so_path)
+
+        # 5) An iteration that names its SO actuators (so_actuators) keeps its
+        #    scaled model MUSCLES-ONLY: ScaleTool copies the generic's reserves
+        #    and residuals in, and leaving them there means two places decide
+        #    what SO gets (and a <model>_noact.osim copy per model). Several
+        #    iterations can then share one scaled model and differ only in
+        #    their actuator file.
+        if self.so_actuators:
+            from bioscout.simulate.so_actuators import strip_in_place as _strip
+            for _p in {target, so_path}:
+                if os.path.exists(_p):
+                    _n = _strip(_p)
+                    if _n:
+                        print(f"[Session] {self.tag}: {_n} non-muscle actuators removed from "
+                              f"{os.path.basename(_p)} (SO takes them from {os.path.basename(self.so_actuators)})")
+        # the subject-named ScaleTool output is an intermediate once copied
+        if (os.path.abspath(base) == os.path.abspath(scaled)
+                and os.path.abspath(scaled) != os.path.abspath(target)
+                and os.path.exists(scaled)):
+            try:
+                os.remove(scaled)
+            except OSError:
+                pass
 
         print(f"[Session] {self.tag}: model_scaled -> {os.path.abspath(target)}")
         if so_path != target:
@@ -1440,6 +1654,8 @@ class Iteration(IterationKeys):
             do_exbiomec=False,
             do_muscle_analysis=False,
             do_so=False,
+            do_rra=False,
+            do_forward=False,
             do_mew=False,
             do_ceinms=False,
             calibrate=False, calibration_trials=None,
@@ -1463,6 +1679,15 @@ class Iteration(IterationKeys):
                         Required by ``do_so``; when do_so runs without it, any
                         missing MA output is filled in without overwriting.
           do_so       : SO stage (SO -> muscle moments -> JRA), needs IK/ID/MA.
+          do_rra      : Residual Reduction Algorithm on the IK/GRF of each trial
+                        -> ``<trial>/residual_reduction/`` (adjusted kinematics,
+                        residuals, COM-adjusted model). Needs IK/ID (filled if
+                        missing). Diagnostic only: nothing downstream uses its
+                        outputs unless you point an iteration at them.
+          do_forward  : forward simulation: CMC tracking (muscle-driven) then the
+                        CMC excitations replayed open-loop with ForwardTool, + JRA on
+                        the CMC forces -> ``<trial>/forward_simulation/``. Uses the
+                        RRA kinematics/model when residual_reduction/ exists.
           do_mew      : mew (bioscout.simulate.mew, the Python muscle solver)
                         -> JRA, into ``<trial>/mew/``. Needs IK/ID/MA and the SO
                         force file (its residual/reserve columns balance the
@@ -1499,7 +1724,7 @@ class Iteration(IterationKeys):
         _bad = sorted(k for k in _ignored if k.startswith("do_"))
         if _bad:
             log(f"  [run] WARNING: unknown stage flag(s) {_bad} IGNORED -- stages are "
-                f"do_exbiomec, do_muscle_analysis, do_so, do_mew, do_ceinms "
+                f"do_exbiomec, do_muscle_analysis, do_so, do_rra, do_forward, do_mew, do_ceinms "
                 f"(plus export, do_scale)")
         if "skip_done" in _ignored:
             _ignored.pop("skip_done")
@@ -1525,9 +1750,9 @@ class Iteration(IterationKeys):
         names = ([trials] if isinstance(trials, str)
                  else list(trials)) if trials else self._trial_names()
         res = {"export": [], "exbiomec": [], "muscle_analysis": [], "so": [],
-               "mew": [], "ceinms": [], "skipped": []}
+               "rra": [], "forward": [], "mew": [], "ceinms": [], "skipped": []}
         log(f"=== {self.tag}  trials={names}  export={export} exbiomec={do_exbiomec} "
-            f"ma={do_muscle_analysis} so={do_so} mew={do_mew} ceinms={do_ceinms} "
+            f"ma={do_muscle_analysis} so={do_so} rra={do_rra} forward={do_forward} mew={do_mew} ceinms={do_ceinms} "
             f"replace={replace} ===")
 
         # -- Preflight: drop "ghost" trials with no raw experimental inputs. The
@@ -1570,7 +1795,7 @@ class Iteration(IterationKeys):
                 pass
 
         _itc = self.config
-        _ce = (self._cfg.get("ceinms") or {})
+        _ce = ceinms_for(self._cfg, self.iteration)
 
         def _model_disp(force_type="SO"):
             """The .osim a stage will use, for the stage banner."""
@@ -1579,15 +1804,52 @@ class Iteration(IterationKeys):
             except Exception as e:                             # noqa: BLE001
                 return f"(model: {e})"
 
+        def _body_mass_line(tn):
+            """`body mass: 78.64 kg  (model.osim)` for the stage header.
+
+            Analyse.get_body_mass() used to print this itself, mid-run, which
+            dropped it between the per-trial lines. It is a property of the
+            MODEL, so it belongs in the stage header next to the model path."""
+            try:
+                t = self.trial(tn)
+                bm = t.get_body_mass()
+                if not isinstance(bm, (int, float)):
+                    return None
+                return f"{bm:.2f} kg  ({os.path.basename(str(t.model_dir))})"
+            except Exception:
+                return None
+
         def _stage(title, **info):
-            """Log a section header for a pipeline stage + the settings it uses."""
+            """Log a section header for a pipeline stage + the settings it uses.
+
+            ``banner`` is logged after the box as ``Start <banner>:`` — the cue
+            that the tool itself is about to start talking."""
+            banner = info.pop("banner", None)
             log("")
             log("=" * 72)
             log(f"=== STAGE — {title}   [{self.tag}]")
+            # the iteration's own output folder, as a full path: clickable in
+            # the log file, so the results are one click from the stage header
+            log(f"       iteration folder: {os.path.abspath(self.path)}")
+            _trials = info.get("trials") or []
             for k, v in info.items():
-                if v not in (None, "", [], {}):
-                    log(f"       {k}: {v}")
+                if v in (None, "", [], {}):
+                    continue
+                # kwargs are identifiers; the header is prose.
+                _k = k.replace('_', ' ')
+                # a "<trial>" placeholder in a path is expanded to one real,
+                # clickable path per trial (not left as a template)
+                if isinstance(v, str) and "<trial>" in v and _trials:
+                    _ts = [_trials] if isinstance(_trials, str) else list(_trials)
+                    for _i, _t in enumerate(_ts):
+                        log(f"       {_k if _i == 0 else ' ' * len(_k)}"
+                            f"{':' if _i == 0 else ' '} {v.replace('<trial>', str(_t))}")
+                else:
+                    log(f"       {_k}: {v}")
             log("=" * 72)
+            if banner:
+                log("")
+                log(f"Start {banner}:")
 
         if export:
             _stage("C3D export -> EMG filter -> session EMG normalise -> "
@@ -1665,16 +1927,18 @@ class Iteration(IterationKeys):
                 tr = t.get_time_range()
             except Exception:
                 tr = None
-            log(f"    [{tn}] inputs — model={_b('model_dir')}  markers={_b('markers')}  "
-                f"grf={_b('setup_grf')}  time_range={tr}")
+            log(f"    [{tn}] time range: {tr}")
 
         if do_exbiomec:
             _stage("External biomechanics (IK -> ID)",
                    trials=names,
-                   model=_model_disp("SO"))
+                   model=_model_disp("SO"),
+                   body_mass=_body_mass_line(names[0]) if names else None,
+                   banner="External biomechanics")
             for tn in names:
                 try:
-                    log(f"  [exbiomec] {tn} — running (IK -> ID) ...")
+                    log("")
+                    log(f"[exbiomec] {tn} — running (IK -> ID)")
                     _t = self.trial(tn)
                     _log_inputs(tn, _t, "exbiomec")
                     _exbio(_t)
@@ -1687,10 +1951,13 @@ class Iteration(IterationKeys):
         if do_muscle_analysis:
             _stage("Muscle Analysis",
                    trials=names,
-                   model=_model_disp("SO"))
+                   model=_model_disp("SO"),
+                   body_mass=_body_mass_line(names[0]) if names else None,
+                   banner="Muscle Analysis")
             for tn in names:
                 try:
-                    log(f"  [MA] {tn} — running (Muscle Analysis) ...")
+                    log("")
+                    log(f"[MA] {tn} — running (Muscle Analysis)")
                     t = self.trial(tn)
                     _log_inputs(tn, t, "MA")
                     t.run_ma(replace=replace)
@@ -1706,10 +1973,13 @@ class Iteration(IterationKeys):
         if do_so:
             _stage("Static Optimisation (SO -> muscle moments -> JRA)",
                    trials=names,
-                   model=_model_disp("SO"))
+                   model=_model_disp("SO"),
+                   body_mass=_body_mass_line(names[0]) if names else None,
+                   banner="Static Optimisation")
             for tn in names:
                 try:
-                    log(f"  [SO] {tn} — running (SO -> muscle moments -> JRA) ...")
+                    log("")
+                    log(f"[SO] {tn} — running (SO -> muscle moments -> JRA)")
                     t = self.trial(tn)
                     _log_inputs(tn, t, "SO")
                     if not do_exbiomec:
@@ -1726,6 +1996,44 @@ class Iteration(IterationKeys):
                     _close_figs()
                 except Exception as e:
                     log(f"  [SO ERROR] {tn}: {e}")
+
+        if do_rra:
+            _stage("Residual Reduction Algorithm (RRA)", trials=names,
+                   model=_model_disp("SO"),
+                   output=os.path.join(os.path.abspath(self.path), "<trial>", "residual_reduction"),
+                   banner="RRA")
+            for tn in names:
+                try:
+                    log("")
+                    t = self.trial(tn)
+                    log(f"[RRA] {tn} -> {os.path.abspath(os.path.join(t.path, t.rra_dir))}")
+                    if not do_exbiomec:
+                        _exbio(t, force=False)      # reuse existing IK/ID; only fill gaps
+                    _r = t.run_rra(replace=replace)
+                    res["rra"].append(tn)
+                    _d = os.path.abspath(os.path.join(t.path, t.rra_dir))
+                    log(f"  [RRA ok] {tn} -> {_d}")
+                    _close_figs()
+                except Exception as e:
+                    log(f"  [RRA ERROR] {tn}: {e}")
+
+        if do_forward:
+            _stage("Forward simulation (CMC -> open-loop forward)", trials=names,
+                   model=_model_disp("SO"),
+                   output=os.path.join(os.path.abspath(self.path), "<trial>", "forward_simulation"),
+                   banner="FORWARD")
+            for tn in names:
+                try:
+                    log("")
+                    t = self.trial(tn)
+                    if not do_exbiomec:
+                        _exbio(t, force=False)      # reuse existing IK/ID; only fill gaps
+                    t.run_forward(replace=replace)
+                    res["forward"].append(tn)
+                    log(f"  [FORWARD ok] {tn} -> {os.path.abspath(os.path.join(t.path, 'forward_simulation'))}")
+                    _close_figs()
+                except Exception as e:
+                    log(f"  [FORWARD ERROR] {tn}: {e}")
 
         if do_mew:
             _stage("mew (Python muscle solver -> JRA)",
@@ -1747,8 +2055,8 @@ class Iteration(IterationKeys):
                         _exbio(t, force=False)          # reuse IK/ID; only fill gaps
                     if not (do_muscle_analysis or do_so):
                         t.run_ma(replace=False)         # moment arms + lengths
-                    _so_f = os.path.join(t.path, "static_optimisation",
-                                         "SO_StaticOptimization_force.sto")
+                    from bioscout.simulate.so_files import pick as _pick, FORCE as _FORCE
+                    _so_f = _pick(os.path.join(t.path, "static_optimisation", _FORCE))
                     if not os.path.exists(_so_f):
                         log(f"  [mew] {tn}: no SO force file -- running SO first "
                             f"(its residual/reserve columns balance the JRA)")

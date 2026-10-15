@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import re
 import types
 
 #: How far up from the starting folder project.yaml is searched for. Six
@@ -172,6 +173,73 @@ def apply(base, data, source="project.yaml"):
 #: module object has its own ``settings``), announce once. Keyed on an env var
 #: rather than a module global for the same two-copies reason.
 _ANNOUNCED_ENV = "_BIOSCOUT_PROJECT_YAML_ANNOUNCED"
+
+
+#: The ``project:`` section: facts about THIS project that are not settings of
+#: the batch/CEINMS/plot classes -- the roster, the session states, what a
+#: window or a batch should default to. ``apply()`` ignores it (there is no
+#: settings attribute to set); :func:`project_facts` is how code reads it, and
+#: `bioscout project edit` is how a person edits it.
+#:
+#: Run SELECTION still does not belong here (see _RUN_SELECTION): "which
+#: subjects am I running right now" is a call-site question. `subjects:` and
+#: `skip_subjects:` are the project's ROSTER -- who is in the study at all --
+#: which is a fact about the project and outlives any one run.
+PROJECT_SECTION = "project"
+
+
+def project_facts(start=None):
+    """The ``project:`` section of the nearest project.yaml ({} when there is
+    none). Never raises: a malformed file is reported and treated as absent."""
+    try:
+        ypath = find_project_yaml(start)
+        if not ypath:
+            return {}
+        data = _load_yaml(ypath) or {}
+        facts = data.get(PROJECT_SECTION) or {}
+        if not isinstance(facts, dict):
+            print(f"[project.yaml] `{PROJECT_SECTION}:` must be a mapping -- ignored")
+            return {}
+        return facts
+    except Exception as e:                                     # noqa: BLE001
+        print(f"[project.yaml] could not read the project section ({e})")
+        return {}
+
+
+def set_project_facts(ypath, facts, *, dry_run=False):
+    """Rewrite ONLY the ``project:`` block of project.yaml, leaving every other
+    line -- comments included -- as it was. Returns the new text."""
+    import yaml
+    ypath = str(ypath)
+    raw = open(ypath, encoding="utf-8", errors="replace").read() if os.path.isfile(ypath) else ""
+    nl = "\r\n" if "\r\n" in raw else "\n"
+    lines = raw.replace("\r\n", "\n").split("\n")
+    body = yaml.safe_dump({PROJECT_SECTION: facts}, sort_keys=False,
+                          default_flow_style=False, allow_unicode=True,
+                          width=100).rstrip("\n").split("\n")
+    start = next((i for i, ln in enumerate(lines)
+                  if re.match(rf"^{PROJECT_SECTION}\s*:", ln)), None)
+    if start is None:
+        while lines and not lines[-1].strip():
+            lines.pop()
+        lines += body
+    else:
+        end = start + 1
+        while end < len(lines) and (not lines[end].strip()
+                                    or lines[end][:1] in (" ", "\t")):
+            end += 1
+        lines[start:end] = body
+    text = nl.join(lines).rstrip("\n") + nl
+    check = yaml.safe_load(text) or {}
+    if (check.get(PROJECT_SECTION) or {}) != (facts or {}):
+        raise RuntimeError(f"{ypath}: the edited text did not re-read as intended "
+                           f"-- nothing was written")
+    if not dry_run:
+        tmp = ypath + ".tmp"
+        with open(tmp, "w", encoding="utf-8", newline="") as fh:
+            fh.write(text)
+        os.replace(tmp, ypath)
+    return text
 
 
 def _announce(msg):

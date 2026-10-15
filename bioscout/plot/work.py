@@ -187,7 +187,7 @@ def work_table(records, phase="total", groups=None, sides=("_r",),
 
         rows = bs.plot.work_table([
             {"Task": "run",  "Condition": "pre",  "Trial": "run_01",
-             "force": ".../SO_StaticOptimization_force.sto",
+             "force": ".../StaticOptimization_force.sto",
              "length": ".../_MuscleAnalysis_Length.sto"},
             ...
         ])

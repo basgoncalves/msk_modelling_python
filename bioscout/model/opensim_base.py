@@ -35,6 +35,36 @@ def _assembly_accuracy(default=1e-8):
     except Exception:
         return default
 
+def _stdout_is_console():
+    """True when fd 1 must NOT be swapped for devnull.
+
+    On Windows ``sys.stdout`` wraps a _WindowsConsoleIO bound to the console
+    HANDLE, not to fd 1; swapping fd 1 leaves it writing to a handle that is no
+    longer a console and the next ordinary print() dies with
+    "OSError: [WinError 1] Incorrect function". Under MINGW / Git Bash fd 1 is a
+    pty and the same thing happens. Either way the redirect is unsafe."""
+    import sys as _sys
+    # bioscout's quiet CLI mode (every `simulate`/`session` verb without
+    # --verbose) has already replaced sys.stdout with a tee into the log file
+    # and a null console stream: no Python print() reaches the console handle,
+    # so swapping fd 1 is safe -- and it is the ONLY thing that silences the
+    # C++ printBasicInfo block on a Windows console, where the logger level is
+    # not enough. Without this the block still reached the terminal six
+    # times per exbiomec run, precisely in the mode meant to be quiet.
+    try:
+        from bioscout.utils import shared as _sh
+        if getattr(_sh, "QUIET_CONSOLE", False):
+            return False
+    except Exception:                                        # noqa: BLE001
+        pass
+    try:
+        _raw = getattr(getattr(_sys.stdout, "buffer", None), "raw", None)
+        return (os.name == "nt"
+                and (type(_raw).__name__ == "_WindowsConsoleIO"
+                     or _sys.stdout.isatty()))
+    except Exception:                                        # noqa: BLE001
+        return os.name == "nt"
+
 def _quiet_model(arg):
     """``osim.Model(arg)`` with its printBasicInfo() dump suppressed.
 
@@ -46,11 +76,14 @@ def _quiet_model(arg):
              ...
         misc modelcomponents: 0
 
-    It bypasses OpenSim's logger, so BatchSettings.opensim_log_level cannot
-    touch it, and it bypasses sys.stdout, so the _Tee log filter never sees it
-    either. Only a file-descriptor level redirect stops it.
+    On OpenSim 4.3+ it goes through the logger (log_info), so Logger level
+    "off" suppresses it -- but the tools reset the logger to 'info' as they run,
+    so the level is re-applied here immediately before EVERY construction. It
+    bypasses sys.stdout, so the _Tee log filter never sees it; where fd 1 can be
+    swapped safely (not a console) we redirect too, as belt and braces.
 
-    The redirect here is UNCONDITIONAL — deliberately not gated on
+    The redirect here is now gated on _stdout_is_console() -- it was unconditional,
+    which corrupted Git Bash. It used to be deliberately not gated on
     opensim_log_level like _osim_quiet_ctx(). That gate reads `settings`, which
     openSim.py resolves via a sys.path insert of its own directory, so which
     module it lands on depends on how the process was started; the block kept
@@ -58,10 +91,20 @@ def _quiet_model(arg):
     fd 2 (stderr) stays open throughout, so genuine OpenSim errors still surface.
     """
     import sys as _sys
+    # The primary mechanism: Model::printBasicInfo() goes through OpenSim's
+    # logger (log_info) on 4.3+, so setting the level to "off" suppresses it
+    # without touching any file descriptor. OpenSim's tools reset the logger to
+    # 'info' as they run, so it must be re-applied here, immediately before the
+    # construction, not once at import.
+    _quiet_osim()
     try:
         _sys.stdout.flush()
     except Exception:
         pass
+    if _stdout_is_console():
+        # Never swap fd 1 out from under a console -- that is what left Git Bash
+        # unusable. The logger level above is the whole suppression here.
+        return osim.Model(arg)
     try:
         _saved = os.dup(1)
     except Exception:                     # no real fd 1 (embedded/captured stdout)
@@ -105,8 +148,14 @@ def _quiet_osim():
             _lvl = None
         if not _lvl:
             _lvl = getattr(getattr(settings, "BatchSettings", None), "opensim_log_level", None)
+        # No level configured used to mean "do nothing" -- and on a console
+        # (Git Bash) the fd swap is skipped too, so every Model construction
+        # printed its printBasicInfo block to the terminal, six times per
+        # exbiomec run. Default to "error": OpenSim still reports failures,
+        # its [info] chatter does not. Set BatchSettings.opensim_log_level to
+        # "info" to see it again.
         if not _lvl:
-            return
+            _lvl = "error"
         _enum = {"off": osim.Logger.Level_Off, "critical": osim.Logger.Level_Critical,
                  "error": osim.Logger.Level_Error, "warn": osim.Logger.Level_Warn,
                  "warning": osim.Logger.Level_Warn, "info": osim.Logger.Level_Info,
@@ -174,15 +223,7 @@ def _osim_quiet_ctx():
     # sort happened. Only swap when stdout is NOT a console: a redirected file
     # or pipe survives it, and that is the case where the C++ chatter is worth
     # suppressing anyway.
-    _console = False
-    try:
-        _raw = getattr(getattr(_sys.stdout, "buffer", None), "raw", None)
-        _console = (os.name == "nt"
-                    and (type(_raw).__name__ == "_WindowsConsoleIO"
-                         or _sys.stdout.isatty()))
-    except Exception:                                        # noqa: BLE001
-        _console = os.name == "nt"
-    if _console:
+    if _stdout_is_console():
         try:
             yield
         finally:

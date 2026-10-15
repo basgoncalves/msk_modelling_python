@@ -34,7 +34,7 @@ iterations *is* the effect of the modelling choice, not of a path or a re-export
 
 Everything a run needs is declared in one `session.yaml`. There are no arguments
 to remember and no state hidden in a notebook: the same file drives the Python
-API, the command line and the GUI, so a session someone else hands you runs the
+API and the command line, so a session someone else hands you runs the
 same way yours does.
 
 ```python
@@ -67,6 +67,15 @@ See [Project structure](#project-structure) for the folder layout and what
 See [CHANGELOG.md](CHANGELOG.md) for release notes.
 
 ---
+
+## Interface
+
+`bioscout` is a Python package and a command line; it no longer ships a desktop
+GUI (removed in 3.1). For an interface use **[BioScout Web](https://basgoncalves.github.io/bioscout-web/)**:
+it runs in the browser with nothing to install, opens the same project folders
+(`project.yaml`, `session.yaml`, `1_c3dfiles/`, `2_experimental/`, `3_iterations/`)
+and writes its results where the Python package expects them, so the two can be
+used on the same project.
 
 ## Requirements
 
@@ -130,10 +139,9 @@ Nine verbs. Every one takes `--help` of its own, and `bioscout help <verb>` is t
 same thing.
 
 ```
-bioscout                 launch the GUI
+bioscout                 the verb list
 bioscout help [VERB]     the verb list, or one verb's detail
 bioscout init            create a project: folders, models, templates, project.yaml
-bioscout gui             launch the GUI
 bioscout model           check / edit / compare / tune-ma / validate / scale / tps
 bioscout simulate        run an OpenSim/CEINMS stage on a session (or mrs)
 bioscout session         new / export / classify / ingest / reset
@@ -955,6 +963,45 @@ compare exercise rankings by peak muscle force against peak EMG. The layout and
 the colour anchoring are theirs; the columns here are **models**, not two
 measures of one model, so output from this flag is not a replication of their
 result.
+
+### Joint angles and marker errors across iterations
+
+```bash
+bioscout plot kinematics "simulations/P3/session_01"
+bioscout plot kinematics "simulations/P3/session_01" --skip thesis_manual ast
+bioscout plot kinematics . --trial Bare1_Right,Bare2_Right --reference kainz_pwph
+```
+
+The step before `plot collings`: do the model iterations agree on the
+**kinematics**, and how well does each one track the markers. Reads what
+`bioscout simulate exbiomec` leaves in
+`3_iterations/<iteration>/<trial>/external_biomechanics/` (`joint_angles.mot`,
+`_ik_marker_errors.sto`, `_ik_marker_errors_all.sto`) as plain text, so it runs
+without OpenSim, and writes to `<session>/4_outputs/kinematics/`:
+
+| file | what it shows |
+|---|---|
+| `joint_angles_<trial>.png` | one panel per coordinate (pelvis, then right and left limb), one line per iteration |
+| `marker_errors_<trial>.png` | RMS and max marker error over time, and a marker x iteration map of the mean error |
+| `marker_errors_overview.png` | every iteration on one page: bar = mean over trials, dots = each trial |
+| `joint_angles.csv` | min / max / mean / range per coordinate, plus mean difference and RMSD against the reference iteration |
+| `marker_errors.csv` | mean and peak RMS and max error (mm), worst marker |
+
+Lines and bars use each iteration's `color:` and `label:` from `session.yaml`,
+in the order the file lists them. Rotations are unwrapped first, so a pelvis
+rotation crossing +/-180 deg is not read as a 360 deg range. The dashed 20 mm
+(RMS) and 40 mm (max) lines are OpenSim's rule-of-thumb limits for IK.
+
+| flag | meaning |
+|---|---|
+| `plot kinematics [SESSION]` | session folder; defaults to `.`. A project or subject folder works if exactly one session sits below it. |
+| `--skip A B ...` | iterations to leave out, case-insensitive |
+| `--iteration A,B` | only these iterations, in this order |
+| `--trial NAME[,NAME]` | restrict to these trials (default: all) |
+| `--dofs COORD ...` | coordinates to draw; end a name in `_?` for both sides |
+| `--reference ITERATION` | iteration the differences in `joint_angles.csv` are taken against (default: the first drawn) |
+| `--rms-limit MM`, `--max-limit MM` | move the guide lines (0 = none) |
+| `-o DIR` | output folder (default `<session>/4_outputs/kinematics`) |
 
 ## Figures & validation
 

@@ -616,3 +616,118 @@ def plot_ceinms_muscle_forces(ceinmsForcesFile=None):
     plt.close()
 
 
+
+
+# --------------------------------------------------------------------------- #
+# Calibration summary: uncalibrated (open) vs calibrated (filled) per muscle
+# group and side. Replaces the _parameters.png / _vs_uncalibrated.png bar
+# charts in the calibration run (those functions are kept for old callers).
+# --------------------------------------------------------------------------- #
+CALIBRATION_GROUPS = [
+    ("Gluteus maximus", ("glmax",)),
+    ("Gluteus med+min", ("glmed", "glmin")),
+    ("Adductors", ("add", "grac", "pect")),
+    ("Hamstrings", ("bflh", "bfsh", "semimem", "semiten")),
+    ("Rectus femoris", ("recfem",)),
+    ("Vasti", ("vas",)),
+    ("Iliopsoas", ("psoas", "iliacus")),
+    ("Triceps surae", ("gas", "soleus")),
+    ("Dorsiflexors", ("tibant", "edl", "ehl")),
+]
+
+
+def _read_mtus(path):
+    root = ET.parse(path).getroot()
+    rows = {}
+    for mtu in root.find("mtuSet").findall("mtu"):
+        rows[mtu.find("name").text] = {c.tag: float(c.text) for c in mtu
+                                        if c.tag != "name" and _isfloat(c.text)}
+    return pd.DataFrame.from_dict(rows, orient="index")
+
+
+def _isfloat(s):
+    try:
+        float(s); return True
+    except (TypeError, ValueError):
+        return False
+
+
+def _group_table(df):
+    """Per side x group: mean Lopt/Lts (mm), sum Fmax*strength (N), mean strength."""
+    df = df.copy()
+    df["Fmax_eff"] = df["maxIsometricForce"] * df.get("strengthCoefficient", 1.0)
+    out = []
+    for side in ("r", "l"):
+        for g, keys in CALIBRATION_GROUPS:
+            sel = df[[n.endswith("_" + side) and n.startswith(keys) for n in df.index]]
+            if sel.empty:
+                continue
+            row = dict(side=side.upper(), group=g,
+                       Lopt=sel["optimalFibreLength"].mean() * 1000,
+                       Lts=sel["tendonSlackLength"].mean() * 1000,
+                       Fmax=sel["Fmax_eff"].sum(),
+                       strength=sel.get("strengthCoefficient", pd.Series([1.0])).mean())
+            for k in ("c1", "c2", "shapeFactor"):
+                if k in sel:
+                    row[k] = sel[k].mean()
+            out.append(row)
+    return pd.DataFrame(out)
+
+
+def plot_calibration_parameters(uncalibratedModelPath, calibratedModelPath, out_png=None,
+                                title=None):
+    """Dumbbell figure: open = uncalibrated, filled = calibrated, one x slot per
+    side x muscle group. Writes <calibrated dir>/calibration_parameters.png and a
+    matching .csv (per-muscle values, both models)."""
+    u, c = _read_mtus(uncalibratedModelPath), _read_mtus(calibratedModelPath)
+    gu, gc = _group_table(u), _group_table(c)
+    out_png = out_png or os.path.join(os.path.dirname(os.path.abspath(calibratedModelPath)),
+                                      "calibration_parameters.png")
+    panels = [("Lopt", "(a) optimal fibre length", "L$_{opt}$ (mm)"),
+              ("Lts", "(b) tendon slack length", "L$_{slack}$ (mm)"),
+              ("Fmax", "(c) max isometric force x strength coefficient (group sum)", "F$_{max}$ (N)"),
+              ("strength", "(d) strength coefficient (group mean)", "strength coef. (-)")]
+    shape = [k for k in ("c1", "c2", "shapeFactor") if k in gc]
+    if shape:
+        panels.append(("shape", "(e) activation dynamics (group mean): c1, c2, shape factor", "value (-)"))
+    col = {"R": "#0072B2", "L": "#D55E00"}
+    x = np.arange(len(gc))
+    fig, axs = plt.subplots(len(panels), 1, figsize=(max(12, 0.75 * len(x)), 2.6 * len(panels)),
+                            sharex=True)
+    for ax, (key, ttl, yl) in zip(np.atleast_1d(axs), panels):
+        if key == "shape":
+            for j, (k, dx, mk) in enumerate(zip(shape, (-0.2, 0, 0.2), ("o", "s", "^"))):
+                for i in x:
+                    s = gc.side[i]
+                    ax.plot([i + dx] * 2, [gu[k][i], gc[k][i]], color=col[s], lw=1.2)
+                    ax.scatter(i + dx, gu[k][i], s=40, facecolor="white", edgecolor=col[s], marker=mk, zorder=3)
+                    ax.scatter(i + dx, gc[k][i], s=25, color=col[s], marker=mk, zorder=3,
+                               label=k if (i == 0) else None)
+            ax.legend(fontsize=7, loc="upper right", ncol=3)
+        else:
+            for i in x:
+                s = gc.side[i]
+                ax.plot([i, i], [gu[key][i], gc[key][i]], color=col[s], lw=1.5)
+                ax.scatter(i, gu[key][i], s=55, facecolor="white", edgecolor=col[s], lw=1.5, zorder=3)
+                ax.scatter(i, gc[key][i], s=35, color=col[s], zorder=3)
+            if key == "strength":
+                ax.axhline(1, color="grey", lw=0.8, ls=":")
+        ax.set_title(ttl, fontsize=10)
+        ax.set_ylabel(yl)
+        ax.grid(axis="y", alpha=0.3)
+        ax.spines[["top", "right"]].set_visible(False)
+    ax.set_xticks(x)
+    ax.set_xticklabels([f"{s} {g}" for s, g in zip(gc.side, gc.group)], rotation=35, ha="right", fontsize=8)
+    handles = [plt.Line2D([], [], marker="o", ls="", mfc="white", mec="k", label="uncalibrated"),
+               plt.Line2D([], [], marker="o", ls="", color="k", label="calibrated"),
+               plt.Line2D([], [], color=col["R"], lw=3, label="right"),
+               plt.Line2D([], [], color=col["L"], lw=3, label="left")]
+    fig.legend(handles=handles, loc="lower center", ncol=4, frameon=False)
+    fig.suptitle(title or "CEINMS calibration - muscle-tendon parameters, uncalibrated vs calibrated\n"
+                 + os.path.dirname(os.path.abspath(calibratedModelPath)), fontsize=11)
+    fig.tight_layout(rect=(0, 0.04, 1, 1))
+    fig.savefig(out_png, dpi=150)
+    plt.close(fig)
+    u.add_suffix("_uncal").join(c.add_suffix("_cal")).to_csv(out_png.replace(".png", ".csv"))
+    print(f"Calibration parameters plot saved to: {out_png}")
+    return out_png

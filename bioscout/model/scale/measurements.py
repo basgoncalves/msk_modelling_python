@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import os
 import numpy as np
+from bioscout.model.opensim_base import _quiet_model
 
 # Virtual joint-centre markers: model-side names (markers_powerlifter.xml).
 JC_MARKERS = ("RHJCWK", "LHJCWK", "RKJCWK", "LKJCWK", "RAJCWK", "LAJCWK")
@@ -222,7 +223,10 @@ def compute_joint_centres(names, data, aliases=None):
 
     ``aliases`` maps the expected skin-marker names to what this lab records
     (see :data:`EXPECTED_MARKERS`); without it a lab using different spellings
-    gets no joint centres at all.
+    gets no joint centres at all. It is applied to the OUTPUT names too, so a
+    model whose marker set calls the hip centre ``RHJC`` rather than
+    ``RHJCWK`` (alias ``RHJCWK: RHJC``) gets a TRC the measurement spec --
+    resolved through the same aliases -- can actually pair up.
     """
     idx = {n: 3 * i for i, n in enumerate(names)}
 
@@ -237,7 +241,7 @@ def compute_joint_centres(names, data, aliases=None):
         A, B = col(a), col(b)
         if A is None or B is None:
             continue
-        out[jc] = (A + B) / 2.0
+        out[apply_aliases(aliases, jc)] = (A + B) / 2.0
 
     _harr = apply_aliases(aliases, *_HARRINGTON_MARKERS)
     if all(col(m) is not None for m in _harr):
@@ -250,7 +254,8 @@ def compute_joint_centres(names, data, aliases=None):
                or np.isnan(LP[r]).any() or np.isnan(RP[r]).any():
                 continue
             lh[r], rh[r], _, _ = harrington_hjc(LA[r], RA[r], LP[r], RP[r])
-        out["LHJCWK"], out["RHJCWK"] = lh, rh
+        _lh, _rh = apply_aliases(aliases, "LHJCWK", "RHJCWK")
+        out[_lh], out[_rh] = lh, rh
     return out
 
 
@@ -371,6 +376,25 @@ DEFAULT_SPEC = [
 _AXIS = {"X": 0, "Y": 1, "Z": 2}
 
 
+def spec_from_config(items):
+    """A measurement spec from session.yaml's ``scale_measurements`` list.
+
+    Each item is ``{name: str, pairs: [[a, b], ...], bodies: {body: axes}}``,
+    ``axes`` any of ``"X"``, ``"XY"``, ``"XYZ"`` ... . Returns the tuple form
+    :func:`build_measurement_set` takes. Marker aliases still apply on top.
+    """
+    spec = []
+    for it in items or []:
+        name = str(it["name"])
+        pairs = [(str(a), str(b)) for a, b in (it.get("pairs") or [])]
+        bodies = {str(b): str(ax).replace(" ", "").upper()
+                  for b, ax in (it.get("bodies") or {}).items()}
+        if not pairs or not bodies:
+            raise ValueError(f"scale_measurements[{name}]: needs pairs and bodies")
+        spec.append((name, pairs, bodies))
+    return spec
+
+
 def model_marker_names(model):
     ms = model.getMarkerSet()
     return {ms.get(i).getName() for i in range(ms.getSize())}
@@ -461,7 +485,7 @@ def build_measurement_set(model, trc_path, spec=None, verbose=True, model_marker
 def _segment_lengths(model_path):
     """Hip->knee->ankle joint distances, straight from the .osim joint frames."""
     import opensim as osim
-    m = osim.Model(model_path)
+    m = _quiet_model(model_path)
     s = m.initSystem()
     out = {}
     for body in ("femur_r", "femur_l", "tibia_r", "tibia_l", "pelvis", "torso"):
@@ -486,7 +510,7 @@ def verify_scaled(generic_path, scaled_path, tol=1e-4, verbose=True):
     produced months of 'scaled' results built on generic geometry.
     """
     import opensim as osim
-    g, sc = osim.Model(generic_path), osim.Model(scaled_path)
+    g, sc = _quiet_model(generic_path), _quiet_model(scaled_path)
     gs, ss = g.initSystem(), sc.initSystem()
     lines, changed = [], False
     gb, sb = g.getBodySet(), sc.getBodySet()
@@ -501,7 +525,12 @@ def verify_scaled(generic_path, scaled_path, tol=1e-4, verbose=True):
             # A body whose inertia changed by more than rounding was scaled.
             gI = gi.getInertia().getMoments()
             sI = sb.get(i).getInertia().getMoments()
-            rel = max(abs(sI.get(k) - gI.get(k)) / max(abs(gI.get(k)), 1e-9) for k in range(3))
+            # Inertia PER UNIT MASS: a mass-only rescale multiplies inertia by
+            # the mass ratio and used to pass this check as 'scaled' (2 % on
+            # every body for 75.3 -> 77.0 kg) although no length had changed.
+            mr = (sm / gm) if gm > 1e-12 else 1.0
+            rel = max(abs(sI.get(k) - gI.get(k) * mr) / max(abs(gI.get(k) * mr), 1e-9)
+                      for k in range(3))
         except Exception:
             continue
         if rel > tol:
@@ -575,7 +604,7 @@ def set_total_mass(model_path, target_mass, out_path=None, verbose=True):
     length, marker and muscle path exactly as the personalisation left them.
     """
     import opensim as osim
-    m = osim.Model(model_path)
+    m = _quiet_model(model_path)
     st = m.initSystem()
     cur = m.getTotalMass(st)
     if not target_mass or cur <= 0:

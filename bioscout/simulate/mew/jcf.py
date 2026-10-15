@@ -54,7 +54,7 @@ def build_forces_file(result: MuscleForceResult, so_forces_path, out_path, *,
     Parameters
     ----------
     result            what :meth:`Mew.run` returned
-    so_forces_path    ``static_optimisation/SO_StaticOptimization_force.sto`` --
+    so_forces_path    ``static_optimisation/StaticOptimization_force.sto`` --
                       the source of the residual / reserve / GRF columns
     use_own_reserves  replace ``<dof>_reserve`` with this solve's own moment
                       residual for every DOF we tracked (recommended)

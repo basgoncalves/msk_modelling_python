@@ -12,6 +12,49 @@ All notable changes to BioScout are documented here.
 > and a note here.
 
 
+
+## 3.1.0 — 2026-10-15 — desktop GUI removed
+
+- The tkinter/customtkinter desktop GUI (`bioscout/gui`, the `bioscout-gui` launcher) is
+  removed. For an interface use BioScout Web (https://basgoncalves.github.io/bioscout-web/),
+  which opens the same project folders in the browser.
+- `bioscout` / `bioscout gui` now print where the interface is; `session new|edit` use the
+  flag path; `project edit` prints project.yaml and its path. `customtkinter` is no longer
+  a dependency.
+## 2026-10-07 — `bioscout plot kinematics`
+
+- New `bioscout plot kinematics [SESSION]` (`bioscout.plot.kinematics`): joint angles and IK
+  marker errors compared across a session's iterations, written to
+  `<session>/4_outputs/kinematics/` as `plot collings` does for muscle rankings. Per trial:
+  `joint_angles_<trial>.png` and `marker_errors_<trial>.png` (RMS / max over time plus a
+  marker x iteration map); per session: `marker_errors_overview.png`, `joint_angles.csv`
+  (range per coordinate, difference from `--reference`) and `marker_errors.csv`.
+  Text readers only (no OpenSim needed); colours, labels and order come from session.yaml;
+  rotations are unwrapped before comparison. Flags: `--skip`, `--iteration`, `--trial`,
+  `--dofs`, `--reference`, `--rms-limit`, `--max-limit`, `-o`.
+  Tests: `bioscout/tests/test_plot_kinematics.py` (9).
+
+## 2026-10-01 — RRA stage
+
+- `Analyse.run_rra()` / `Iteration.run(do_rra=True)`: Residual Reduction Algorithm per trial
+  -> `<trial>/residual_reduction/` (RRATool; templates `setup_RRA.xml`, `actuators_RRA.xml`,
+  `tasks_RRA.xml` in the session setup folder). Actuator/task entries whose coordinate is
+  missing or locked in the model are dropped; pelvis residual points follow the model's
+  pelvis COM. Writes `rra_residuals.png/.csv` (ID vs RRA residuals) and the COM-adjusted model.
+  Diagnostic only -- nothing downstream consumes RRA output automatically.
+- RRA stage layout: `residual_reduction/outputs/` (RRATool files), `external_biomechanics/`
+  and `static_optimisation/` (ID and SO re-run on the RRA kinematics + COM-adjusted model),
+  and figures `rra_residuals.png`, `rra_kinematics.png`, `rra_masses.png`,
+  `rra_kinematics_moments.png`, `rra_so_forces.png`. `plot_kin_mom_summary(compare=, save_path=)`
+  overlays a second IK/ID pair. RRATool runs in a child process with stdout -> out.log.
+  Window defaults to the span with GRF on a plate (`Analyse.rra_grf_window`), kinematics
+  filtered at 6 Hz. `bioscout simulate rra` CLI action.
+- `load_sto`: header rows are counted over non-blank lines (RRA/CMC Actuation files were unreadable).
+- Run log: print output is teed into `logs/bioscout_*.log` by default outside notebooks
+  (`BIOSCOUT_LOG_CAPTURE=0` to disable); library callers used to get a header-only log.
+- `simulate.opensim.run_rra` rewritten (was a non-functional stub). Layout fields
+  `setup_rra`, `actuators_rra`, `tasks_rra`, `rra_dir`, `rra_kinematics`, `rra_actuation`.
+
 ## [Unreleased]
 
 ### Legacy removed; one scaled model per iteration (`model_generic` / `model_scaled`, iteration-relative paths, `project_dir`); `markerset` per iteration (breaking)

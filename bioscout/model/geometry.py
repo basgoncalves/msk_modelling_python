@@ -57,9 +57,10 @@ import os
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 __all__ = [
+    "Measure",
     "clear_cache",
     "GEOMETRY_TAGS",
     "TIER_ORDER",
@@ -109,6 +110,98 @@ class GeometryRef:
     @property
     def name(self) -> str:
         return basename(self.raw)
+
+
+class Measure:
+    """Model-dependent front end to :mod:`bioscout.model.measure`.
+
+    One entry per model: the ``.osim`` path (optional) plus the bone meshes
+    to measure on. Meshes can be given explicitly or picked up from a
+    Meshlab/segmentation folder::
+
+        m = Measure()
+        i = m.add_model("models/022.osim",
+                        meshes={"acetabulum_l": "acetabulum_l.stl",
+                                "femoral_head_l": "femoral_head_l.stl"})
+        j = m.add_folder(r"...\\022\\Meshlab_BG")
+        m.acetabular_coverage(i, side="l")
+        m.summary()                     # list of result dicts
+    """
+
+    def __init__(self):
+        self.models: List[dict] = []
+        self.results: List[dict] = []
+
+    # -- registering models ------------------------------------------------ #
+    def add_model(self, osim=None, meshes: Optional[Dict[str, object]] = None,
+                  landmarks=None, name: Optional[str] = None) -> int:
+        """Register a model. ``meshes`` keys: ``acetabulum_{r,l}``,
+        ``femoral_head_{r,l}`` (or ``femur_{r,l}`` for whole bones)."""
+        osim = Path(osim) if osim else None
+        self.models.append({
+            "name": name or (osim.stem if osim else f"model{len(self.models)}"),
+            "osim": osim,
+            "meshes": {k: Path(v) for k, v in (meshes or {}).items()},
+            "landmarks": landmarks,
+        })
+        return len(self.models) - 1
+
+    # kept for older notebooks
+    add_osim_model = add_model
+
+    def add_folder(self, folder, name: Optional[str] = None, landmarks=None) -> int:
+        """Register a Meshlab/segmentation folder (meshes discovered per side)."""
+        from bioscout.model.measure import find_hip_meshes
+        folder = Path(folder)
+        meshes = {}
+        for s in ("r", "l"):
+            f = find_hip_meshes(folder, s)
+            if f["acetabulum"]:
+                meshes[("pelvis_" if f["acetabulum_whole"] else "acetabulum_") + s] = f["acetabulum"]
+            if f["femoral_head"]:
+                meshes[("femur_" if f["femur_whole"] else "femoral_head_") + s] = f["femoral_head"]
+        label = name or (f"{folder.parent.name}_{folder.name}"
+                         if folder.name.lower().startswith("meshlab") else folder.name)
+        return self.add_model(meshes=meshes, landmarks=landmarks, name=label)
+
+    def _mesh(self, model: dict, *keys) -> Tuple[Optional[Path], Optional[str]]:
+        for k in keys:
+            if k in model["meshes"]:
+                return model["meshes"][k], k
+        return None, None
+
+    # -- measurements -------------------------------------------------------- #
+    def acetabular_coverage(self, i_model: int, side: str = "r", **kw) -> Optional[dict]:
+        """Coverage for one model/side; extra kwargs go to
+        :func:`bioscout.model.measure.acetabular_coverage`."""
+        from bioscout.model.measure import acetabular_coverage, read_landmarks
+        if not 0 <= i_model < len(self.models):
+            return None
+        m = self.models[i_model]
+        s = side.lower()[0]
+        acet, ka = self._mesh(m, f"acetabulum_{s}", f"pelvis_{s}", "pelvis")
+        head, kh = self._mesh(m, f"femoral_head_{s}", f"femur_{s}")
+        if acet is None or head is None:
+            missing = [n for n, v in (("acetabulum", acet), ("femoral head", head)) if v is None]
+            res = {"model": m["name"], "side": s, "error": "missing " + ", ".join(missing)}
+        else:
+            lm = m["landmarks"]
+            if lm is not None and not isinstance(lm, dict):
+                lm = read_landmarks(lm)
+            kw.setdefault("whole_femur", kh.startswith("femur"))
+            kw.setdefault("crop_factor", 1.5 if ka.startswith("pelvis") else None)
+            res = {"model": m["name"],
+                   **acetabular_coverage(acet, head, side=s, landmarks=lm, **kw),
+                   "error": ""}
+        self.results.append(res)
+        return res
+
+    def acetabular_coverage_all(self, sides=("r", "l"), **kw) -> List[dict]:
+        return [self.acetabular_coverage(i, s, **kw)
+                for i in range(len(self.models)) for s in sides]
+
+    def summary(self) -> List[dict]:
+        return list(self.results)
 
 
 def basename(raw: str) -> str:

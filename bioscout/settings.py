@@ -176,14 +176,14 @@ REPLACE      = True
 DO_EXPORT   = False
 EXPORT_SRC  = None
 # Movement detection: classify every exported trial from its markers/GRF and
-# write session_auto_detection.yaml + movement_detection/ beside the session.
+# write movement_detection/ (csv tables + movement_detection.yaml) in the session.
 # Runs straight after export because that is when the .trc and grf.mot it reads
 # first exist, and because a wrong trial type in session.yaml is cheapest to
 # catch before it has been carried through IK, ID, SO and CEINMS.
 DO_DETECT   = False
 # True = also correct session.yaml's trial types from the detection (the old
 # file is kept as session.yaml.pre_detection). Leave False to only write
-# session_auto_detection.yaml and review it by hand first.
+# movement_detection/movement_detection.yaml and review it by hand first.
 DETECT_WRITE_YAML = False
 DO_SCALE    = False
 MUSCLE_OPT  = None

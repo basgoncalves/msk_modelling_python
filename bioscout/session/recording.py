@@ -170,7 +170,7 @@ class Session(SessionKeys):
         log(f"session {subj}/{self.name}")
         log(f"  {'project_dir':<18}: {cfg.get('project_dir') or '(not set: 3 folders up)'}"
             f"  -> {self.project_dir}")
-        for key in ("body_mass", "static_trial", "implanted_side", "instrumented_joint",
+        for key in ("body_mass", "static_trial", "measured_side", "implanted_side", "instrumented_joint",
                     "setup_folder", "c3d_source", "markerset"):
             if cfg.get(key) is not None:
                 log(f"  {key:<18}: {cfg[key]}")
@@ -418,13 +418,14 @@ class Session(SessionKeys):
         new_blocks = {}
         for name in (self._cfg.get("iterations") or {}):
             it = Iteration(self.session_dir, name)
-            os.makedirs(it.path, exist_ok=True)
+            # no makedirs here: the folder is made when a stage first writes to
+            # it -- declaring an iteration must not leave empty folders behind
             cfg = dict(it.config)
             block = {}                                  # file keys first
             for key in ITERATION_FILE_KEYS:
                 if cfg.get(key):
                     got = getattr(it, key)
-                    block[key] = it.relpath(got) if got and os.path.exists(got) else cfg[key]
+                    block[key] = it.relpath(got, key) if got and os.path.exists(got) else cfg[key]
             block.update((k, v) for k, v in cfg.items() if k not in block)
             new_blocks[name] = block
 
@@ -607,6 +608,11 @@ class Session(SessionKeys):
         for tn in names:
             types.setdefault(re.sub(r"_\d+$", "", tn), []).append(tn)
 
+        def _ce_of(model):
+            """CEINMS weights of one iteration (its own ceinms: over the session's)."""
+            from bioscout.session.config import ceinms_for
+            return ceinms_for(self._cfg, model)
+
         def _load(model, trial, rel):
             p = os.path.join(_layout.iteration_path(self.session_dir, model), trial, rel)
             try:
@@ -688,8 +694,8 @@ class Session(SessionKeys):
                 fig, ax = plt.subplots(1, len(joints), figsize=(4.6 * len(joints), 3.4), squeeze=False)
                 for k, joint in enumerate(joints):
                     a = ax[0][k]
-                    for algo, rel, ls in (("SO", "joint_contact_forces/Analyse_JRA_ReactionLoads_SO.sto", "-"),
-                                          ("CEINMS", "joint_contact_forces/Analyse_JRA_ReactionLoads_CEINMS.sto", "--")):
+                    for algo, rel, ls in (("SO", "joint_contact_forces/output_so.sto", "-"),
+                                          ("CEINMS", "joint_contact_forces/output_ceinms.sto", "--")):
                         def g(model, tn, _rel=rel, _j=joint):
                             return resultant(_load(model, tn, _rel), _j)
                         for m in iters:
@@ -745,11 +751,12 @@ class Session(SessionKeys):
                 return keep
 
             def _forces(model, tn):
-                for rel in ("static_optimisation/SO_StaticOptimization_force.sto",
+                for rel in ("static_optimisation/StaticOptimization_force.sto",
+                            "static_optimisation/SO_StaticOptimization_force.sto",
                             "ceinms/Execution_a%s_b%s_g%s/MuscleForces.sto" % (
-                                (self._cfg.get("ceinms") or {}).get("alpha", 10),
-                                (self._cfg.get("ceinms") or {}).get("beta", 1),
-                                (self._cfg.get("ceinms") or {}).get("gamma", 1000))):
+                                _ce_of(model).get("alpha", 10),
+                                _ce_of(model).get("beta", 1),
+                                _ce_of(model).get("gamma", 1000))):
                     df = _load(model, tn, rel)
                     if df is not None:
                         return df
@@ -869,11 +876,12 @@ class Session(SessionKeys):
                 return None
 
             def _forces_df(model, tn):
-                for rel in ("static_optimisation/SO_StaticOptimization_force.sto",
+                for rel in ("static_optimisation/StaticOptimization_force.sto",
+                            "static_optimisation/SO_StaticOptimization_force.sto",
                             "ceinms/Execution_a%s_b%s_g%s/MuscleForces.sto" % (
-                                (self._cfg.get("ceinms") or {}).get("alpha", 10),
-                                (self._cfg.get("ceinms") or {}).get("beta", 1),
-                                (self._cfg.get("ceinms") or {}).get("gamma", 1000))):
+                                _ce_of(model).get("alpha", 10),
+                                _ce_of(model).get("beta", 1),
+                                _ce_of(model).get("gamma", 1000))):
                     df = _load(model, tn, rel)
                     if df is not None:
                         return df

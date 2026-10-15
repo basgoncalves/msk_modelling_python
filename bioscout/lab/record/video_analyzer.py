@@ -172,6 +172,17 @@ def main():
             cap_trim.release()
             out_vid.release()
             print(f"  Wrote {written} frames ({written / fps:.2f}s)")
+            # 'mp4v' is MPEG-4 Part 2, which browsers (BioScout Web) can't play
+            try:
+                try:
+                    from .webvideo import make_web_playable
+                except ImportError:
+                    from webvideo import make_web_playable
+                if not make_web_playable(trimmed_video_path):
+                    print("  NOTE: clip left as MPEG-4 (no H.264 encoder found; "
+                          "pip install imageio-ffmpeg) - browsers won't play it")
+            except Exception as exc:
+                print(f"  NOTE: H.264 conversion skipped: {exc}")
 
         # Initialize tracker and analyze
         tracker = MovementTracker()

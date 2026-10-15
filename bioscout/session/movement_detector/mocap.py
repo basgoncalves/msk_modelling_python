@@ -234,6 +234,10 @@ class MocapConfig:
     event_match_max_s: float = 0.35
     # Below this many matched pairs the offset is noise, not a bias.
     event_calib_min_n: int = 3
+    # Shortest credible gait cycle. Guards the cycle window against a spurious
+    # foot-off found just before the plate's own foot-off, which would cut the
+    # cycle down to a few frames.
+    min_cycle_s: float = 0.25
     # A foot is OFF the ground once its markers rise this far above their own
     # floor level. Measured on FAIS SLSback_post1: the lifted foot sits 18-34 cm
     # up, the stance foot within 0.4 cm of its floor — no ambiguity at 5 cm.
@@ -680,6 +684,24 @@ def _pelvis_centre(markers: Dict[str, np.ndarray],
         stack = np.stack([markers[n] for n in names], axis=0)
         if not np.isfinite(stack).any():
             continue
+        with np.errstate(invalid="ignore"):
+            out = np.full(stack.shape[1:], np.nan)
+            ok = np.isfinite(stack).any(axis=0)
+            if ok.any():
+                out[ok] = np.nanmean(stack, axis=0)[ok]
+        return out
+    # Nothing matched in full. A capture can lose ONE pelvis marker for the
+    # whole trial (a hand swinging over an ASIS) and still say where the pelvis
+    # is: every rule downstream uses its travel and vertical excursion, not an
+    # anatomical position, so the mean of the markers that remain is enough.
+    # Without this the whole trial read "pelvis markers missing" and got no
+    # type, no cycles and no plate check.
+    for names in _sets:
+        have = [n for n in names if n in markers
+                and np.isfinite(markers[n]).any()]
+        if len(names) < 3 or len(have) < 2:
+            continue
+        stack = np.stack([markers[n] for n in have], axis=0)
         with np.errstate(invalid="ignore"):
             out = np.full(stack.shape[1:], np.nan)
             ok = np.isfinite(stack).any(axis=0)
@@ -2135,6 +2157,23 @@ def segment_trial(exp_dir: str, body_mass: Optional[float] = None,
         _all_contacts = []
     try:
         _marker_events = foot_events_from_markers(exp_dir, cfg, _all_contacts)
+        # The PLATES are the reference where they exist: _gait_event_times
+        # merges the marker events with the plate edges (and applies the
+        # kinematic bias), so use that for the stride windows rather than the
+        # raw marker detection. On 009 Run_baseline1 the raw right foot-off
+        # read 5.315 s where the plate measured 5.400 s, and that 85 ms went
+        # straight into every window the pipeline then simulated.
+        try:
+            _merged = {}
+            for _s, _k, _x in _gait_event_times(exp_dir, _all_contacts, cfg):
+                _merged.setdefault(_s, {}).setdefault(
+                    "off" if _k == "off" else "contact", []).append(round(float(_x), 3))
+            if all(_merged.get(_s, {}).get("off") and _merged.get(_s, {}).get("contact")
+                   for _s in ("l", "r")):
+                _marker_events = {_s: {_k: sorted(set(_v)) for _k, _v in _d.items()}
+                                  for _s, _d in _merged.items()}
+        except Exception:                                   # noqa: BLE001
+            pass
     except Exception:
         _marker_events = {}
 
@@ -2332,6 +2371,20 @@ def segment_trial(exp_dir: str, body_mass: Optional[float] = None,
                     _st = _best_stride(_foot, _t0, _t1) if _lab != "cut" else None
                     if _st is not None:
                         _t0, _t1 = float(_st.t_start), float(_st.t_end)
+                        # The cycle this contact measures ENDS at the plate's
+                        # own foot-off and STARTS at this leg's previous
+                        # foot-off (markers, calibrated against the plates).
+                        # The stride phase alone put the start mid-stance:
+                        # 009 Run_baseline1 right read 5.315-5.770 while the
+                        # plate measured foot-off at 5.400 and the previous
+                        # right foot-off was 4.815.
+                        if cfg.stride_from == "foot_off" and _foot:
+                            _pend = float(_c["t_off"])
+                            _pprev = [float(_x) for _x in
+                                      ((_marker_events or {}).get(_foot) or {}).get("off", [])
+                                      if _x < _pend - 1e-6]
+                            if _pprev and _pend - max(_pprev) >= cfg.min_cycle_s:
+                                _t0, _t1 = max(_pprev), _pend
                         _ph = [TaskSegment(
                             task=_lab, phase=_st.phase.split("_1")[0].split("_2")[0],
                             side=_foot, index=1,
@@ -2591,14 +2644,32 @@ def gait_cycles(exp_dir: str, body_mass: Optional[float] = None,
                 return None
             return round(v, 3) if np.isfinite(v) else None
 
+        # The cycle this leg is MEASURED on ends at the plate's own foot-off
+        # and starts at that leg's previous foot-off. The end is a measured
+        # event; the start usually left no plate, so it comes from the marker
+        # events (already calibrated against the plates). Taking the window
+        # from the task segment instead put the start mid-stance -- on
+        # Run_baseline1 009 the right cycle read 5.315-5.770 while the plate
+        # measured foot-off at 5.400 and the previous right foot-off was at
+        # 4.815, so neither end of the "foot_off_to_foot_off" window was a
+        # foot-off at all.
+        _t0, _t1, _win = g.t_start, g.t_end, "task segment"
+        if _best and cfg.stride_from == "foot_off":
+            _end = float(_best["t_off"])
+            _prev = [float(_t) for _s, _k, _t in _ev
+                     if _s == _sd and _k == "off" and _t < _end - 1e-6]
+            if _prev and _end - max(_prev) >= cfg.min_cycle_s:
+                _t0, _t1 = max(_prev), _end
+                _win = "previous foot off (markers) to plate foot off"
         out.append({
             "name": g.name,
             "side": g.side,
             "index": g.index,
             "task": g.task,
-            "time_range": [round(g.t_start, 3), round(g.t_end, 3)],
-            "duration_s": g.duration,
+            "time_range": [round(_t0, 3), round(_t1, 3)],
+            "duration_s": round(_t1 - _t0, 3),
             "cycle_from": cfg.stride_from,
+            "cycle_window": _win,
             "stance": ([_best["t_on"], _best["t_off"]] if _best else None),
             "plate": (_best or {}).get("plate"),
             "plates": list((_best or {}).get("plates") or
@@ -2608,7 +2679,7 @@ def gait_cycles(exp_dir: str, body_mass: Optional[float] = None,
             "shared_plate": bool((_best or {}).get("shared_plate", False)),
             "straddled": bool((_best or {}).get("straddled", False)),
             "events": [[_s, _k, round(float(_t), 3)] for _s, _k, _t in _ev
-                       if g.t_start - 1e-9 <= _t <= g.t_end + 1e-9],
+                       if _t0 - 1e-9 <= _t <= _t1 + 1e-9],
             "confidence": g.confidence,
             "reason": g.reason,
         })
@@ -3005,7 +3076,8 @@ def plot_trial_tasks(exp_dir: str, out_png: str, body_mass: Optional[float] = No
                     ls="--" if _kind == "strike" else ":", lw=0.9, alpha=.85,
                     zorder=1, label=None if _lbl in _seen_lbl else _lbl)
         _seen_lbl.add(_lbl)
-    axf.legend(fontsize=6.5, ncol=3, loc="upper center", framealpha=.9, borderpad=.3)
+    if axf.get_legend_handles_labels()[0]:      # a static trial has nothing to label
+        axf.legend(fontsize=6.5, ncol=3, loc="upper center", framealpha=.9, borderpad=.3)
 
     # --- pelvis height ---
     trc = os.path.join(exp_dir, "marker_experimental.trc")

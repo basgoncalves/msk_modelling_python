@@ -11,8 +11,8 @@ mkdir -p "$out/example_data"
 cp "$here/Dockerfile" "$here/README.md" "$out/"
 # Leave out the Windows CEINMS binaries, logs and build junk (~700 MB).
 (cd "$root" && tar cf - --exclude=__pycache__ --exclude='*.exe' --exclude='*.dll' \
-    --exclude='*.log' --exclude='log.txt' --exclude='*.pkl' --exclude='*.zip' --exclude='bioscout/tests' \
+    --exclude='*.log' --exclude='log.txt' --exclude='*.pkl' --exclude='*.zip' --exclude='*.png' --exclude='*.jpg' --exclude='*.jpeg' --exclude='*.gif' --exclude='*.task' --exclude='*.mp4' --exclude='*.pdf' --exclude='bioscout/tests' \
     --exclude='bioscout/gui' --exclude='bioscout/utils/ceinms' bioscout) | (cd "$out" && tar xf -)
-cp -r "$root/example_data/orthoload" "$out/example_data/orthoload"
+(cd "$root" && tar cf - --exclude='*.png' --exclude='*.jpg' --exclude='*.pdf' --exclude='*.mp4' example_data/orthoload) | (cd "$out" && tar xf -)
 find "$out" -name __pycache__ -type d -prune -exec rm -rf {} +
-cd "$out" && git add -A && git commit -m "Update engine" --author="Bas <basilio.goncalves7@gmail.com>" && git push
+cd "$out" && git add -A && git commit -m "Update engine" --author="Bas <basilio.goncalves7@gmail.com>" && git push "$url" HEAD:main

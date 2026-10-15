@@ -51,7 +51,6 @@ setup(
         "scikit-learn",
         "matplotlib",
         "plotly",
-        "customtkinter",
         "Pillow",
         "pyyaml",
         "c3d",
@@ -65,7 +64,7 @@ setup(
         "requests",
     ],
     extras_require={
-        "recording": ["opencv-python", "mediapipe"],
+        "recording": ["opencv-python", "mediapipe", "imageio-ffmpeg"],
     },
     # Duplicate keys here are silently dropped by Python (the last one wins),
     # so this stays a single de-duplicated block.
@@ -75,6 +74,8 @@ setup(
             '*.jpg', '*.png',
         ],
         'bioscout.config': ['*.yaml', '*.xml'],
+        # the task-event definitions the figures read (editable defaults)
+        'bioscout.session': ['*.yaml'],
         'bioscout.models': ['*.osim', '*.txt'],
         'bioscout.setup_files': ['*.xml', '*.txt'],
         'bioscout.tests': ['*.xml'],
@@ -100,8 +101,10 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'bioscout-gui=bioscout:launch_gui',
-            'bioscout=bioscout.__main__:main',
+            # the VERB grammar (`bioscout simulate so ...`). __main__ is the
+            # older flag CLI (`--scale-session`); cli.main forwards to it, so
+            # both spellings keep working from one launcher.
+            'bioscout=bioscout.cli:main',
             'tps-personalise=bioscout.model.tps.cli:main',
             'change-moment-arms=bioscout.model.moment_arms.cli:run',
             'tps-landmarks=bioscout.model.tps.landmarks_cli:main',

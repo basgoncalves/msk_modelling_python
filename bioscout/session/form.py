@@ -45,27 +45,39 @@ SCALAR_FIELDS = (
     ("session", "session", "text"),
     ("project_dir", "project dir (relative)", "text"),
     ("body_mass", "body mass (kg)", "number"),
-    ("setup_folder", "setup folder", "text"),
+    ("models_dir", "models dir (project-relative)", "text"),
+    ("setup_dir", "setup dir (project-relative)", "text"),
     ("c3d_source", "c3d source", "text"),
 )
 
-#: (key, label, kind, default) for one iteration block. File paths are
-#: relative to the iteration folder. No `model_generic` means `model_scaled` is
-#: a given model and is not scaled again.
+#: (key, label, kind, default) for one iteration block, in session.yaml's
+#: order. Model paths are relative to models_dir, markerset / scale_tool /
+#: so_actuators to setup_dir (else to the iteration folder). No
+#: `model_generic` means `model_scaled` is a given model and is not scaled
+#: again. kind "map" is an inline mapping ({a: 1, b: 2}); "number" may be
+#: left blank (= bioscout's default).
 ITERATION_FIELDS = (
-    ("model_generic", "generic model", "text", ""),
-    ("model_scaled", "scaled model", "text", ""),
-    ("markerset", "markerset", "text", ""),
-    ("calibration", "calibration config", "text", ""),
-    ("calibrated", "calibrated", "bool", True),
-    ("muscle_opt", "muscle opt", "bool", True),
-    ("linear_scaling", "linear scaling", "bool", True),
-    ("opt_neval", "opt_neval", "number", 10),
-    ("mvic_factor", "mvic_factor", "number", 3.0),
     ("label", "label", "text", ""),
     ("color", "colour", "text", ""),
     ("group", "group", "text", ""),
+    ("model_generic", "generic model", "text", ""),
+    ("model_scaled", "scaled model", "text", ""),
+    ("markerset", "markerset", "text", ""),
+    ("scale_tool", "scale tool (setup .xml)", "text", ""),
+    ("linear_scaling", "linear scaling", "bool", True),
+    ("marker_placer", "marker placer", "bool", False),
+    ("muscle_opt", "muscle opt", "bool", True),
+    ("opt_neval", "opt_neval", "number", ""),
+    ("mvic_scaling", "mvic scaling (3.0 | handsfield | handsfield_sprinter | handsfield x 1.5)", "mvic", ""),
+    ("height", "height (m, for handsfield)", "number", ""),
+    ("body_mass", "body mass (kg, over the session's)", "number", ""),
+    ("so_actuators", "SO actuators (.xml)", "text", ""),
+    ("ik_weights", "IK weights {marker or body: w}", "map", ""),
+    ("ceinms", "CEINMS {alpha, beta, gamma, ...}", "map", ""),
+    ("calibration", "calibration config", "text", ""),
+    ("calibrated", "calibrated", "bool", True),
 )
+
 
 #: EMG filter block. Defaults mirror bioscout.emg.filter.DEFAULTS, which
 #: are exactly the values the code used before the block existed.
@@ -377,14 +389,20 @@ class SessionForm:
         return sorted(named)
 
     def set_iteration_field(self, iteration: str, key: str, value) -> None:
-        """Set one key inside one iteration block, creating the key if absent."""
-        from bioscout.utils.file_edit import _yaml_scalar_text
+        """Set one key inside one iteration block, creating the key if absent.
+        A dict is written as an inline mapping, a number bare, a bool as
+        true/false, anything else as a (quoted if needed) string."""
+        from bioscout.utils.file_edit import _yaml_scalar_text, flow_map
         its = self.doc.ensure_mapping("iterations")
         for knode, vnode in its.value:
             if str(knode.value) != iteration:
                 continue
             if isinstance(value, bool):
                 src = "true" if value else "false"
+            elif isinstance(value, dict):
+                src = flow_map(value)
+            elif isinstance(value, (int, float)):
+                src = repr(value)
             else:
                 old = ""
                 for kk, vv in (vnode.value or []):
@@ -394,6 +412,16 @@ class SessionForm:
                 src = _yaml_scalar_text(value, old, "tag:yaml.org,2002:str")
             self.doc.set_entry_source(vnode, key, src)
             return
+        raise KeyError(f"no iteration {iteration!r} in {self.path}")
+
+    def delete_iteration_field(self, iteration: str, key: str) -> None:
+        """Remove one key from one iteration block (no-op if absent)."""
+        its = self.doc.ensure_mapping("iterations")
+        for knode, vnode in its.value:
+            if str(knode.value) == iteration:
+                if self.doc.has_entry(vnode, key):
+                    self.doc.delete_entry(vnode, key)
+                return
         raise KeyError(f"no iteration {iteration!r} in {self.path}")
 
     def add_iteration(self, name: str, **fields) -> None:
@@ -406,6 +434,8 @@ class SessionForm:
         for key, _label, kind, default in ITERATION_FIELDS:
             val = fields.get(key, default)
             if val in (None, ""):
+                continue
+            if kind == "map":
                 continue
             if kind == "bool":
                 lines.append(f"    {key}: {'true' if val else 'false'}")

@@ -67,9 +67,9 @@ OUTPUTS = {
     "ma":      "muscle_analysis/_MuscleAnalysis_Length.sto",
     "so":      "static_optimisation/*force.sto",
     "mm":      "muscle_analysis/_MuscleMoments_*_so.sto",
-    "jra":     "joint_contact_forces/*ReactionLoads*SO*.sto",
+    "jra":     "joint_contact_forces/output_so.sto",
     "mew":     "mew/JRA_ReactionLoads.sto",
-    "contrib": "joint_contact_forces/contributions_so/contributions.csv",
+    "contrib": "joint_contact_forces/contributions_so.sto",
 }
 LABEL = {"scale": "Scale", "ik": "IK", "id": "ID", "ma": "Muscle analysis",
          "so": "Static optimisation", "mm": "Muscle moments", "jra": "JRA",
@@ -767,7 +767,8 @@ def _shorten_window(proj, session, trial, seconds):
         cfg = yaml.safe_load(f)
     tr = cfg["trials"][trial]
     t0, t1 = (float(x) for x in tr["time_range"])
-    side = {"l": "Left", "r": "Right"}.get(str(cfg.get("implanted_side", "")).lower())
+    from bioscout.session.config import measured_side_of as _ms
+    side = {"l": "Left", "r": "Right"}.get(_ms(cfg))
     start = next((float(e["time"]) for e in tr.get("events") or []
                   if side and e.get("name") == f"{side} Foot Contact" and e.get("on_plate")), t0)
     start = min(max(start, t0), max(t0, t1 - seconds))

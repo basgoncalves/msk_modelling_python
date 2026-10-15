@@ -164,17 +164,17 @@ class BioscoutSource(FlFvSource):
     # -- files -------------------------------------------------------------
     def force(self, model, trial, algo):
         if str(algo).upper() == "SO":
-            return _first(os.path.join(self.trial_dir(model, trial),
-                                       "static_optimisation",
-                                       "SO_StaticOptimization_force.sto"))
+            from bioscout.simulate.so_files import pick, FORCE
+            return _first(pick(os.path.join(self.trial_dir(model, trial),
+                                            "static_optimisation", FORCE)))
         d = self._exec_dir(model, trial)
         return _first(os.path.join(d, "MuscleForces.sto")) if d else None
 
     def activation(self, model, trial, algo):
         if str(algo).upper() == "SO":
-            return _first(os.path.join(self.trial_dir(model, trial),
-                                       "static_optimisation",
-                                       "SO_StaticOptimization_activation.sto"))
+            from bioscout.simulate.so_files import pick, ACTIVATION
+            return _first(pick(os.path.join(self.trial_dir(model, trial),
+                                            "static_optimisation", ACTIVATION)))
         d = self._exec_dir(model, trial)
         return _first(os.path.join(d, "Activations.sto")) if d else None
 
@@ -199,9 +199,10 @@ class BioscoutSource(FlFvSource):
         return hits[0] if hits else None
 
     def jra(self, model, trial, algo):
-        fn = f"Analyse_JRA_ReactionLoads_{str(algo).upper()}.sto"
+        from bioscout.simulate import jra_files as _jrf
+        fn = _jrf.output(algo)
         d = self.trial_dir(model, trial)
-        return _first(os.path.join(d, "joint_contact_forces", fn),
+        return _first(_jrf.pick(os.path.join(d, "joint_contact_forces", fn)),
                       os.path.join(d, "static_optimisation", fn),
                       os.path.join(d, "ceinms", fn))
 

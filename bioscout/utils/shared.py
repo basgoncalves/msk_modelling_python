@@ -496,7 +496,16 @@ def start_logging(name="run", log_dir=None, filename=None, append=False,
     _open_log_viewer(path)
 
     if capture is None:
-        capture = _console_owned()
+        # Tee by default: the run log is the record, and a tee leaves every
+        # line on the terminal as well, so a user's script or `python -c` loses
+        # nothing. Library callers used to get a header-only log here ("print
+        # output not captured") -- the opposite of what a log is for. Only a
+        # notebook stays opt-in (capture_output), since ipykernel owns its
+        # streams; BIOSCOUT_LOG_CAPTURE=0 turns the tee off for anything else.
+        capture = (QUIET_CONSOLE or _console_owned()
+                   or (not in_notebook()
+                       and os.environ.get("BIOSCOUT_LOG_CAPTURE", "1").lower()
+                       not in ("0", "false", "off")))
     if capture or _SAVED_STREAMS is not None:   # (re-)point any live tee here
         _capture_streams(f)
 
@@ -519,11 +528,107 @@ def start_logging(name="run", log_dir=None, filename=None, append=False,
     import atexit as _atexit
     _atexit.register(_log_finish)
     if capture or _SAVED_STREAMS is not None:
-        print(f"[bioscout] logging '{name}' -> {path}")
+        print(f"[bioscout] logging '{name}' -> {path}",
+              file=(console_stream() if QUIET_CONSOLE else sys.stdout))
+        if QUIET_CONSOLE:
+            _argv = list(sys.argv)
+            _argv[0] = os.path.splitext(os.path.basename(_argv[0]))[0] or "bioscout"
+            _cmd = " ".join(_argv)
+            if "--verbose" not in _cmd and " -v" not in _cmd:
+                _cmd += " --verbose"
+            print(f"[bioscout] to watch live output in terminal add --verbose:\n"
+                  f"           {_cmd}", file=console_stream())
+            # Redirecting the process's own descriptors catches OpenSim's C++
+            # output, but leaving them redirected at interpreter teardown
+            # corrupts the parent terminal (Git Bash loses its prompt). It is
+            # opt-in until that is handled properly, and always restored.
+            if os.environ.get("BIOSCOUT_QUIET_FD") == "1":
+                _redirect_fds(f)
+                import atexit as _at
+                _at.register(_restore_fds)
     else:
         print(f"[bioscout] logging '{name}' -> {path} "
-              f"(print output not captured; see bioscout.utils.capture_output)")
+              f"(print output not captured: notebook, or BIOSCOUT_LOG_CAPTURE=0; "
+              f"see bioscout.utils.capture_output)")
     return f
+
+
+#: True -> the tee writes to the LOG ONLY, and the terminal keeps just the
+#: header and the log path. A solve prints hundreds of OpenSim lines that
+#: nobody reads live and that scroll the one line you wanted out of reach; the
+#: log is the record. `bioscout ... --verbose` restores the stream.
+QUIET_CONSOLE = False
+
+
+class _NullStream:
+    """A sink that swallows writes, for the console side of a quiet tee."""
+
+    def write(self, *_a):
+        return 0
+
+    def flush(self):
+        pass
+
+    def isatty(self):
+        return False
+
+
+#: (saved stdout fd, saved stderr fd) while the console is redirected
+_SAVED_FDS = None
+_CONSOLE_FILE = None
+
+
+def set_quiet_console(quiet=True):
+    global QUIET_CONSOLE
+    QUIET_CONSOLE = bool(quiet)
+
+
+def _redirect_fds(f):
+    """Point the PROCESS's stdout/stderr file descriptors at the log.
+
+    Swapping sys.stdout only catches Python's print(). OpenSim's C++ side
+    writes the model summary (coordinates/forces/muscles...) straight to fd 1,
+    so it sailed past the tee and kept landing in the terminal. Duplicating the
+    real descriptors is the only thing that catches it. The originals are kept
+    so the header can still reach the terminal.
+    """
+    global _SAVED_FDS, _CONSOLE_FILE
+    if _SAVED_FDS is not None or f is None:
+        return
+    try:
+        _SAVED_FDS = (os.dup(1), os.dup(2))
+        _CONSOLE_FILE = os.fdopen(os.dup(_SAVED_FDS[0]), "w", buffering=1,
+                                  errors="replace")
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os.dup2(f.fileno(), 1)
+        os.dup2(f.fileno(), 2)
+    except Exception:                      # no real fds (notebooks, pytest)
+        _SAVED_FDS = _CONSOLE_FILE = None
+
+
+def _restore_fds():
+    global _SAVED_FDS, _CONSOLE_FILE
+    if _SAVED_FDS is None:
+        return
+    try:
+        sys.stdout.flush(); sys.stderr.flush()
+        os.dup2(_SAVED_FDS[0], 1)
+        os.dup2(_SAVED_FDS[1], 2)
+        for fd in _SAVED_FDS:
+            os.close(fd)
+    except Exception:
+        pass
+    _SAVED_FDS = _CONSOLE_FILE = None
+
+
+def console_stream():
+    """The REAL terminal, even while a quiet tee / fd redirect is in place."""
+    if _CONSOLE_FILE is not None:
+        return _CONSOLE_FILE
+    if _SAVED_STREAMS is not None:
+        return _SAVED_STREAMS[0]
+    return sys.stdout or sys.__stdout__
 
 
 def _capture_streams(f):
@@ -546,8 +651,12 @@ def _capture_streams(f):
         return
     _raw = not _console_owned()
     _SAVED_STREAMS = (sys.stdout, sys.stderr)
-    sys.stdout = _Tee(sys.stdout or sys.__stdout__, f, raw=_raw)
-    sys.stderr = _Tee(sys.stderr or sys.__stderr__, f, raw=_raw)
+    _out = sys.stdout or sys.__stdout__
+    _err = sys.stderr or sys.__stderr__
+    if QUIET_CONSOLE:
+        _out = _err = _NullStream()
+    sys.stdout = _Tee(_out, f, raw=_raw)
+    sys.stderr = _Tee(_err, f, raw=_raw)
 
 
 def _release_streams():

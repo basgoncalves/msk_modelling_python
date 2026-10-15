@@ -313,11 +313,28 @@ def keep_end(faces, frac, end="proximal", axis=1):
         return faces
     v = np.concatenate([f[:, axis] for f in faces])
     lo, hi = v.min(), v.max()
+    # a FLAT cut: faces wholly beyond the plane go, faces that straddle it are
+    # clamped onto it. Dropping faces by their mean left a ragged, spiky edge
+    # (whole triangles of a coarse shaft mesh poking past the cut).
     if end == "proximal":
         cut = hi - frac * (hi - lo)
-        return [f for f in faces if f[:, axis].mean() >= cut]
+        out = []
+        for f in faces:
+            if f[:, axis].max() < cut:
+                continue
+            g = np.array(f, float)
+            g[:, axis] = np.maximum(g[:, axis], cut)
+            out.append(g)
+        return out
     cut = lo + frac * (hi - lo)
-    return [f for f in faces if f[:, axis].mean() <= cut]
+    out = []
+    for f in faces:
+        if f[:, axis].min() > cut:
+            continue
+        g = np.array(f, float)
+        g[:, axis] = np.minimum(g[:, axis], cut)
+        out.append(g)
+    return out
 
 
 def silhouette_outline(faces, n=160):
@@ -392,7 +409,7 @@ def panel_spec(kind, side):
             bones=[dict(body=f"talus_{s}", only=None, keep=None, end=None, at=None),
                    dict(body=f"calcn_{s}", only=None, keep=None, end=None, at="chain"),
                    dict(body=f"toes_{s}", only=None, keep=None, end=None, at="chain")],
-            moving=dict(body=f"tibia_{s}", only=(f"{s}_tibia", f"tibia_{s}"), keep=0.12,
+            moving=dict(body=f"tibia_{s}", only=(f"{s}_tibia", f"tibia_{s}"), keep=0.20,
                         end="distal", at=None, axis_sign=+1.0,
                         drive=f"ankle_angle_{s}", coords=(f"ankle_angle_{s}",)))
     return dict(rlabel=200, bones=[], moving=None)

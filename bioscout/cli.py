@@ -1,15 +1,17 @@
 """The bioscout command line: ten verbs instead of sixty-six flags.
 
-    bioscout                 launch the GUI (unchanged)
+    bioscout                 the verb list (the desktop GUI was removed in 3.1:
+                             use BioScout Web, https://basgoncalves.github.io/bioscout-web/)
     bioscout help [VERB]     this, or one verb's detail
     bioscout init            start a project (folders, models, project.yaml)
-    bioscout gui             launch the GUI
+    bioscout gui             points to BioScout Web (the GUI was removed)
     bioscout model           check / edit / compare / tune-ma / scale / tps
     bioscout simulate        run an OpenSim/CEINMS stage on a session (or mrs)
-    bioscout session         new / export / classify / ingest / reset -- reads
+    bioscout session         new / export / classify / check-grf / ingest /
+                             reset -- reads
                              the results `simulate` writes, so it comes after it
     bioscout plot            figures, summaries, Collings ranking
-    bioscout utils           env / install / md2pdf / pylance
+    bioscout utils           env / install / md2pdf / qr_code / pylance
     bioscout lab             EXPERIMENTAL 3.0: shots, load reports
 
 Why this module exists
@@ -44,13 +46,14 @@ are dispatched directly and never load the scientific stack at all.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from typing import List, Optional, Sequence, Tuple
 
 __all__ = ["VERBS", "build_parser", "route", "main", "legacy_hint"]
 
 #: Root verbs. ``__main__`` checks this before it builds the legacy parser.
-VERBS = ("help", "init", "gui", "model", "simulate", "session",
+VERBS = ("help", "init", "gui", "model", "simulate", "session", "project",
          "plot", "utils", "lab")
 
 #: Subcommand -> the verb it lives under. These are the words people reach for
@@ -61,17 +64,20 @@ NESTED = {
     "pylance": "utils pylance",
     "new": "session new", "edit": "session edit", "export": "session export",
     "classify": "session classify", "ingest": "session ingest",
+    "check-grf": "session check-grf", "check_grf": "session check-grf",
     "reset": "session reset",
     "check": "model check", "compare": "model compare", "tune-ma": "model tune-ma",
     "scale": "model scale", "tps": "model tps", "mrs": "simulate mrs", "project": "init --from-settings",
     "validate": "model validate", "joint-centres": "model joint-centres",
-    "jc": "model jc",
+    "jc": "model jc", "measure": "model measure",
     "summary": "plot summary", "jcf": "plot jcf", "figures": "plot figures",
 }
 
 _EPILOG = """\
 examples:
   bioscout simulate so simulations/023/pre --replace
+  bioscout simulate rra simulations/023/pre --iteration gpk --trial Gehen_01
+  bioscout simulate forward simulations/023/pre --iteration gpk --trial Gehen_01
   bioscout model check models --strict
   bioscout session new simulations/022/pre
   bioscout plot --list
@@ -109,7 +115,9 @@ def build_parser() -> argparse.ArgumentParser:
                         "instead of scaffolding a new project")
     i.add_argument("--force", action="store_true",
                    help="with --from-settings: overwrite an existing project.yaml "
-                        "(a .bak is kept)")
+                        "(a .bak is kept). Without it: scaffold even when "
+                        "models/, setup_files/ ... already exist and are not "
+                        "empty (existing files are never overwritten)")
 
     # -- gui ----------------------------------------------------------------- #
     sub.add_parser("gui", help="launch the GUI (also the default with no verb)")
@@ -145,6 +153,10 @@ def build_parser() -> argparse.ArgumentParser:
     mv.add_argument("--model", required=True, metavar="OSIM")
     mv.add_argument("--out", metavar="DIR")
     mv.add_argument("--side", default="_r", choices=["_r", "_l"])
+
+    mme = ms.add_parser("measure", help="measure bones from STLs, e.g. acetabular coverage",
+                        add_help=False)
+    mme.add_argument("measure_args", nargs=argparse.REMAINDER)
 
     mj = ms.add_parser("joint-centres", aliases=["jc"],
                        help="add Harrington hip / midpoint knee-ankle centres to a TRC")
@@ -221,8 +233,9 @@ def build_parser() -> argparse.ArgumentParser:
     def _simulate_action(name, help_text):
         act = sms.add_parser(name, help=help_text)
         act.add_argument("path", metavar="SESSION_PATH")
-        act.add_argument("--iteration", metavar="NAME",
-                         help="which model arm (default: every one on disk)")
+        act.add_argument("--iteration", metavar="A,B",
+                         help="which model arm(s), comma-separated "
+                              "(default: every one on disk)")
         act.add_argument("--trial", metavar="NAME",
                          help="restrict to these trials (comma-separated; "
                               "default: session.yaml's own trial list)")
@@ -230,18 +243,32 @@ def build_parser() -> argparse.ArgumentParser:
                          help="recompute outputs that already exist")
         return act
 
+    _simulate_action("scale", "build each iteration's scaled model from session.yaml "
+                              "(only missing ones unless --replace)")
+    _simulate_action("emg", "session-wide EMG normalisation -> emg_filtered[_normalised].mot "
+                            "(no c3d export; runs once per session)")
     _simulate_action("exbiomec", "inverse kinematics -> inverse dynamics")
     _simulate_action("ma", "muscle analysis")
     _simulate_action("so", "static optimisation -> muscle moments -> joint reaction")
+    _simulate_action("rra", "residual reduction algorithm (RRATool) -> <trial>/residual_reduction/ "
+                            "(diagnostic: adjusted kinematics, residuals, COM-adjusted model)")
+    _simulate_action("forward", "forward simulation: CMC tracking -> open-loop ForwardTool "
+                                "replay + JRA on CMC forces -> <trial>/forward_simulation/ "
+                                "(uses the RRA result when present)")
     _simulate_action("mew", "mew (Python muscle solver) -> joint reaction, into <trial>/mew/")
-    _simulate_action("ceinms", "calibrate + execute CEINMS -> joint reaction")
+    _simulate_action("figures", "per-trial QC figures: grf_events.png, emg_processing.png")
+    _simulate_action("ceinms", "calibrate + execute CEINMS -> joint reaction").add_argument(
+        "--calibrate", action="store_true",
+        help="(re)calibrate first; default: calibrate only when the iteration "
+             "has no ceinms_calibration/subjectCalibrated.xml yet")
     # `simulate mrs` forwards to bioscout.simulate.mrs.cli's own parser (see
     # route()); registered here only so it shows in `bioscout simulate -h`.
     sms.add_parser("mrs", help="Muscle Redundancy Solver (KU Leuven, via MATLAB): "
                                "`simulate mrs check`, `simulate mrs run TRIAL`")
 
     # -- session ------------------------------------------------------------- #
-    s = sub.add_parser("session", help="create, export, classify or reset a session")
+    s = sub.add_parser("session",
+                       help="create, export, classify, check-grf or reset a session")
     ss = s.add_subparsers(dest="action", metavar="ACTION")
 
     sn = ss.add_parser("new", help="scaffold session.yaml (opens a dialog)")
@@ -276,16 +303,41 @@ def build_parser() -> argparse.ArgumentParser:
                     "and works out what each trial IS (walking, running, squat, "
                     "jump, static...). Writes movement_detection.yaml + .png "
                     "into each trial's folder, plus movement_detection/"
-                    "classification.csv (one row per trial) and "
-                    "session_auto_detection.yaml beside the session. "
-                    "session.yaml is NEVER modified unless you pass "
-                    "--write-yaml, and then only when the session has none: a "
-                    "disagreement is reported for you to accept, not applied.")
+                    "classification.csv (one row per trial), movement_detection/"
+                    "trials_valid.csv (trial, valid true/false, reason) and "
+                    "movement_detection/movement_detection.yaml (all trials "
+                    "in one file). session.yaml is NEVER modified unless you "
+                    "pass --write-yaml: disagreements are reported for you to "
+                    "accept, not applied.")
     sc.add_argument("path", metavar="SESSION_PATH")
     sc.add_argument("--no-plots", action="store_true", help="skip the per-trial QC figures")
     sc.add_argument("--write-yaml", action="store_true",
-                    help="also write session.yaml when the session has none "
-                         "(an existing one is never modified)")
+                    help="also update session.yaml: trial types and time "
+                         "ranges from the detection plus a `valid` tag per "
+                         "trial (the old file is kept as "
+                         "session.yaml.pre_detection); seeds one when the "
+                         "session has none")
+
+    sg = ss.add_parser(
+        "check-grf", help="audit which foot each force plate is assigned to",
+        description="Re-derives every trial's force-plate -> foot assignment "
+                    "from the CURRENT grf.mot + marker TRC and reports where "
+                    "the existing GRF.xml disagrees. GRF.xml is written once by "
+                    "`session export` and never revisited, so it goes stale "
+                    "whenever grf.mot is re-exported or the assignment logic is "
+                    "fixed -- and a bilateral trial with both plates on one foot "
+                    "gives that leg the whole body weight while the other gets "
+                    "none, silently invalidating its ID / SO / JRA. Read-only "
+                    "unless you pass --write.")
+    sg.add_argument("path", nargs="?", default=".", metavar="PROJECT_OR_SESSION",
+                    help="project root (default: the current folder)")
+    sg.add_argument("--subject", default="*", help="limit to one subject, e.g. 009")
+    sg.add_argument("--session", default="*", help="limit to one session, e.g. pre")
+    sg.add_argument("--write", action="store_true",
+                    help="regenerate the GRF.xml of every trial that changed")
+    sg.add_argument("--csv", dest="csv_path", metavar="PATH",
+                    help="where to write the audit table "
+                         "(default: <project>/grf_xml_audit.csv)")
 
     si = ss.add_parser(
         "ingest", help="copy loose .c3d from a capture folder INTO a session",
@@ -316,6 +368,54 @@ def build_parser() -> argparse.ArgumentParser:
     ssc.add_argument("--replace", action="store_true",
                      help="rebuild a model that already exists")
 
+    sst = ss.add_parser(
+        "stage", help="copy the captures session.yaml names into 1_c3dfiles/",
+        description="bioscout reads a capture from <session>/1_c3dfiles/<trial>.c3d "
+                    "and nowhere else -- `c3d_source:` in session.yaml is the "
+                    "pointer for this copy, not a read path. Stages the trials, "
+                    "the static trial, the CEINMS calibration trials and every "
+                    "EMG-normalisation capture (the session MVC maximum spans "
+                    "all of them). `session ingest` is the loose-folder version.")
+    sst.add_argument("path", metavar="SESSION_PATH")
+    sst.add_argument("--source", metavar="FOLDER", help="default: session.yaml's c3d_source")
+    sst.add_argument("--apply", action="store_true", help="actually copy (default: report)")
+
+    sw = ss.add_parser(
+        "windows", help="per-trial time_range from the plates (or the movement detector)",
+        description="Without a time_range, IK is solved over the WHOLE capture "
+                    "-- of which the participant is in the volume for a second "
+                    "or two -- and the session produces nothing. For a trial "
+                    "that strikes a plate the window that matters is the stance "
+                    "phase (--source grf, the default); for a lift or a squat "
+                    "it is the movement detector (--source motion). Every "
+                    "window is clipped to the span the markers support. "
+                    "Existing windows are kept unless --force, and session.yaml "
+                    "is edited as TEXT, so its comments survive.")
+    sw.add_argument("path", metavar="SESSION_PATH")
+    sw.add_argument("--source", default="grf", choices=["grf", "motion"])
+    sw.add_argument("--pad", type=float, default=0.10, metavar="S")
+    sw.add_argument("--grf-threshold", type=float, default=20.0, dest="grf_threshold",
+                    metavar="N", help="newtons on a plate before it counts as loaded")
+    sw.add_argument("--force", action="store_true", help="replace windows that exist")
+    sw.add_argument("--trial", action="append", metavar="NAME",
+                    help="only this trial (repeatable); default: every exported trial")
+    sw.add_argument("--apply", action="store_true", help="write them (default: report)")
+
+    ssd = ss.add_parser(
+        "sides", help="which leg each trial loads -> `side:` in session.yaml",
+        description="Read from GRF.xml's plate-to-foot assignment (worked out "
+                    "at export from the CoP against the foot markers), "
+                    "cross-checked against which plates actually carry load "
+                    "inside the trial's window.")
+    ssd.add_argument("path", metavar="SESSION_PATH")
+    ssd.add_argument("--force", action="store_true", help="replace sides that exist")
+    ssd.add_argument("--apply", action="store_true", help="write them (default: report)")
+
+    sev = ss.add_parser("events", add_help=False,
+                        help="list a trial's task events (hip drive, impact peak, "
+                             "bottom of the squat ...) as events.yaml defines them")
+    sev.add_argument("events_args", nargs=argparse.REMAINDER)
+
     sr = ss.add_parser("reset", help="strip trials back to inputs-only")
     sr.add_argument("--subject")
     sr.add_argument("--session")
@@ -324,18 +424,53 @@ def build_parser() -> argparse.ArgumentParser:
     sr.add_argument("--raw", action="store_true",
                     help="also prune inputs/ down to the raw c3d")
 
+    # -- project ------------------------------------------------------------- #
+    pr = sub.add_parser(
+        "project", help="the project's own settings: edit, show, status",
+        description="project.yaml holds the lab facts that differ from "
+                    "bioscout's defaults (axes, EMG rig, muscle groups) and, "
+                    "under `project:`, the facts about the project itself: the "
+                    "roster, the session states, what a window or a batch "
+                    "defaults to. `bioscout init` creates it.")
+    prs = pr.add_subparsers(dest="action", metavar="ACTION")
+
+    pre_ = prs.add_parser("edit", help="edit project.yaml in a form")
+    pre_.add_argument("path", nargs="?", metavar="PROJECT_PATH")
+    pre_.add_argument("--no-gui", action="store_true",
+                      help="print the file instead of opening the editor")
+
+    prsh = prs.add_parser("show", help="print project.yaml and where it was found")
+    prsh.add_argument("path", nargs="?", metavar="PROJECT_PATH")
+
+    prst = prs.add_parser(
+        "status", help="what is on disk per session (runs nothing)")
+    prst.add_argument("path", nargs="?", default=".", metavar="PROJECT_PATH")
+    prst.add_argument("--subjects", metavar="IDS", help="comma-separated (default: the roster)")
+    prst.add_argument("--sessions", metavar="NAMES", help="comma-separated, or 'all'")
+    prst.add_argument("--iteration", metavar="NAME")
+    prst.add_argument("-v", "--verbose", action="store_true", help="one row per trial")
+
     # -- plot ---------------------------------------------------------------- #
     pl = sub.add_parser(
         "plot", help="figures from the results on disk",
-        description="Anything that is not `summary` or `collings` is taken as "
+        description="Anything that is not `summary`, `collings` or `kinematics` is taken as "
                     "figure keys, so `bioscout plot p01 s_all` and "
                     "`bioscout plot figures p01 s_all` are the same command.")
     pls = pl.add_subparsers(dest="action", metavar="ACTION")
 
     import argparse as _ap
+    pjcc = pls.add_parser("jcf_coverage", add_help=False,
+                          help="where a trial's contact forces land on the bones")
+    pjcc.add_argument("jcf_coverage_args", nargs=_ap.REMAINDER)
+
     pjc = pls.add_parser("jcf", help="polar JCF direction/magnitude on the model's bones",
                          add_help=False)
     pjc.add_argument("jcf_args", nargs=_ap.REMAINDER)
+
+    pk = pls.add_parser("kinematics", add_help=False,
+                        help="joint angles + IK marker errors across a session's "
+                             "iterations -> 4_outputs/kinematics")
+    pk.add_argument("kinematics_args", nargs=_ap.REMAINDER)
 
     pf = pls.add_parser("figures", help="draw catalogue figures by key (the default)")
     pf.add_argument("keys", nargs="*", metavar="KEY",
@@ -379,6 +514,12 @@ def build_parser() -> argparse.ArgumentParser:
     um.add_argument("--toc", action="store_true")
     um.add_argument("--bib", metavar="FILE.bib")
     um.add_argument("--keep-docx", action="store_true")
+
+    uq = us.add_parser("qr_code", aliases=["qr"],
+                       help="make a QR code for a link (prompts for link and save path)")
+    uq.add_argument("link", nargs="?", metavar="URL")
+    uq.add_argument("-o", "--out", metavar="FILE", help=".png / .svg / .pdf, or a folder")
+    uq.add_argument("--scale", type=int, default=10, help="pixels per module (default 10)")
 
     up = us.add_parser("pylance", help="write .vscode/settings.json so 'import bioscout' resolves")
     up.add_argument("path", nargs="?", metavar="PROJECT_DIR")
@@ -474,7 +615,7 @@ def _to_legacy(ns: argparse.Namespace) -> List[str]:      # noqa: C901 — a fla
     out: List[str] = []
 
     if v == "init":
-        return ["--init", ns.path]
+        return ["--init", ns.path] + (["--init-force"] if getattr(ns, "force", False) else [])
     if v == "gui":
         return ["--gui"]
 
@@ -482,7 +623,7 @@ def _to_legacy(ns: argparse.Namespace) -> List[str]:      # noqa: C901 — a fla
         if a == "scale":
             out = ["--scale-session", ns.path]
             _flag(out, "--iteration", ns.iteration)
-            _flag(out, "--REPLACE", ns.replace, store_true=True)
+            _flag(out, "--replace", ns.replace, store_true=True)
             return out
         if a == "new":
             out = ["--new-session", ns.path or "."]
@@ -619,6 +760,28 @@ def _to_legacy(ns: argparse.Namespace) -> List[str]:      # noqa: C901 — a fla
 # --------------------------------------------------------------------------- #
 # verbs that need nothing heavy
 # --------------------------------------------------------------------------- #
+GUI_MOVED = ("The bioscout desktop GUI was removed in 3.1. For an interface use BioScout Web "
+             "(https://basgoncalves.github.io/bioscout-web/) -- it opens the same project folders (project.yaml, session.yaml) "
+             "in the browser. `bioscout help` lists the command-line verbs.")
+
+
+def _project_yaml_path(path=None):
+    """The project.yaml to show/edit: a file, a project folder, or the nearest one
+    above the current folder. Returns a Path that may not exist yet."""
+    from pathlib import Path
+    from bioscout.init.project_config import find_project_yaml
+    if path:
+        p = Path(path)
+        if p.is_file() or p.suffix.lower() in (".yaml", ".yml"):
+            return p
+        if (p / "project.yaml").is_file():
+            return p / "project.yaml"
+        found = find_project_yaml(str(p))
+        return Path(found) if found else p / "project.yaml"
+    found = find_project_yaml()
+    return Path(found) if found else Path.cwd() / "project.yaml"
+
+
 def _direct(ns: argparse.Namespace) -> Optional[int]:
     """Run a verb here and return its exit code, or None to fall through.
 
@@ -643,31 +806,78 @@ def _direct(ns: argparse.Namespace) -> Optional[int]:
             argv += ["--json", ns.json]
         return _check(argv)
 
+    if v == "session" and a == "check-grf":
+        # Self-contained: one module, its own report. Needs opensim only through
+        # assign_grfs_to_feet, which is the thing being audited.
+        from bioscout.session.grf_check import check_session
+        _root = ns.path or "."
+        _csv = ns.csv_path or os.path.join(_root, "grf_xml_audit.csv")
+        _rows, _chg, _sus = check_session(root=_root, subject=ns.subject,
+                                          session=ns.session, write=ns.write,
+                                          csv_path=_csv)
+        # Non-zero when something is actually wrong, so it is usable in a check
+        # script: suspect trials are the real failure, a pending change is not.
+        return 1 if _sus else 0
+
     if v == "init" and getattr(ns, "from_settings", False):
         # Imports the project's settings.py, which needs the full stack — but
         # the extraction itself is one call and prints its own verdict.
         from bioscout.init.project_config import init_project_yaml
         return init_project_yaml(ns.path, force=ns.force)
 
+    if v == "utils" and a in ("qr_code", "qr"):
+        from bioscout.devtools.qrgen import make_qr
+        return make_qr(ns.link, ns.out, scale=ns.scale)
+
     if v == "utils" and a == "env":
         from bioscout.devtools.envcheck import ensure
         st = ensure(create=bool(ns.create))
         return 0 if (st["match"] or st["env_exists"]) else 1
 
-    if v == "session" and a in ("new", "edit") and not getattr(ns, "no_gui", False):
-        # One editor for both verbs: it detects whether session.yaml is already
-        # there and offers to create it or edits it in place, which is what you
-        # want when `session new` is pointed at a folder that turns out to have
-        # one. --no-gui, or no display, falls through to the flag path below.
-        try:
-            from bioscout.gui.session_editor import gui_available, open_session_editor
-        except Exception:
-            return None
-        if not gui_available():
-            # Headless — ssh, CI, a container. Fall through to the flags rather
-            # than exit 0 having written nothing, which reads as success.
-            return None
-        return open_session_editor(ns.path)
+    if v == "gui":
+        print(GUI_MOVED)
+        return 0
+
+    if v == "session" and a in ("stage", "windows", "sides"):
+        if a == "stage":
+            from bioscout.session.stage import stage_c3d
+            stage_c3d(ns.path, source=ns.source, apply=ns.apply)
+            return 0
+        from bioscout.session import windows as _w
+        if a == "windows":
+            _w.set_time_ranges(ns.path, trials=ns.trial, source=ns.source,
+                               pad=ns.pad, threshold=ns.grf_threshold,
+                               force=ns.force, apply=ns.apply)
+        else:
+            _w.set_sides(ns.path, force=ns.force, apply=ns.apply)
+        return 0
+
+    if v == "project":
+        resolve_path = _project_yaml_path
+        if a == "status":
+            from bioscout.core.status import table
+            out = table(ns.path, ns.subjects, ns.sessions, ns.iteration, ns.verbose)
+            for part in (out if isinstance(out, tuple) else (out,)):
+                try:
+                    print(part.to_string())
+                except AttributeError:
+                    for row in part:
+                        print(row)
+            return 0
+        ypath = resolve_path(getattr(ns, "path", None))
+        if a == "show" or (a == "edit" and getattr(ns, "no_gui", False)):
+            if not ypath.is_file():
+                print(f"no project.yaml at {ypath} -- `bioscout init` creates one")
+                return 1
+            print(f"# {ypath}")
+            print(ypath.read_text(encoding="utf-8", errors="replace"))
+            return 0
+        if a == "edit":
+            # no desktop editor any more: show the file and where to edit it
+            print(f"# {ypath}  (edit it in a text editor, or in BioScout Web: Project settings)")
+            print(ypath.read_text(encoding="utf-8", errors="replace")
+                  if ypath.is_file() else "(no project.yaml yet)")
+            return 0
 
     if v == "plot" and a == "jcf":
         from bioscout.plot.jcf_direction import main as _jcf
@@ -699,18 +909,88 @@ def _direct(ns: argparse.Namespace) -> Optional[int]:
         # than silently doing nothing, which is exactly what a run command
         # should do on a bad path.
         from bioscout.session.recording import Session
-        stage_kwarg = {"exbiomec": "do_exbiomec", "ma": "do_muscle_analysis",
-                       "so": "do_so", "mew": "do_mew", "ceinms": "do_ceinms"}[a]
         try:
             s = Session(ns.path)
         except FileNotFoundError as e:
             print(f"[simulate] {e}", file=sys.stderr)
             return 1
-        iterations = [ns.iteration] if ns.iteration else None
+        iterations = ([i.strip() for i in ns.iteration.split(",") if i.strip()]
+                      if ns.iteration else None)
         trials = [t.strip() for t in ns.trial.split(",")] if ns.trial else None
-        results = s.run(iterations=iterations, trials=trials,
-                        replace=bool(ns.replace), **{stage_kwarg: True})
-        print(f"[simulate {a}] {ns.path}: {results}")
+        if iterations:
+            _known = set(s.iterations) | set((s._cfg.get("iterations") or {}))
+            _bad = [i for i in iterations if i not in _known]
+            if _bad:
+                print(f"[simulate {a}] no iteration(s) {_bad} in {ns.path} -- have "
+                      f"{', '.join(sorted(_known))}", file=sys.stderr)
+                return 1
+        # -- stages that are not Iteration.run() flags -------------------------
+        if a == "scale":
+            bad = 0
+            for it in (iterations or s.iterations):
+                try:
+                    s.iteration(it).scale_model(replace=bool(ns.replace))
+                    print(f"[simulate scale] {it}: ok")
+                except Exception as e:                           # noqa: BLE001
+                    bad += 1
+                    print(f"[simulate scale] {it}: FAILED -- {type(e).__name__}: {e}",
+                          file=sys.stderr)
+            return 1 if bad else 0
+        if a == "emg":
+            # session-wide: the [0, 1] reference spans every trial of the session,
+            # so it is one call whatever --iteration/--trial say
+            it = (iterations or s.iterations)[0]
+            s.iteration(it).run_emg_normalise(replace=bool(ns.replace))
+            print(f"[simulate emg] {s.name}: normalised across all trials")
+            return 0
+        if a == "figures":
+            made, failed = 0, []
+            for it in (iterations or s.iterations)[:1]:      # inputs are per trial, not per model
+                itr = s.iteration(it)
+                for name in (trials or [t for t, m in (s._cfg.get("trials") or {}).items()
+                                        if str((m or {}).get("type", "")).lower() != "static"]):
+                    tr = itr.trial(name)
+                    for what, fn in (("grf_events", tr.plot_grf_events),
+                                     ("emg_processing", tr.plot_emg_processing)):
+                        try:
+                            fn()
+                            made += 1
+                        except Exception as e:                   # noqa: BLE001
+                            failed.append(f"{name}/{what}: {type(e).__name__}: {e}")
+            print(f"[simulate figures] {made} written" + (f", {len(failed)} failed" if failed else ""))
+            for f in failed[:8]:
+                print(f"    {f}")
+            return 0
+        stage_kwarg = {"exbiomec": "do_exbiomec", "ma": "do_muscle_analysis",
+                       "so": "do_so", "rra": "do_rra", "forward": "do_forward", "mew": "do_mew", "ceinms": "do_ceinms"}[a]
+        if a == "ceinms":
+            import os
+            results = {}
+            for it in (iterations or s.iterations):
+                itr = s.iteration(it)
+                cal = bool(ns.calibrate) or not os.path.exists(os.path.join(
+                    itr.path, "ceinms_calibration", "subjectCalibrated.xml"))
+                results.update(s.run(iterations=[it], trials=trials, calibrate=cal,
+                                     replace=bool(ns.replace), do_ceinms=True))
+        else:
+            results = s.run(iterations=iterations, trials=trials,
+                            replace=bool(ns.replace), **{stage_kwarg: True})
+        # one line per iteration: what ran, what was skipped, ok or not --
+        # the raw dict repeated every stage's empty lists and the report twice
+        for _it, _r in (results or {}).items():
+            if not isinstance(_r, dict):
+                print(f"[simulate {a}] {_it}: {_r}")
+                continue
+            _done = {k: v for k, v in _r.items()
+                     if isinstance(v, list) and v and k not in ("skipped",)}
+            _bits = [f"{k}: {', '.join(map(str, v))}" for k, v in _done.items()]
+            if _r.get("skipped"):
+                _bits.append(f"skipped: {', '.join(map(str, _r['skipped']))}")
+            _miss = (_r.get("report") or {}).get("missing") or []
+            if _miss:
+                _bits.append(f"MISSING: {', '.join(map(str, _miss))}")
+            print(f"[simulate {a}] {_it}: {'; '.join(_bits) or 'nothing to do'}"
+                  f"  -> {'ok' if _r.get('ok') else 'NOT OK'}")
         return 0
 
     return None
@@ -734,11 +1014,38 @@ def route(argv: Sequence[str]) -> Tuple[str, object]:
         from bioscout.simulate.mrs.cli import main as _mrs
         return ("exit", _mrs(argv[2:]) or 0)
 
+    # `run` forwards its whole tail: it owns its own parser and detaches.
+    if argv[:1] == ["run"]:
+        from bioscout.core.batch import main as _run
+        return ("exit", _run(argv[1:]) or 0)
+
+    # `model measure` forwards its whole tail to bioscout.model.measure.
+    if argv[:2] == ["model", "measure"]:
+        from bioscout.model.measure import main as _measure
+        return ("exit", _measure(argv[2:]) or 0)
+
     # `plot jcf` forwards its whole tail to the module's own parser (argparse
     # REMAINDER does not reliably swallow leading options like -h).
+    if argv[:2] == ["plot", "jcf_coverage"] or argv[:2] == ["plot", "jcf-coverage"]:
+        from bioscout.plot.jcf_coverage import main as _jcfc
+        return ("exit", _jcfc(argv[2:]) or 0)
+
+    # `session events TRIAL`: which instants the figures will show, from
+    # bioscout/session/events.yaml (+ project.yaml / session.yaml overrides)
+    if argv[:2] == ["session", "events"]:
+        from bioscout.session.events import main as _sev
+        return ("exit", _sev(argv[2:]) or 0)
+
     if argv[:2] == ["plot", "jcf"]:
         from bioscout.plot.jcf_direction import main as _jcf
         return ("exit", _jcf(argv[2:]) or 0)
+
+    # `plot kinematics SESSION`: joint angles and IK marker errors compared
+    # across iterations, into <session>/4_outputs/kinematics (as `plot collings`
+    # does for muscle rankings). Own parser, same reason as `plot jcf`.
+    if argv[:2] == ["plot", "kinematics"]:
+        from bioscout.plot.kinematics import main as _kin
+        return ("exit", _kin(argv[2:]) or 0)
 
     # `bioscout plot p01 s_all` == `bioscout plot figures p01 s_all`. argparse
     # cannot have both a free positional list and subcommands on one parser, so
@@ -749,7 +1056,9 @@ def route(argv: Sequence[str]) -> Tuple[str, object]:
         # the default action's, or summary and collings become undiscoverable.
         if rest and rest[0] in ("-h", "--help"):
             pass
-        elif not rest or rest[0] not in ("figures", "summary", "collings", "jcf"):
+        elif not rest or rest[0] not in ("figures", "summary", "collings", "jcf",
+                                         "jcf_coverage", "jcf-coverage",
+                                         "kinematics"):
             argv = ["plot", "figures"] + rest
 
     # `bioscout help [VERB]` == `bioscout [VERB] --help`
@@ -768,7 +1077,8 @@ def route(argv: Sequence[str]) -> Tuple[str, object]:
 
     # A verb with subcommands, given none: show that verb's help rather than
     # silently doing nothing.
-    if ns.verb in ("session", "model", "utils", "lab", "plot", "simulate") and not getattr(ns, "action", None):
+    if ns.verb in ("session", "model", "utils", "lab", "plot", "simulate",
+                   "project") and not getattr(ns, "action", None):
         parser.parse_args([ns.verb, "--help"])          # exits
 
     code = _direct(ns)
@@ -778,12 +1088,32 @@ def route(argv: Sequence[str]) -> Tuple[str, object]:
     return ("legacy", _to_legacy(ns))
 
 
+#: verbs whose output belongs in the log, not on the terminal: they print
+#: hundreds of OpenSim lines over minutes, and the one line worth reading
+#: scrolls away. --verbose puts the stream back.
+_QUIET_VERBS = {("simulate",), ("session", "export"), ("session", "classify"),
+                ("session", "scale")}
+
+
+def _is_quiet_verb(argv) -> bool:
+    return any(tuple(argv[:len(k)]) == k for k in _QUIET_VERBS)
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     """Standalone entry: ``python -m bioscout.cli <verb> ...``."""
-    kind, value = route(list(sys.argv[1:] if argv is None else argv))
+    argv_in = list(sys.argv[1:] if argv is None else argv)
+    verbose = "--verbose" in argv_in or "-v" in argv_in
+    argv_in = [a for a in argv_in if a not in ("--verbose", "-v")]
+    if verbose:
+        os.environ["BIOSCOUT_VERBOSE"] = "1"     # verbs with a short default report read this
+    if _is_quiet_verb(argv_in) and not verbose:
+        from bioscout.utils import shared as _sh
+        _sh.set_quiet_console(True)
+    kind, value = route(argv_in)
     if kind == "exit":
         return int(value)                                # type: ignore[arg-type]
     import runpy
+    os.environ["BIOSCOUT_FROM_VERB"] = "1"   # legacy-flag hint is for typed flags only
     sys.argv = [sys.argv[0]] + list(value)               # type: ignore[arg-type]
     runpy.run_module("bioscout", run_name="__main__")
     return 0

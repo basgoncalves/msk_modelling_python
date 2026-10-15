@@ -7,6 +7,7 @@ recursive-include bioscout/simulate/ceinms/bin *.exe *.dll *.txt *.zip
 exclude bioscout/simulate/ceinms/bin/torch_cpu.dll
 recursive-include bioscout/simulate/mrs *.m
 recursive-include bioscout/config *.yaml *.xml
+recursive-include bioscout/session *.yaml
 recursive-include bioscout/setup_files *.xml *.txt
 recursive-include bioscout/models *.osim *.txt
 recursive-include bioscout/model/tps *.xml *.yaml *.md

@@ -54,8 +54,8 @@ from settings import SUBJECTS, SIMULATIONS_DIR, SubjectConfig
 RESULT_FILES: Dict[str, str] = {
     'ik':            'joint_angles.mot',
     'id':            'inverse_dynamics.sto',
-    'so_forces':     'SO_StaticOptimization_force.sto',
-    'so_activations':'SO_StaticOptimization_activation.sto',
+    'so_forces':     'StaticOptimization_force.sto',        # legacy SO_ prefix: see so_files.pick
+    'so_activations':'StaticOptimization_activation.sto',
     'ceinms_forces': None,   # located via glob (see _find_ceinms_forces)
     'grf':           'grf.mot',
     'emg':           'emg_filtered_normalised.mot',

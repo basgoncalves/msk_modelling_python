@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 from ..spec import OpResult, Param, op
+from bioscout.model.opensim_base import _quiet_model
 
 __all__ = []
 
@@ -101,7 +102,7 @@ def reserves(model, out, *, actuators=None, optimal_force=None,
                         reason=f"{os.path.basename(src)} loaded as an empty or "
                                f"unreadable ForceSet")
 
-    m = osim.Model(str(model))
+    m = _quiet_model(str(model))
     have = {m.getForceSet().get(i).getName()
             for i in range(m.getForceSet().getSize())}
     want = [fs.get(i).getName() for i in range(fs.getSize())]
@@ -142,7 +143,7 @@ def reserves(model, out, *, actuators=None, optimal_force=None,
     # Verify the WRITTEN file, not the object in memory. A model that parses is
     # not a model whose actuators exist -- initSystem() is what proves the
     # sockets resolved.
-    chk = osim.Model(str(out))
+    chk = _quiet_model(str(out))
     kept = {chk.getForceSet().get(i).getName()
             for i in range(chk.getForceSet().getSize())}
     missing = [n for n in added if n not in kept]

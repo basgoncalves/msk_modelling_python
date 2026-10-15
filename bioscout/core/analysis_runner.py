@@ -26,6 +26,7 @@ class AnalysisStep(Enum):
     STATIC_OPTIMIZATION = "static_optimization"
     JOINT_REACTION_ANALYSIS = "joint_reaction_analysis"
     RRA = "rra"
+    FORWARD = "forward"
     CMC = "cmc"
     ENERGETICS = "energetics"
     BODY_KINEMATICS = "body_kinematics"
@@ -200,6 +201,7 @@ class AnalysisRunner:
                 AnalysisStep.STATIC_OPTIMIZATION: self._run_static_optimization,
                 AnalysisStep.JOINT_REACTION_ANALYSIS: self._run_joint_reaction_analysis,
                 AnalysisStep.RRA: self._run_rra,
+                AnalysisStep.FORWARD: self._run_forward,
                 AnalysisStep.CMC: self._run_cmc,
                 AnalysisStep.ENERGETICS: self._run_energetics,
                 AnalysisStep.BODY_KINEMATICS: self._run_body_kinematics,
@@ -311,6 +313,10 @@ class AnalysisRunner:
     def _run_joint_reaction_analysis(self, config: Dict[str, Any]) -> None:
         """Run joint reaction analysis step."""
         self.analysis_obj.run_jra()
+
+    def _run_forward(self, config: Dict[str, Any]) -> None:
+        """Forward simulation (CMC -> open-loop ForwardTool)."""
+        self.analysis_obj.run_forward()
 
     def _run_rra(self, config: Dict[str, Any]) -> None:
         """Run Residual Reduction Algorithm step."""

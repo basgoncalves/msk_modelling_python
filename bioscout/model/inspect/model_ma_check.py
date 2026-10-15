@@ -34,6 +34,7 @@ import matplotlib.pyplot as plt
 
 from .discontinuity import detect_discontinuities
 from .moment_arm_motion import _read_sto
+from bioscout.model.opensim_base import _quiet_model
 
 #: fig06's rows: (label, member muscle stems, primary coordinate stem).
 DEFAULT_GROUPS = [
@@ -56,7 +57,7 @@ DOFLAB = {"hip_flexion": "hip flexion", "hip_adduction": "hip adduction",
 def _moment_arms(model_path, motion, pairs, stride=1):
     """{(muscle, dof): mm array} for every requested (muscle, dof) pair."""
     import opensim as osim
-    model = osim.Model(model_path)
+    model = _quiet_model(model_path)
     state = model.initSystem()
     coords = model.getCoordinateSet()
     present = {coords.get(i).getName() for i in range(coords.getSize())}
@@ -203,7 +204,7 @@ def check_ma_discontinuities(model, motion, out_dir=None, side="_r",
 
 def _all_muscle_names(model_path, side):
     import opensim as osim
-    mset = osim.Model(model_path).getMuscles()
+    mset = _quiet_model(model_path).getMuscles()
     return [mset.get(i).getName() for i in range(mset.getSize())
             if mset.get(i).getName().endswith(side)]
 

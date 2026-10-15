@@ -11,9 +11,177 @@ import os
 import sys
 
 
+def _short_report(sess, mside, val_rows, disagree, det_dir, cycle_rows):
+    """The default terminal output: one row per trial, then where the rest is.
+
+        H3L/11_11_14  measured side: left
+          trial      type     valid  why not
+          Gehen_01   walking  NO     plate shared with the other foot; step spans two plates
+          Gehen_03   walking  yes
+          2 valid, 1 not valid  ->  <session>/movement_detection
+
+    The full reason (times, forces) is in trials_valid.csv; ``--verbose``
+    prints everything the detector did.
+    """
+    _name = "/".join(os.path.normpath(sess).split(os.sep)[-2:])
+    _leg = {"l": "left", "r": "right"}.get(mside, "both legs")
+    print(f"{_name}  measured side: {_leg}")
+    _cj = {}
+    for _c in cycle_rows:
+        _cj.setdefault(_c.get("trial", ""), []).append(_c)
+    _w = max([len("trial")] + [len(str(_r["trial"])) for _r in val_rows])
+    _wt = max([len("type")] + [len(str(_r["type"])) for _r in val_rows])
+    print(f"  {'trial':<{_w}}  {'type':<{_wt}}  valid  why not")
+    for _r in val_rows:
+        _why = ""
+        if not _r["valid"]:
+            _bits = []
+            for _c in _cj.get(_r["trial"], []):
+                for _flag, _txt in (("shared_plate", "plate shared with the other foot"),
+                                    ("straddled", "step spans two plates"),
+                                    ("cop_jump", "second foot landed on the plate")):
+                    if _truthy(_c.get(_flag, False)) and _txt not in _bits:
+                        _bits.append(_txt)
+            _why = "; ".join(_bits) or str(_r["reason"]).split(" (")[0]
+        print(f"  {_r['trial']:<{_w}}  {_r['type']:<{_wt}}  "
+              f"{'yes' if _r['valid'] else 'NO ':<5}  {_why}".rstrip())
+    for _d in disagree:
+        print(f"  ! {_d['trial']}: detected {_d['detected']}, session.yaml says "
+              f"{_d.get('session_yaml_type') or '(unset)'}")
+    _nv = sum(1 for _r in val_rows if _r["valid"])
+    print(f"  {_nv} valid, {len(val_rows) - _nv} not valid  ->  {det_dir}")
+
+
+def _truthy(v) -> bool:
+    """A flag that may have come back from a CSV as the string "False"."""
+    return v if isinstance(v, bool) else str(v).strip().lower() in ("true", "1", "yes")
+
+
+def _plate_cop_jumps(exp_dir, body_mass, cfg, min_jump_m=0.10):
+    """Moments where a LOADED plate's centre of pressure jumps in one frame.
+
+    One foot rolls its CoP forward a few millimetres per frame. A jump of
+    10 cm or more while the plate already carries real load means a second
+    foot has just landed on it -- typically the previous foot's toes were
+    still on the plate's edge. The contact detector splits a plate between
+    feet only when each takes a clear turn; this catches the partial overlap
+    it misses (Charite H3L Gehen_02: 193 N of the right forefoot on plate 2
+    when the left heel lands, CoP jumps 15 cm in one frame).
+
+    "Real load" is 10 % of body weight (at least 50 N), so the few newtons a
+    plate reads before a clean heel strike do not count.
+    Returns ``[{"plate", "t", "load_n", "jump_m"}]``.
+    """
+    import numpy as np
+    from .mocap import read_grf
+    try:
+        t, cols = read_grf(os.path.join(exp_dir, "grf.mot"))
+    except Exception:
+        return []
+    if not len(t):
+        return []
+    _v = str(getattr(cfg, "vertical_axis", "Y")).lower()[-1]
+    _h = [_a for _a in "xyz" if _a != _v]
+    try:
+        _thr = max(50.0, 0.10 * float(body_mass) * 9.81)
+    except (TypeError, ValueError):
+        _thr = 50.0
+    out = []
+    for _c in cols:
+        if not _c.endswith(f"_v{_v}"):
+            continue
+        pre = _c[:-3]
+        try:
+            f = np.abs(cols[_c])
+            p = np.stack([cols[f"{pre}_p{_a}"] for _a in _h], axis=1)
+        except KeyError:
+            continue
+        d = np.linalg.norm(np.diff(p, axis=0), axis=1)
+        for k in np.flatnonzero((d >= min_jump_m) & (f[:-1] >= _thr)
+                                & (f[1:] >= _thr)):
+            out.append({"plate": pre, "t": round(float(t[k + 1]), 3),
+                        "load_n": round(float(f[k]), 1),
+                        "jump_m": round(float(d[k]), 3)})
+    return out
+
+
+def _trial_validity(rows, cycle_rows, measured_side="both"):
+    """One row per trial: is it usable, and if not, why.
+
+    ``valid`` is about the MEASUREMENT, not the movement:
+
+    * a trial the detector could not type (``unknown``) is not valid;
+    * a gait trial is valid when at least one stride was measured cleanly --
+      its plate took that foot only (``shared_plate`` False), the step did
+      not span two plates (``straddled`` False) and the centre of pressure
+      did not jump under load (``cop_jump`` False). ``valid_left`` /
+      ``valid_right`` say which leg that holds for, because a study of one
+      limb needs that leg and not "any";
+    * a gait trial with no stride on a plate at all is not valid;
+    * anything else (static, squat, jump...) has no per-foot plate check and
+      is valid as long as it was typed.
+
+    ``measured_side`` ``"l"`` / ``"r"`` (session.yaml) makes the session about
+    that leg alone: only its strides are looked at, ``valid`` is that leg's
+    answer, and the other leg's column is left empty.
+
+    Flag, not filter: nothing downstream skips a trial because of this file.
+    """
+    _want = {"l": "left", "r": "right"}.get(str(measured_side).lower())
+    _gait = ("walking", "running", "cut")
+    _by = {}
+    for _c in cycle_rows:
+        _by.setdefault(_c.get("trial", ""), []).append(_c)
+    out = []
+    for _r in rows:
+        _t, _typ = _r.get("trial", ""), str(_r.get("detected", ""))
+        _cs = [_c for _c in _by.get(_t, [])
+               if not _want or str(_c.get("side", "")) == _want]
+        _ok = {"left": False, "right": False}
+        _why = []
+        for _c in _cs:
+            _sh, _st = _truthy(_c.get("shared_plate")), _truthy(_c.get("straddled"))
+            _cj = _truthy(_c.get("cop_jump", False))
+            _sd = str(_c.get("side", ""))
+            if not _sh and not _st and not _cj:
+                if _sd in _ok:
+                    _ok[_sd] = True
+                continue
+            _p = [_x for _x, _f in (("plate shared with the other foot", _sh),
+                                    ("step spans two plates", _st),
+                                    ("a second foot landed on its plate ("
+                                     + str(_c.get("cop_jump_note", "")) + ")", _cj))
+                  if _f]
+            _why.append(f"{_c.get('cycle', _sd)}: {' and '.join(_p)}")
+        if _typ == "unknown" or not _typ:
+            _valid, _reason = False, f"not classified ({_r.get('reason', '')})"
+        elif _typ in _gait:
+            _valid = _ok[_want] if _want else (_ok["left"] or _ok["right"])
+            if not _cs:
+                _reason = (f"no {_want} stride found on a force plate" if _want
+                           else "no stride found on a force plate")
+            elif _valid:
+                _good = [_s for _s in ("left", "right") if _ok[_s]]
+                _reason = ("clean plate contact: " + " and ".join(_good)
+                           + ("; " + "; ".join(_why) if _why else ""))
+            else:
+                _reason = "; ".join(_why) or "no clean plate contact"
+        else:
+            _valid, _reason = True, f"{_typ}: no per-foot plate check"
+        out.append({"trial": _t, "type": _typ,
+                    "measured_side": str(measured_side).lower(),
+                    "valid": bool(_valid),
+                    "valid_left": (_ok["left"] if _typ in _gait
+                                   and _want in (None, "left") else ""),
+                    "valid_right": (_ok["right"] if _typ in _gait
+                                    and _want in (None, "right") else ""),
+                    "n_cycles": len(_cs), "reason": _reason})
+    return out
+
+
 def classify_session(session_path: str, settings=None, no_plots: bool = False,
                      write_session_yaml: bool = False, per_trial: bool = True,
-                     quiet: bool = False, trials=None):
+                     quiet: bool = False, trials=None, verbose: bool = False):
     """Classify every trial in ``session_path`` and write the outputs.
 
     Per trial, beside the data it describes (``per_trial``, the default) —
@@ -26,8 +194,10 @@ def classify_session(session_path: str, settings=None, no_plots: bool = False,
 
     And once, beside the session:
 
-    * ``session_auto_detection.yaml`` — the detection, never read by the
+    * ``movement_detection/movement_detection.yaml`` — every trial's
+      detection and its ``valid`` flag in one file; never read by the
       pipeline and never overwriting ``session.yaml``
+    * ``movement_detection/trials_valid.csv`` — trial, valid, reason
     * ``movement_detection/classification.csv`` — one row per trial, the
       only cross-trial view (which is why it stays session-level)
     * ``movement_detection/plots/<trial>.png`` — the old figure location,
@@ -38,8 +208,9 @@ def classify_session(session_path: str, settings=None, no_plots: bool = False,
     axes. When omitted, the function looks for a ``settings.py`` above the
     session and falls back to the conventional defaults.
 
-    ``write_session_yaml`` corrects ``session.yaml``'s trial types from the
-    detection, backing the old file up first. ``quiet`` trims the per-trial
+    ``write_session_yaml`` corrects ``session.yaml``'s trial types and time
+    ranges from the detection and adds a ``valid`` tag per trial, backing the
+    old file up first. A trial detected as "unknown" keeps its type. ``quiet`` trims the per-trial
     chatter to one summary line — the export already prints a line per trial.
 
     ``trials`` re-detects only the named trials. Every other trial keeps the
@@ -57,7 +228,12 @@ def classify_session(session_path: str, settings=None, no_plots: bool = False,
                                             gait_cycles, plot_trial_tasks,
                                             MocapConfig)
 
-    _say = (lambda *_a, **_k: None) if quiet else print
+    # Three levels. `quiet` (called from an export): one summary line.
+    # Default: a short table, one row per trial -- what you want on a terminal.
+    # `verbose`: every convention, per-trial line and file written, as before.
+    _noop = (lambda *_a, **_k: None)
+    _say = print if (verbose and not quiet) else _noop
+    _info = print if (verbose or quiet) else _noop
 
     _sess = os.path.abspath(session_path)
     if not os.path.isdir(_sess):
@@ -120,6 +296,23 @@ def classify_session(session_path: str, settings=None, no_plots: bool = False,
         if _up == _probe:
             break
         _probe = _up
+    # session.yaml already says what this lab calls its markers
+    # (`marker_aliases: {LASI: LASIS, ...}`, the same map scaling uses). With
+    # no settings.py naming the pelvis, read it from there: otherwise a lab
+    # that writes LASIS finds no pelvis, no speed, and every trial "unknown".
+    from bioscout.session.config import measured_side_of as _msof
+    _mside = _msof(_cfg)
+    if _mside in ("l", "r"):
+        _say(f"[classifier] measured_side: {_mside} -- strides and validity "
+             f"for the {'left' if _mside == 'l' else 'right'} leg only")
+    _al = _cfg.get("marker_aliases") or {}
+    if not _mcfg.pelvis_markers and isinstance(_al, dict) and _al:
+        _pm = [str(_al[_n]) for _n in ("LASI", "RASI", "LPSI", "RPSI", "SACR")
+               if _al.get(_n)]
+        if len(_pm) >= 2:
+            _mcfg.pelvis_markers = tuple(_pm)
+            _say(f"[classifier] pelvis markers from session.yaml "
+                 f"marker_aliases: {', '.join(_pm)}")
     if _mcfg_src and _mcfg_src != "<unusable>":
         _fm = len(_mcfg.left_foot_markers or []) + len(_mcfg.right_foot_markers or [])
         _say(f"[classifier] conventions from {_mcfg_src}: "
@@ -203,6 +396,23 @@ def classify_session(session_path: str, settings=None, no_plots: bool = False,
                                                    cfg=_mcfg)
             _segs = segment_trial(_d, body_mass=_mass, cfg=_mcfg)
             _cyc = gait_cycles(_d, body_mass=_mass, cfg=_mcfg, segments=_segs)
+            if _mside in ("l", "r"):
+                # The session is about ONE leg: the other leg's strides are
+                # not reported, counted or allowed to make a trial "valid".
+                _cyc = [_c for _c in _cyc
+                        if str(_c.get("side", ""))[:1].lower() == _mside]
+            _jumps = _plate_cop_jumps(_d, _mass, _mcfg)
+            for _c in _cyc:
+                _s0, _s1 = (_c.get("stance") or [None, None])
+                _hit = [_j for _j in _jumps if _s0 is not None
+                        and _j["plate"] in (_c.get("plates") or [])
+                        and _s0 - 0.05 <= _j["t"] <= _s1 + 0.05]
+                _c["cop_jump"] = bool(_hit)
+                if _hit:
+                    _j = max(_hit, key=lambda _x: _x["load_n"])
+                    _c["cop_jump_note"] = (
+                        f"CoP jumped {_j['jump_m']*100:.0f} cm at {_j['t']:.3f} s "
+                        f"with {_j['load_n']:.0f} N already on {_j['plate']}")
         except Exception as _e:
             print(f"  {_t:24} ERROR {type(_e).__name__}: {_e}")
             continue
@@ -311,6 +521,8 @@ def classify_session(session_path: str, settings=None, no_plots: bool = False,
                 "peak_n": _c["peak_n"], "side_margin_m": _c["side_margin_m"],
                 "shared_plate": _c["shared_plate"],
                 "straddled": _c["straddled"],
+                "cop_jump": _c.get("cop_jump", False),
+                "cop_jump_note": _c.get("cop_jump_note", ""),
                 "reason": _c["reason"]})
 
         # The detection belongs beside the data it describes. Written per
@@ -347,39 +559,12 @@ def classify_session(session_path: str, settings=None, no_plots: bool = False,
         _flag = "" if not _old else ("  ==" if _old == _lab else f"  != session.yaml says {_old}")
         _say(f"  {_t:24} {_lab:18} {len(_segs)} task(s){_flag}")
 
-    _dst = os.path.join(_sess, "session_auto_detection.yaml")
     _ver = getattr(__import__('bioscout'), '__version__', 'unknown')
-    # A MIRROR of session.yaml with the trials replaced by what was detected —
-    # same keys, same order, so a diff shows only the trials block and the file
-    # can eventually be copied over session.yaml wholesale. Reporting the
-    # detection alone made you hold the two files side by side to work out what
-    # would actually change.
-    _doc = {"generated_by": f"bioscout {_ver} --classifier",
-            "note": ("Detected from markers/GRF. Identical to session.yaml except "
-                     "for `trials`, so `diff` shows exactly what the detection "
-                     "would change. Never read by the pipeline and never written "
-                     "over session.yaml on its own — use --write-session-yaml."),
-            }
-    for _k in _cfg:                       # keep session.yaml's own key order
-        if _k != "trials":
-            _doc[_k] = _cfg[_k]
-    _doc.setdefault("session", os.path.basename(_sess))
-    if _mass is not None:
-        _doc["body_mass"] = _mass
-    # Per trial: whatever session.yaml already said, with the detection laid
-    # over it. Anything session.yaml carries that the detector has no opinion
-    # on — events, notes, a hand-set time_range — survives.
-    _merged = {}
-    for _k, _v in _out.items():
-        _base = dict(((_cfg.get("trials") or {}).get(_k)) or {})
-        _base.update(_v)
-        _merged[_k] = _base
-    for _k, _v in (_cfg.get("trials") or {}).items():
-        _merged.setdefault(_k, dict(_v or {}))   # listed but not exported
-    _doc["trials"] = _merged
-    with open(_dst, "w", encoding="utf-8") as _fh:
-        _yaml.safe_dump(_doc, _fh, sort_keys=False, default_flow_style=False,
-                        allow_unicode=True)
+    # (session_auto_detection.yaml, a full mirror of session.yaml with the
+    # detection laid over it, is no longer written: nothing read it, it
+    # duplicated the per-trial files and it went stale. The session-level
+    # record is movement_detection/movement_detection.yaml, written below.)
+    _dst = os.path.join(_det, "movement_detection.yaml")
     _csv_path = os.path.join(_det, "classification.csv")
     if _rows:
         _keys = []
@@ -399,10 +584,74 @@ def classify_session(session_path: str, settings=None, no_plots: bool = False,
             _w = _csv.DictWriter(_fh, fieldnames=list(_cycle_rows[0].keys()))
             _w.writeheader(); _w.writerows(_cycle_rows)
         if not quiet:
-            print(f"[classifier] wrote {_cyc_path} "
+            _info(f"[classifier] wrote {_cyc_path} "
                   f"({len(_cycle_rows)} gait cycle(s))")
 
+    # THE ANSWER PEOPLE OPEN THIS FOLDER FOR: can this trial be simulated?
+    # classification.csv says what a trial IS and cycles.csv lists every
+    # stride; neither says, in one line per trial, whether the force plates
+    # measured ONE foot each. A plate that took both feet (or a step that
+    # spanned two plates) gives an inverse dynamics that looks like data and
+    # is not: on Charite H3L Gehen_01 it cost a two-hour sweep to find out.
+    _val_path = os.path.join(_det, "trials_valid.csv")
+    _val_rows = _trial_validity(_rows, _cycle_rows, measured_side=_mside)
+    if _val_rows:
+        os.makedirs(_det, exist_ok=True)
+        with open(_val_path, "w", newline="", encoding="utf-8") as _fh:
+            _w = _csv.DictWriter(_fh, fieldnames=list(_val_rows[0].keys()))
+            _w.writeheader(); _w.writerows(_val_rows)
+        _bad = [_r for _r in _val_rows if not _r["valid"]]
+        _info(f"{'  [detect]' if quiet else '[classifier]'} wrote {_val_path} "
+              f"({len(_val_rows) - len(_bad)} valid, {len(_bad)} NOT valid)")
+        for _r in _bad:
+            _info(f"{'  [detect]' if quiet else '[classifier]'} NOT VALID "
+                  f"{_r['trial']:24} {_r['reason']}")
+
+    # ONE FILE FOR THE SESSION: every trial's detection plus its validity, so
+    # a reader (or a script) needs neither the per-trial folders nor the CSVs.
+    # It describes; it is never read by the pipeline and never changes
+    # session.yaml -- that is --write-yaml's job.
+    _vby = {_r["trial"]: _r for _r in _val_rows}
+    _sdoc = {"generated_by": f"bioscout {_ver} session classify",
+             "session": os.path.basename(_sess),
+             "measured_side": _mside,
+             "note": ("Detected from markers/GRF. `valid` is about the "
+                      "measurement: false when no stride has a force plate to "
+                      "itself, or the trial could not be classified. "
+                      "session.yaml is not changed by this file."),
+             "trials": {}}
+    for _k, _v in _out.items():
+        _e = {"type": _v.get("type")}
+        _vr = _vby.get(_k)
+        if _vr:
+            _e["valid"] = bool(_vr["valid"])
+            for _s in ("valid_left", "valid_right"):
+                if _vr[_s] != "":
+                    _e[_s] = bool(_vr[_s])
+            _e["valid_reason"] = _vr["reason"]
+        _yt2 = str(((_cfg.get("trials") or {}).get(_k) or {}).get("type", ""))
+        if _yt2:
+            _e["session_yaml_type"] = _yt2
+            _e["agrees"] = (_yt2 == _v.get("type"))
+        _e.update({_a: _b for _a, _b in _v.items() if _a != "type"})
+        _sdoc["trials"][_k] = _e
+    if _sdoc["trials"]:
+        os.makedirs(_det, exist_ok=True)
+        with open(_dst, "w", encoding="utf-8") as _fh:
+            _yaml.safe_dump(_sdoc, _fh, sort_keys=False,
+                            default_flow_style=False, allow_unicode=True)
+    _stale = os.path.join(_sess, "session_auto_detection.yaml")
+    if os.path.isfile(_stale):
+        _info(f"{'  [detect]' if quiet else '[classifier]'} "
+              f"{os.path.basename(_stale)} is from an older bioscout and is no "
+              f"longer written or read -- safe to delete")
+
     _dis = [_r for _r in _rows if not _r["agrees"]]
+    if not quiet and not verbose:
+        _want_leg = {"l": "left", "r": "right"}.get(_mside)
+        _short_report(_sess, _mside, _val_rows, _dis, _det,
+                      [_c for _c in _cycle_rows
+                       if not _want_leg or str(_c.get("side", "")) == _want_leg])
     if quiet:
         print(f"  [detect] {len(_out)} trial(s) classified, {len(_dis)} "
               f"disagreeing with session.yaml"
@@ -411,26 +660,29 @@ def classify_session(session_path: str, settings=None, no_plots: bool = False,
             print(f"  [detect] {_r['trial']:24} detected {_r['detected']}"
                   f" != session.yaml {_r['session_yaml_type'] or '(unset)'}")
     else:
-        print(f"\n[classifier] {len(_out)} trial(s), {_n_multi} with more than "
+        _info(f"\n[classifier] {len(_out)} trial(s), {_n_multi} with more than "
               f"one task, {len(_dis)} disagreeing with session.yaml")
-        print(f"[classifier] wrote {_dst}")
+        _info(f"[classifier] wrote {_dst}")
         if _rows:
-            print(f"[classifier] wrote {_csv_path}")
+            _info(f"[classifier] wrote {_csv_path}")
         if not _do_plots:
-            print("[classifier] figures skipped (--no-plots)")
+            _info("[classifier] figures skipped (--no-plots)")
         elif per_trial:
-            print(f"[classifier] wrote {_n_png} figures -> "
+            _info(f"[classifier] wrote {_n_png} figures -> "
                   f"{os.path.join('2_experimental', '<trial>', 'movement_detection.png')}")
         else:
-            print(f"[classifier] wrote {_n_png} figures -> {_plots}")
+            _info(f"[classifier] wrote {_n_png} figures -> {_plots}")
         if per_trial:
-            print(f"[classifier] wrote {len(_out)} x "
+            _info(f"[classifier] wrote {len(_out)} x "
                   f"{os.path.join('2_experimental', '<trial>', 'movement_detection.yaml')}")
 
     if not os.path.isfile(_ypath):
         if write_session_yaml:
             _seed = {"session": os.path.basename(_sess), "body_mass": _mass,
-                     "trials": {k: {"type": v["type"]} for k, v in _out.items()}}
+                     "trials": {k: {"type": v["type"],
+                                    **({"valid": bool(_vby[k]["valid"])}
+                                       if k in _vby else {})}
+                                for k, v in _out.items()}}
             with open(_ypath, "w", encoding="utf-8") as _fh:
                 _yaml.safe_dump(_seed, _fh, sort_keys=False)
             print(f"[classifier] no session.yaml existed — seeded {_ypath}")
@@ -457,9 +709,17 @@ def classify_session(session_path: str, settings=None, no_plots: bool = False,
             if _was != _now:
                 _changed.append((_k, _was or "(unset)", _now))
             _entry_y = _tr.get(_k) or {}
-            _entry_y["type"] = _now
-            if _v.get("time_range"):
-                _entry_y["time_range"] = _v["time_range"]
+            if _now == "unknown" and _was:
+                # "could not tell" is not a finding: keep the type the file
+                # had and let `valid: false` carry the message.
+                if _was != _now:
+                    _changed.pop()
+            else:
+                _entry_y["type"] = _now
+                if _v.get("time_range"):
+                    _entry_y["time_range"] = _v["time_range"]
+            if _k in _vby:
+                _entry_y["valid"] = bool(_vby[_k]["valid"])
             _tr[_k] = _entry_y
         _cfg["trials"] = _tr
         with open(_ypath, "w", encoding="utf-8") as _fh:

@@ -47,7 +47,7 @@ os.environ.setdefault("BIOSCOUT_LOG_FILTER", "1")
 # A legacy flag still works; say once what replaced it. This sits above the
 # --env block because --env exits there, and the flags that exit earliest are
 # exactly the ones a person types most often.
-if sys.argv[1:] and sys.argv[1].startswith("-"):
+if sys.argv[1:] and sys.argv[1].startswith("-") and not os.environ.get("BIOSCOUT_FROM_VERB"):
     from bioscout.cli import legacy_hint as _hint_for
     _hint = _hint_for(sys.argv[1:])
     if _hint:
@@ -187,7 +187,7 @@ if getattr(utils, 'openSim', None) is None:
     except Exception as _e:
         print(f"[main] WARNING: could not load bioscout.simulate.opensim: {_e}",
               flush=True)
-else:
+elif os.environ.get("BIOSCOUT_VERBOSE") == "1":
     print(f"[main] utils.openSim already loaded: {utils.openSim}", flush=True)
 
 # ---------------------------------------------------------------------------
@@ -196,6 +196,8 @@ else:
 parser = argparse.ArgumentParser(description="Biomechanical Analysis")
 parser.add_argument('-b', '--batch', type=str, help="Path to batch settings file (batch mode)")
 parser.add_argument('-g', '--gui',   action='store_true', help="Launch GUI (default when no flags given)")
+parser.add_argument('--init-force', action='store_true', dest='init_force',
+                    help=argparse.SUPPRESS)
 parser.add_argument('--init', type=str, metavar='PROJECT_PATH',
                     help="Initialise a new project: create folder structure and copy settings template")
 parser.add_argument('--ingest-c3d', dest='ingest_c3d', type=str, default=None,
@@ -226,7 +228,7 @@ parser.add_argument('--classifier', '--classify', dest='classifier',
                     type=str, default=None, metavar='SESSION_PATH',
                     help="Classify every trial in a session from its markers/GRF "
                          "(bioscout.session.movement_detector). Writes "
-                         "session_auto_detection.yaml beside session.yaml.")
+                         "movement_detection/movement_detection.yaml in the session.")
 parser.add_argument('--no-plots', dest='classifier_no_plots', action='store_true',
                     help="--classifier: skip the per-trial QC figures "
                          "(the slow part on a big session).")
@@ -331,6 +333,9 @@ parser.add_argument('--dry-run', action='store_true', dest='dry_run',
                     help='decide everything, write nothing')
 parser.add_argument('-y', '--yes', action='store_true', dest='yes',
                     help='do not prompt; fail rather than ask')
+parser.add_argument('--replace', action='store_true', dest='replace',
+                    help='rebuild/recompute outputs that already exist '
+                         '(scaling, c3d export)')
 parser.add_argument('--scale-session', default=None, dest='scale_session',
                     metavar='SESSION_PATH',
                     help="scale a session's model(s) from its session.yaml")
@@ -577,7 +582,8 @@ if getattr(args, 'classifier', None):
     from bioscout.session.movement_detector.session import classify_session
     classify_session(args.classifier,
                      no_plots=getattr(args, 'classifier_no_plots', False),
-                     write_session_yaml=getattr(args, 'write_session_yaml', False))
+                     write_session_yaml=getattr(args, 'write_session_yaml', False),
+                     verbose=os.environ.get("BIOSCOUT_VERBOSE") == "1")
     sys.exit(0)
 
 
@@ -1246,6 +1252,9 @@ def run_gui_mode() -> int:
         if _app_log:
             _app_log.error(msg)
 
+    from bioscout.cli import GUI_MOVED
+    _log(GUI_MOVED)
+    return 0
     _log("[GUI] Importing main_window...")
     try:
         from gui.main_window import main as gui_main
@@ -1358,7 +1367,7 @@ def run_video_batch_mode(settings_path: str) -> bool:
     return all_ok
 
 
-def run_init_mode(project_path: str) -> int:
+def run_init_mode(project_path: str, force: bool = False) -> int:
     """Initialise a new BioScout project at *project_path*.
 
     Actions
@@ -1382,6 +1391,28 @@ def run_init_mode(project_path: str) -> int:
     import shutil
 
     project = Path(project_path).resolve()
+    standard_dirs = ['simulations', 'models', 'setup_files', 'logs', 'results']
+
+    # Refuse to scaffold over folders that are not ours. A first init (no
+    # project.yaml yet) into a folder that already has a non-empty models/,
+    # setup_files/, ... would mix bioscout's ~100 template files into the
+    # user's own. Re-running init on an existing bioscout project stays safe.
+    if not (project / 'project.yaml').exists() and not force:
+        clash = [d for d in standard_dirs
+                 if (project / d).is_dir() and any((project / d).iterdir())]
+        if clash:
+            print(f"\n[init] ERROR: {project} is not a bioscout project yet, "
+                  f"but these folders already exist and are not empty:")
+            for d in clash:
+                print(f"         {project / d}")
+            print("       Nothing was created. Either:")
+            print("         - rename/move them (e.g. models -> models_old) and run "
+                  "`bioscout init` again, or")
+            print("         - init into a new empty folder: `bioscout init <new_folder>`, or")
+            print("         - `bioscout init --force` to add bioscout's files alongside "
+                  "(existing files are never overwritten).")
+            return 1
+
     print(f"\n{'='*60}")
     print(f"BioScout — Initialising project at: {project}")
     print(f"{'='*60}")
@@ -1389,7 +1420,6 @@ def run_init_mode(project_path: str) -> int:
     # ---------------------------------------------------------------------- #
     # 1. Create standard folder structure
     # ---------------------------------------------------------------------- #
-    standard_dirs = ['simulations', 'models', 'setup_files', 'logs', 'results']
     for d in standard_dirs:
         target = project / d
         if not target.exists():
@@ -1409,6 +1439,8 @@ def run_init_mode(project_path: str) -> int:
             return 0, 0
         copied, skipped = 0, 0
         for item in sorted(src.rglob('*')):
+            if '__pycache__' in item.parts:
+                continue
             if item.is_file() and (not extensions or item.suffix in extensions):
                 rel = item.relative_to(src)
                 target = dst / rel
@@ -1422,7 +1454,10 @@ def run_init_mode(project_path: str) -> int:
 
     for tmpl_name, dst_name, exts in [
         ('setup_files', 'setup_files', ('.xml', '.txt')),
-        ('models',      'models',      ()),       # () = copy all (includes Geometry/ meshes)
+        # models: the user's models + meshes only. bioscout/models is also a
+        # Python package (force_model.py, *.pkl, __pycache__) — none of that
+        # belongs in a project.
+        ('models',      'models',      ('.osim', '.vtp', '.stl', '.obj', '.json', '.txt')),
     ]:
         src_dir = Path(__file__).parent / tmpl_name
         dst_dir = project / dst_name
@@ -1480,8 +1515,7 @@ def run_init_mode(project_path: str) -> int:
     print(f"     (session.yaml is the source of truth for that session).")
     print(f"  2. Edit {yaml_dest} only for lab facts that differ from bioscout's defaults")
     print(f"     (marker conventions, GRF axes, EMG rig, sampling rate, ...).")
-    print(f"  3. cd {project}")
-    print(f"  4. python -m bioscout   (or your project's own pipeline entry point)")
+    print(f"  3. bioscout gui        (run from {project})")
     print(f"{'='*60}\n")
     return 0
 
@@ -1760,7 +1794,7 @@ def main() -> int:
     if args.load_report is not None:
         return run_load_report_mode(args.load_report)
     if args.init is not None:
-        return run_init_mode(args.init)
+        return run_init_mode(args.init, force=args.init_force)
     # NB: --env / --env-create never reach here — they are handled at the top of
     # this file, before the heavy imports. The argparse entries below exist so
     # they appear in --help.

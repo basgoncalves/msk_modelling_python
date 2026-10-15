@@ -157,7 +157,11 @@ def load_sto(path=None, output=0):
         _hdr = next((k for k in range(max(i - 3, 0), len(_lines))
                      if 'time' in _lines[k].split()), None)
         if _hdr is not None:
-            data = pd.read_csv(path, sep=r'\s+', header=_hdr, low_memory=False)
+            # header= counts NON-blank lines only (skip_blank_lines=True), so a
+            # header with blank lines in it (RRA/CMC Actuation files have four)
+            # put the row index past the column line. Count only non-blank lines.
+            _hdr_nb = sum(1 for _l in _lines[:_hdr] if _l.strip())
+            data = pd.read_csv(path, sep=r'\s+', header=_hdr_nb, low_memory=False)
             if 'time' in data.columns:
                 if output == 1: print(data.columns)
                 return data

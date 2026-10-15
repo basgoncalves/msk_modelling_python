@@ -11,6 +11,7 @@ No OpenSim, no Analyse: importing this is cheap.
 from __future__ import annotations
 
 import os
+import re
 import glob
 import shutil
 import time
@@ -59,6 +60,8 @@ class Model:
     model_generic: Optional[str] = None    # generic .osim that gets scaled
     model_scaled: Optional[str] = None     # THE scaled model (CEINMS as is; SO x mvic_factor)
     markerset: Optional[str] = None        # marker set .xml this model is scaled with
+    so_actuators: Optional[str] = None     # SO actuator .xml (replaces the model ones)
+    so_residuals_from_id: bool = False     # raise pelvis residual optimal_force to the peak ID residual
     label: Optional[str] = None
     color: str = "black"
     group: Optional[str] = None
@@ -66,10 +69,13 @@ class Model:
     muscle_opt: bool = True                # Modenese2015 muscle-parameter optimisation
     static_trial: Optional[str] = None
     marker_weights: Dict[str, float] = field(default_factory=dict)
+    ik_weights: Dict[str, float] = field(default_factory=dict)   # IK weights {marker or body: w}
     preserve_mass_distribution: bool = True
     linear_scaling: bool = True            # ScaleTool ModelScaler (dimensional scaling)
     marker_placer: bool = False            # ScaleTool MarkerPlacer (place markers to static)
     mvic_factor: Optional[float] = None
+    fmax_scaling: Optional[str] = None     # "handsfield" | "handsfield_sprinter"
+    height: Optional[float] = None         # m, for fmax_scaling
     opt_neval: Optional[int] = None
     emg_map: Optional[str] = None          # NAME of a mapping under the session-wide
                                            # emg_map; only needed when several exist
@@ -402,7 +408,8 @@ def _iteration_blocks(cfg) -> Dict[str, dict]:
 # Iteration keys — ONE set of names, used by session.yaml AND by Iteration
 # ---------------------------------------------------------------------------
 #: The iteration keys that are FILES (relative to the iteration folder).
-ITERATION_FILE_KEYS = ("model_generic", "model_scaled", "markerset")
+ITERATION_FILE_KEYS = ("model_generic", "model_scaled", "markerset", "so_actuators",
+                       "so_actuators_template", "scale_tool")
 
 #: Old spellings, still read (with a warning) and renamed to the key above.
 #: The two old model keys collapse into ``model_scaled`` (see normalise_iterations).
@@ -453,6 +460,40 @@ def yaml_key_line(path, key):
 # ``.source(key)`` gives the clickable ``<path>/session.yaml:<line>`` of a value.
 # Add a key: one line here. It is then read, documented and autocompleted.
 # ---------------------------------------------------------------------------
+def measured_side_of(cfg) -> str:
+    """``"l"``, ``"r"`` or ``"both"``: the leg a session is about.
+
+    session.yaml ``measured_side: l|r|both``. It says which leg the session's
+    question is asked of -- the instrumented implant, the leg carrying the EMG,
+    the injured leg -- not why. ``l`` / ``r`` restricts movement detection
+    (strides, plate validity) and every per-leg analysis to that leg; ``both``
+    (the default, also when the key is absent) keeps the two.
+
+    ``implanted_side`` is the old name of the same key and is still read, so a
+    session written before the rename behaves as it did.
+    """
+    cfg = cfg or {}
+    v = cfg.get("measured_side")
+    if v in (None, ""):
+        v = cfg.get("implanted_side")
+    v = str(v or "").strip().lower()
+    if v in ("l", "left"):
+        return "l"
+    if v in ("r", "right"):
+        return "r"
+    return "both"
+
+
+def session_measured_side(session_dir) -> str:
+    """:func:`measured_side_of` straight from ``<session_dir>/session.yaml``."""
+    try:
+        import yaml as _yaml
+        with open(os.path.join(str(session_dir), "session.yaml"), encoding="utf-8") as _f:
+            return measured_side_of(_yaml.safe_load(_f) or {})
+    except Exception:
+        return "both"
+
+
 class SessionKeys:
     """session.yaml, top level. ``session.<key>``; any other key in the file
     works too (``session.implanted_side``), just not autocompleted."""
@@ -461,15 +502,25 @@ class SessionKeys:
     session: str = ""                        # session id (default: the session folder name)
     project_dir: str = ""                    # the project, ABSOLUTE (written relative to this file)
     body_mass: Optional[float] = None        # kg
+    height: Optional[float] = None           # m (session default for fmax_scaling)
     static_trial: Optional[str] = None       # trial every iteration scales from
-    setup_folder: Optional[str] = None       # OpenSim setup templates
+    setup_folder: Optional[str] = None       # OLD name of setup_dir (still read)
+    models_dir: Optional[str] = None         # models root, relative to project_dir (ABSOLUTE once read);
+                                             # iterations' model_generic / model_scaled are relative to it
+    setup_dir: Optional[str] = None          # setup-files root, relative to project_dir (ABSOLUTE once
+                                             # read); iterations' markerset / so_actuators are relative to it
     c3d_source: Optional[str] = None         # where the c3d files are imported from
     trials: dict = {}                        # {trial: {type, side, time_range, events, ...}}
     calibration_trials: list = []            # CEINMS calibrates on these (per-trial flags, then list)
     normalisation_trials: list = []          # EMG is normalised over these (idem)
     emg_map: dict = {}                       # channel -> muscles (one map, or several named ones)
     ceinms: dict = {}                        # alpha/beta/gamma, mode, calibrated ...
+    ik_weights: dict = {}                    # IK (motion) weights {marker or body: w}; 0 = not tracked
     marker_aliases: dict = {}                # expected marker name -> this lab's name
+    measured_side: str = "both"              # l | r | both: the leg this session is about (the
+                                             # instrumented one, the one with EMG, the injured
+                                             # one...). l/r = detection and analysis for that leg only
+    scale_measurements: list = []            # ScaleTool MeasurementSet (replaces bioscout's default spec)
 
     # -- filled from the file ------------------------------------------------
     @property
@@ -487,6 +538,7 @@ class SessionKeys:
         for k in SESSION_KEYS:
             v = cfg.get(k)
             d[k] = dict(v or {}) if isinstance(getattr(type(self), k), dict) else v
+        d["measured_side"] = measured_side_of(cfg)
         d["subject"] = str(cfg.get("subject") or os.path.basename(os.path.dirname(sdir)))
         d["session"] = str(cfg.get("session") or os.path.basename(sdir))
         d["body_mass"] = float(cfg["body_mass"]) if cfg.get("body_mass") is not None else None
@@ -496,6 +548,9 @@ class SessionKeys:
               or (os.path.join(sdir, str(cfg["project_dir"])) if cfg.get("project_dir") else None)
               or os.path.join(sdir, os.pardir, os.pardir, os.pardir))
         d["project_dir"] = os.path.abspath(str(pd))
+        for k in ("models_dir", "setup_dir"):
+            if cfg.get(k):
+                d[k] = os.path.abspath(os.path.join(d["project_dir"], str(cfg[k])))
 
     def __getattr__(self, name):
         """Any other top-level session.yaml key: ``session.implanted_side``."""
@@ -527,28 +582,48 @@ class SessionKeys:
 
 
 class IterationKeys:
-    """session.yaml, ``iterations.<name>:``. ``it.<key>``. File keys are written
-    relative to the iteration folder (<session>/3_iterations/<name>) and come
-    back as absolute paths. One iteration = ONE scaled model: CEINMS uses
+    """session.yaml, ``iterations.<name>:``. ``it.<key>``. File keys come back as
+    absolute paths. They are written relative to the session's ``models_dir``
+    (model_generic, model_scaled) or ``setup_dir`` (markerset, so_actuators)
+    when the session sets that root, else relative to the iteration folder
+    (<session>/3_iterations/<name>). ``<subject>``, ``<session>`` and
+    ``<iteration>`` in a path are replaced by this iteration's values. One iteration = ONE scaled model: CEINMS uses
     ``model_scaled``, everything else ``it.model_so`` (x mvic_factor, derived)."""
 
     # files
     model_generic: Optional[str] = None      # generic .osim that gets scaled (absent: model_scaled is given)
     model_scaled: Optional[str] = None       # THE scaled model of this iteration
     markerset: Optional[str] = None          # marker set .xml used to scale it
+    so_actuators: Optional[str] = None       # SO actuator .xml; replaces the model ones (unset: model ones).
+                                             # OR `percent_XX` (not a file): built per trial, every reserve at
+                                             # XX % of that trial's peak |ID moment| of its coordinate
+    so_actuators_template: Optional[str] = None  # with `percent_XX`: the .xml naming the actuators (reserves =
+                                             # CoordinateActuators called *_reserve; the rest is kept as is)
+    scale_tool: Optional[str] = None         # ScaleTool setup TEMPLATE .xml (MeasurementSet, scaling order,
+                                             # preserve_mass_distribution); bioscout fills its paths/mass/time
+    so_residuals_from_id: bool = False       # before SO: pelvis FX..MZ optimal_force >= peak |ID residual|
     # scaling recipe
     static_trial: Optional[str] = None       # default: the session's static_trial
     linear_scaling: bool = True              # ScaleTool: scale the segments
     marker_placer: bool = False              # ScaleTool: move the markers onto the static
     muscle_opt: bool = True                  # Modenese2015 muscle-parameter optimisation
     opt_neval: int = 10                      # its number of evaluations
+    mvic_scaling: Optional[str] = None       # muscle strength: a number (SO force x it), handsfield | handsfield_sprinter, or both ("handsfield x 1.5")
     mvic_factor: float = 1.0                 # SO only: max isometric force x this
+    fmax_scaling: Optional[str] = None       # "handsfield" | "handsfield_sprinter": max isometric
+                                             # force from Handsfield 2014 (x 2017 sprinter %), applied
+                                             # to model_scaled at scale time (bioscout.model.scale_muscle_forces)
+    height: Optional[float] = None           # subject height (m), for fmax_scaling="handsfield*"
     marker_weights: dict = {}                # marker -> IK weight while scaling
+    ik_weights: dict = {}                    # IK (motion) weights {marker or body: w}, over the session's; 0 = not tracked
     marker_aliases: dict = {}                # expected -> lab marker name (over the session's)
+    scale_measurements: list = []            # OLD: [{name, pairs, bodies}] (over the session's) -- use scale_tool
+    body_mass: Optional[float] = None        # kg; overrides the session's body_mass for THIS iteration (e.g. a prescaled model of known mass)
     preserve_mass_distribution: bool = True
     # EMG / CEINMS
     emg_map: Optional[str] = None            # NAME of the session emg_map this iteration uses
     calibration: Optional[str] = None        # NAME of the CEINMS calibration config
+    ceinms: dict = {}                        # alpha/beta/gamma, mode, calibrated for THIS iteration (over the session's)
     calibrated: bool = True                  # False: execute with the uncalibrated subject
     # display
     label: Optional[str] = None              # legend label (default: the iteration name)
@@ -583,6 +658,10 @@ class IterationKeys:
         d["label"] = block.get("label") or self.iteration
         d["marker_aliases"] = {**(self._cfg.get("marker_aliases") or {}),
                                **(block.get("marker_aliases") or {})}
+        # The iteration's own measurement list REPLACES the session's (a spec is
+        # a whole protocol, so merging two half-protocols would be meaningless).
+        d["scale_measurements"] = list(block.get("scale_measurements")
+                                       or self._cfg.get("scale_measurements") or [])
         d["calibrated"] = iteration_is_calibrated(self._cfg, self.iteration)
         try:
             d["emg_map"] = emg_map_name_for(self._cfg, self.iteration)
@@ -603,6 +682,37 @@ class IterationKeys:
     def _rel(self, key):
         return self.config.get(key)
 
+    #: which session-level root each file key is relative to
+    FILE_KEY_ROOT = {"model_generic": "models_dir", "model_scaled": "models_dir",
+                     "markerset": "setup_dir", "so_actuators": "setup_dir",
+                     "so_actuators_template": "setup_dir",
+                     "scale_tool": "setup_dir"}
+
+    def _file_root(self, key):
+        """Absolute folder ``key`` is written relative to: the session's
+        ``models_dir`` / ``setup_dir`` (relative to project_dir) when set,
+        else this iteration's folder."""
+        rk = self.FILE_KEY_ROOT.get(key)
+        rv = self._cfg.get(rk) if rk else None
+        if not rv:
+            return self.path
+        if os.path.isabs(str(rv)):
+            return os.path.normpath(str(rv))
+        try:
+            pd = self._project_dir()
+        except Exception:                                      # noqa: BLE001
+            pd = os.path.join(self.session_dir, os.pardir, os.pardir, os.pardir)
+        return os.path.abspath(os.path.join(pd, str(rv)))
+
+    def _expand(self, rel):
+        """``<subject>`` / ``<session>`` / ``<iteration>`` placeholders."""
+        subj = getattr(self, "subject_name", None) or os.path.basename(
+            os.path.dirname(os.path.abspath(self.session_dir)))
+        sess = getattr(self, "session_name", None) or os.path.basename(
+            os.path.abspath(self.session_dir))
+        return (str(rel).replace("<subject>", str(subj)).replace("<session>", str(sess))
+                .replace("<iteration>", str(self.iteration)))
+
     def _file(self, key):
         """Absolute path of a file key, or None when it is not set.
 
@@ -615,15 +725,21 @@ class IterationKeys:
         rel = self.config.get(key)
         if not rel:
             return None
-        rel = str(rel)
-        p = os.path.normpath(rel if os.path.isabs(rel) else os.path.join(self.path, rel))
+        if key == "so_actuators":
+            # `percent_XX` is a recipe, not a path: the file is built per trial
+            from bioscout.simulate.so_actuators import percent_spec as _pct
+            _p = _pct(rel)
+            if _p is not None:
+                return f"percent_{_p:g}"
+        rel = self._expand(rel)
+        p = os.path.normpath(rel if os.path.isabs(rel) else os.path.join(self._file_root(key), rel))
         if os.path.exists(p):
             return p
         old = self._legacy_search(rel, key)
         if old:
             _warn_once(f"[session.yaml WARNING] {self.tag}: {key}: {rel!r} is not relative "
-                       f"to the iteration folder; found by search at {old}. Write "
-                       f"`{key}: {self.relpath(old)}` (session.migrate() does it).")
+                       f"to {self._file_root(key)}; found by search at {old}. Write "
+                       f"`{key}: {self.relpath(old, key)}` (session.migrate() does it).")
             return old
         return p
 
@@ -638,10 +754,15 @@ class IterationKeys:
         except Exception:                                      # noqa: BLE001
             return None
 
-    def relpath(self, path):
-        """``path`` as session.yaml writes it: relative to this iteration's
-        folder, forward slashes."""
-        return os.path.relpath(os.path.abspath(str(path)), self.path).replace(os.sep, "/")
+    def relpath(self, path, key=None):
+        """``path`` as session.yaml writes it for ``key``: relative to that key's
+        root (models_dir / setup_dir, see ``_file_root``; the iteration folder
+        when ``key`` is None or the root is unset), forward slashes, ``./``-led
+        when under the root."""
+        root = self._file_root(key) if key else self.path
+        r = os.path.relpath(os.path.abspath(str(path)), root).replace(os.sep, "/")
+        return r if r.startswith(("../", "./")) or key is None or \
+            not self._cfg.get(self.FILE_KEY_ROOT.get(key, "")) else "./" + r
 
     def source(self, key=None):
         """``<path>/session.yaml:<line>`` of ``iterations.<name>.<key>`` (or of
@@ -678,6 +799,65 @@ def _warn_once(msg):
         print(msg)
 
 
+#: Force-scaling OPTIONS accepted by `mvic_scaling` besides a number.
+MVIC_SCALING_OPTIONS = ("handsfield", "handsfield_sprinter")
+
+
+def parse_mvic_scaling(v):
+    """``mvic_scaling`` -> (mvic_factor or None, fmax_scaling or None).
+
+    One key for how strong the muscles are, in either of two ways:
+
+      mvic_scaling: 3.0                     SO model = max isometric force x 3
+      mvic_scaling: handsfield              Fmax from Handsfield 2014 muscle
+      mvic_scaling: handsfield_sprinter     volumes (x 2017 sprinter %), applied
+                                            to model_scaled at scale time
+      mvic_scaling: handsfield x 1.5        both: Handsfield, then SO x 1.5
+                    [handsfield, 1.5]       (same, as a list)
+
+    Raises ValueError for anything else."""
+    if v is None or v == "":
+        return None, None
+    if isinstance(v, bool):
+        raise ValueError(f"mvic_scaling: {v!r} is not a number or "
+                         f"{' | '.join(MVIC_SCALING_OPTIONS)}")
+    if isinstance(v, (int, float)):
+        return float(v), None
+    parts = (list(v) if isinstance(v, (list, tuple))
+             else [p for p in re.split(r"[\s,x*×]+", str(v).strip()) if p])
+    fac = opt = None
+    for p in parts:
+        if isinstance(p, (int, float)) and not isinstance(p, bool):
+            fac = float(p); continue
+        t = str(p).strip().lower()
+        try:
+            fac = float(t); continue
+        except ValueError:
+            pass
+        if t in MVIC_SCALING_OPTIONS:
+            opt = t; continue
+        raise ValueError(f"mvic_scaling: {v!r} -- expected a number, "
+                         f"{' | '.join(MVIC_SCALING_OPTIONS)}, or both "
+                         f"(e.g. 'handsfield x 1.5')")
+    return fac, opt
+
+
+def _mvic_scaling(b, name, where, warn):
+    """`mvic_scaling` (one key, 2026-10-01) -> the internal `mvic_factor` /
+    `fmax_scaling`. The two old keys still work on their own."""
+    if "mvic_scaling" not in b:
+        return
+    fac, opt = parse_mvic_scaling(b.pop("mvic_scaling"))
+    if ("mvic_factor" in b or "fmax_scaling" in b):
+        warn(f"[session.yaml WARNING] iterations.{name}{where}: mvic_scaling is set, "
+             f"so mvic_factor / fmax_scaling are ignored -- delete them.")
+        b.pop("mvic_factor", None); b.pop("fmax_scaling", None)
+    if fac is not None:
+        b["mvic_factor"] = fac
+    if opt is not None:
+        b["fmax_scaling"] = opt
+
+
 def normalise_iterations(cfg, path=None, warn=_warn_once):
     """Return ``cfg`` with every iteration block in the canonical shape.
 
@@ -712,12 +892,12 @@ def normalise_iterations(cfg, path=None, warn=_warn_once):
             warn(f"[session.yaml WARNING] iterations.{name}{where}: so_model/ceinms_model "
                  f"ignored -- model_scaled is set. Delete them.")
         elif so or ce:
-            mvic = float(b.get("mvic_factor") or 1.0)
-            if so and ce and str(so) != str(ce) and mvic == 1.0:
+            if so and ce and str(so) != str(ce):
                 raise ValueError(
                     f"iterations.{name}{where}: so_model ({so}) and ceinms_model ({ce}) "
-                    f"are different models. One iteration is one scaled model -- split "
-                    f"it into two iterations (session.add_iteration).")
+                    f"are different models. One iteration is ONE model for every stage "
+                    f"(SO, JRA and CEINMS) -- for another model add another iteration "
+                    f"(session.add_iteration).")
             b["model_scaled"] = ce or so
             warn(f"[session.yaml WARNING] iterations.{name}{where}: so_model/ceinms_model "
                  f"are now ONE key, `model_scaled` (SO uses it x mvic_factor) — "
@@ -728,6 +908,7 @@ def normalise_iterations(cfg, path=None, warn=_warn_once):
                      f"`{new}` — session.migrate() rewrites the file.")
                 b.setdefault(new, b[old])
                 b.pop(old)
+        _mvic_scaling(b, name, where, warn)
         for old, why in ITERATION_KEYS_REMOVED.items():
             if old in b:
                 b.pop(old)
@@ -1064,6 +1245,21 @@ def _cal_value(v):
     return str(v)
 
 
+def ceinms_for(cfg, iteration=None) -> dict:
+    """CEINMS settings for ONE iteration: the iteration's own ``ceinms:`` block
+    over the session-wide one (2026-10-01: alpha/beta/gamma, mode and
+    ``calibrated`` belong to the iteration -- two arms of one session can
+    differ). Without an iteration, the session-wide block."""
+    if not isinstance(cfg, dict):
+        return {}
+    out = dict(cfg.get("ceinms") or {}) if isinstance(cfg.get("ceinms"), dict) else {}
+    if iteration:
+        it = _iteration_blocks(cfg).get(iteration) or {}
+        if isinstance(it.get("ceinms"), dict):
+            out.update(it["ceinms"])
+    return out
+
+
 def _ceinms_block(cfg) -> dict:
     """The ``ceinms:`` mapping, or ``{}``."""
     if not isinstance(cfg, dict):
@@ -1210,7 +1406,7 @@ def iteration_is_calibrated(cfg, iteration=None) -> bool:
     if not isinstance(cfg, dict):
         return True
     it = _iteration_blocks(cfg).get(iteration) or {} if iteration else {}
-    ce = cfg.get("ceinms") or {}
+    ce = ceinms_for(cfg, iteration)
     return yaml_bool(it.get("calibrated", ce.get("calibrated", True)))
 
 
@@ -1340,16 +1536,21 @@ def read_session_yaml(path) -> SessionSpec:
             model_generic=m.get("model_generic"),
             model_scaled=m.get("model_scaled"),
             markerset=m.get("markerset"),
+            so_actuators=m.get("so_actuators") or None,
+            so_residuals_from_id=yaml_bool(m.get("so_residuals_from_id", False)),
             label=m.get("label"),
             color=m.get("color", "black"),
             group=m.get("group"),
             muscle_opt=yaml_bool(m.get("muscle_opt", True)),
             static_trial=m.get("static_trial"),
             marker_weights={str(k): float(v) for k, v in (m.get("marker_weights") or {}).items()},
+            ik_weights={str(k): float(v) for k, v in (m.get("ik_weights") or {}).items()},
             preserve_mass_distribution=bool(m.get("preserve_mass_distribution", True)),
             linear_scaling=bool(m.get("linear_scaling", True)),
             marker_placer=bool(m.get("marker_placer", False)),
             mvic_factor=(float(m["mvic_factor"]) if m.get("mvic_factor") is not None else None),
+            fmax_scaling=(str(m["fmax_scaling"]) if m.get("fmax_scaling") else None),
+            height=(float(m["height"]) if m.get("height") is not None else None),
             opt_neval=(int(m["opt_neval"]) if m.get("opt_neval") is not None else None),
             emg_map=(str(m["emg_map"]) if m.get("emg_map") is not None else None),
             calibration=(str(m["calibration"])
@@ -1446,10 +1647,15 @@ def _spec_to_dict(spec: SessionSpec) -> dict:
             if not m.linear_scaling: it["linear_scaling"] = False
             if m.marker_placer:      it["marker_placer"] = True
             if not m.muscle_opt:     it["muscle_opt"] = False
+            if m.so_actuators: it["so_actuators"] = m.so_actuators
+            if m.so_residuals_from_id: it["so_residuals_from_id"] = True
             if m.opt_neval is not None:   it["opt_neval"] = m.opt_neval
             if m.mvic_factor is not None: it["mvic_factor"] = m.mvic_factor
+            if m.fmax_scaling: it["fmax_scaling"] = m.fmax_scaling
+            if m.height is not None: it["height"] = m.height
             if m.static_trial:  it["static_trial"] = m.static_trial
             if m.marker_weights: it["marker_weights"] = dict(m.marker_weights)
+            if m.ik_weights: it["ik_weights"] = dict(m.ik_weights)
             if not m.preserve_mass_distribution:
                 it["preserve_mass_distribution"] = False
             if m.emg_map:      it["emg_map"] = m.emg_map
@@ -1891,7 +2097,7 @@ def _reindent_value(src: str, indent: int) -> str:
 
 __all__ = ["read_session_yaml", "write_session_yaml",
            "ITERATION_KEYS", "ITERATION_KEY_RENAMES", "ITERATION_FILE_KEYS",
-           "SESSION_KEYS", "yaml_key_line", "SessionKeys", "IterationKeys",
+           "SESSION_KEYS", "yaml_key_line", "SessionKeys", "IterationKeys", "ceinms_for",
            "ITERATION_KEYS_REMOVED",
            "normalise_iterations",
            "emg_maps", "resolve_emg_map", "emg_map_name_for",

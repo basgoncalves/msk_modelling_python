@@ -21,7 +21,6 @@ fitparse
 requests   # Zepp/Huami + Strava cloud pulls
 
 # GUI
-customtkinter
 Pillow
 psutil
 pyautogui
@@ -31,6 +30,7 @@ screeninfo
 # Video / recording (optional — needed for recording tab)
 opencv-python
 mediapipe
+imageio-ffmpeg   # bundles ffmpeg: recordings are saved as browser-playable H.264
 
 # NOTE: opensim must be installed separately — it is not on PyPI.
 # Install via conda:  conda install -c opensim-org opensim

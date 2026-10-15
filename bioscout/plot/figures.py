@@ -456,6 +456,8 @@ _reg("ms_metrics", "manuscript", "fig05 metric summary",
      [P("facet", "facet", "joint")])
 _reg("ms_metrics_task", "manuscript", "metric summary by task",
      lambda: _MS().make_metric_summary_by_task())
+_reg("ms_metrics_per_task", "manuscript", "metric summary, one figure per task",
+     lambda: _MS().make_metric_summary_per_task())
 _reg("ms_forces", "manuscript", "fig07 muscle force summary",
      lambda: _MS().make_muscle_force_summary())
 _reg("ms_task_panel", "manuscript", "task panel",
@@ -502,6 +504,9 @@ _reg("c_compare", "ceinms", "CEINMS model parameters: uncalibrated vs calibrated
          uncalibratedModelPath, calibratedModelPath),
      [P("uncalibratedModelPath", "uncalibrated subject .xml", None, kind="path"),
       P("calibratedModelPath", "calibrated subject .xml", None, kind="path")])
+_reg("c_actdyn", "ceinms", "CEINMS activation dynamics: effect of c1, c2 and shape factor",
+     lambda out=None: _mod("bioscout.plot.activation_dynamics").plot(out),
+     [P("out", "output .png", "activation_dynamics.png", kind="path")])
 _reg("c_emg", "ceinms", "experimental EMG vs CEINMS excitations",
      lambda emgFile: _mod("bioscout.simulate.ceinms.plot").plot_experimental_vs_ceinms(emgFile),
      [P("emgFile", "EMG .sto/.mot", None, kind="path")])
